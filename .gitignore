@@ -1,0 +1,18 @@
+# Build / test artifacts
+*.test
+*.out
+*.prof
+coverage.txt
+coverage.html
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Local env
+.env
+.env.*
+!.env.example
