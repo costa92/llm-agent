@@ -17,6 +17,11 @@ A standalone, **stdlib-only** Go module providing the building blocks for LLM-dr
 go get github.com/costa92/llm-agent@latest
 ```
 
+> **Runnable demos:** five end-to-end examples live in
+> [`./examples/`](./examples) — each is a standalone `go run .`-able program
+> with a deterministic mock LLM, no API key required. See
+> [`examples/README.md`](./examples/README.md) for the menu.
+
 ## Quick start / 快速开始
 
 ````go
@@ -194,18 +199,25 @@ g.AddEdge("handover-human", orchestrate.NodeEnd)
 
 ## Local development / 本地开发
 
-This module is developed inside the parent AICS monorepo. To work on it locally with main-repo callers picking up your changes:
+This is a standalone Go module — clone, edit, test:
 
 ```bash
-# at the AICS repo root
-cat > go.work <<'EOF'
-go 1.26.0
-use (
-    .
-    ./pkg/llm/agents
-)
-EOF
+git clone git@github.com:costa92/llm-agent.git
+cd llm-agent
+go vet ./...
+go test ./...
 ```
+
+To pick up local edits from a downstream consumer (e.g. while iterating on
+both this module and a service that imports it), add a `replace` to the
+consumer's `go.mod`:
+
+```
+replace github.com/costa92/llm-agent => /local/path/to/llm-agent
+```
+
+The runnable demos under [`./examples/`](./examples) already do this so they
+stay in sync with whatever is checked out in the parent directory.
 
 `go.work` is gitignored. CI and external `go get` callers rely on the `require` directive in the parent module's `go.mod` resolving to the published tag.
 
