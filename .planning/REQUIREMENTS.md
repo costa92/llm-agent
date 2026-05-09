@@ -142,34 +142,95 @@ Explicit v0.3 exclusions. Reasoning included so they don't get re-added.
 
 ## Traceability
 
-Phase mapping to be filled by `gsd-roadmapper`. The research SUMMARY.md suggests this rough shape (8 phases):
+Final phase mapping ratified by `gsd-roadmapper` on 2026-05-10. Every v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for phase details and success criteria.
 
-| Requirement | Phase (suggested) | Status |
-|-------------|-------------------|--------|
-| INFRA-01 .. INFRA-07 | Phase 0 | Pending |
-| CORE-01 .. CORE-09 | Phase 0 | Pending |
-| CORE-10, CORE-11 | Phase 3 | Pending |
-| OAI-01, ANT-01, OLL-01 | Phase 1 (walking skeleton) | Pending |
-| CONF-01, CONF-02 | Phase 1 | Pending |
-| OAI-02, ANT-02, OLL-02 | Phase 2 (streaming) | Pending |
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| INFRA-01 | Phase 0 | Pending |
+| INFRA-02 | Phase 0 | Pending |
+| INFRA-03 | Phase 0 | Pending |
+| INFRA-04 | Phase 0 | Pending |
+| INFRA-05 | Phase 0 | Pending |
+| INFRA-06 | Phase 0 | Pending |
+| INFRA-07 | Phase 0 | Pending |
+| CORE-01 | Phase 0 | Pending |
+| CORE-02 | Phase 0 | Pending |
+| CORE-03 | Phase 0 | Pending |
+| CORE-04 | Phase 0 | Pending |
+| CORE-05 | Phase 0 | Pending |
+| CORE-06 | Phase 0 | Pending |
+| CORE-07 | Phase 0 | Pending |
+| CORE-08 | Phase 0 | Pending |
+| CORE-09 | Phase 0 | Pending |
+| CORE-10 | Phase 3 | Pending |
+| CORE-11 | Phase 1 | Pending |
+| CONF-01 | Phase 1 | Pending |
+| CONF-02 | Phase 1 | Pending |
 | CONF-03 | Phase 2 | Pending |
-| OAI-03, ANT-03, OLL-03 | Phase 3 (tool calls) | Pending |
-| CONF-04, CONF-05 | Phase 3 | Pending |
-| OAI-04, OLL-04, ANT-04 | Phase 4 (embeddings) | Pending |
+| CONF-04 | Phase 3 | Pending |
+| CONF-05 | Phase 3 | Pending |
 | CONF-06 | Phase 4 | Pending |
-| OAI-05..07, ANT-05..06, OLL-05..06 | spread Phase 1-3 | Pending |
-| OAI-08, ANT-07, OLL-07 | every gate | Pending |
-| OLL-08 | Phase 1 (CI infra) | Pending |
-| CONF-07, CONF-08 | Phase 1 | Pending |
-| OTEL-01 .. OTEL-10 | Phase 5 | Pending |
-| REFSVC-01 .. REFSVC-13 | Phase 6 | Pending |
-| DEPRC-01 .. DEPRC-04 | Phase 7 | Pending |
+| CONF-07 | Phase 1 | Pending |
+| CONF-08 | Phase 1 | Pending |
+| OAI-01 | Phase 1 | Pending |
+| OAI-02 | Phase 2 | Pending |
+| OAI-03 | Phase 3 | Pending |
+| OAI-04 | Phase 4 | Pending |
+| OAI-05 | Phase 1 | Pending |
+| OAI-06 | Phase 2 | Pending |
+| OAI-07 | Phase 2 | Pending |
+| OAI-08 | Phase 4 | Pending |
+| ANT-01 | Phase 1 | Pending |
+| ANT-02 | Phase 2 | Pending |
+| ANT-03 | Phase 3 | Pending |
+| ANT-04 | Phase 4 | Pending |
+| ANT-05 | Phase 1 | Pending |
+| ANT-06 | Phase 2 | Pending |
+| ANT-07 | Phase 4 | Pending |
+| OLL-01 | Phase 1 | Pending |
+| OLL-02 | Phase 2 | Pending |
+| OLL-03 | Phase 3 | Pending |
+| OLL-04 | Phase 4 | Pending |
+| OLL-05 | Phase 1 | Pending |
+| OLL-06 | Phase 2 | Pending |
+| OLL-07 | Phase 4 | Pending |
+| OLL-08 | Phase 1 | Pending |
+| OTEL-01 | Phase 5 | Pending |
+| OTEL-02 | Phase 5 | Pending |
+| OTEL-03 | Phase 5 | Pending |
+| OTEL-04 | Phase 5 | Pending |
+| OTEL-05 | Phase 5 | Pending |
+| OTEL-06 | Phase 5 | Pending |
+| OTEL-07 | Phase 5 | Pending |
+| OTEL-08 | Phase 5 | Pending |
+| OTEL-09 | Phase 5 | Pending |
+| OTEL-10 | Phase 5 | Pending |
+| REFSVC-01 | Phase 6 | Pending |
+| REFSVC-02 | Phase 6 | Pending |
+| REFSVC-03 | Phase 6 | Pending |
+| REFSVC-04 | Phase 6 | Pending |
+| REFSVC-05 | Phase 6 | Pending |
+| REFSVC-06 | Phase 6 | Pending |
+| REFSVC-07 | Phase 6 | Pending |
+| REFSVC-08 | Phase 6 | Pending |
+| REFSVC-09 | Phase 6 | Pending |
+| REFSVC-10 | Phase 6 | Pending |
+| REFSVC-11 | Phase 6 | Pending |
+| REFSVC-12 | Phase 6 | Pending |
+| REFSVC-13 | Phase 6 | Pending |
+| DEPRC-01 | Phase 7 | Pending |
+| DEPRC-02 | Phase 7 | Pending |
+| DEPRC-03 | Phase 7 | Pending |
+| DEPRC-04 | Phase 7 | Pending |
 
 **Coverage:**
 - v1 requirements: 65 total
-- Mapped (suggested): 65
-- Roadmapper to ratify mapping in ROADMAP.md
+- Mapped: 65/65 ✓
+- Orphans: 0
+- Duplicates: 0
+
+**Cross-cuts (book-keeping, not duplicates):** Several requirements have implementation surface across multiple phases — they're listed against the phase that delivers their primary success criterion. K4 (cost record + retry SM, OAI-06/07, ANT-06, OLL-06) is designed in Phase 1's typed errors, enforced in Phase 2's streaming, consumed in Phase 3's tool dedupe, surfaced in Phase 5's OTel attrs. CORE-11 (Provider Author Guide) is incremental: v0.1 in Phase 1, v0.2 in Phase 2, v0.3 in Phase 4. The `OAI-08 / ANT-07 / OLL-07` "passes complete suite" markers are validated incrementally at every gate but the final tick lands in Phase 4 when the suite is complete.
 
 ---
 *Requirements defined: 2026-05-10*
-*Last updated: 2026-05-10 after initial definition*
+*Last updated: 2026-05-10 — traceability ratified by gsd-roadmapper; phase mapping locked*
