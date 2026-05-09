@@ -1,0 +1,24 @@
+{
+  "mode": "yolo",
+  "granularity": "standard",
+  "parallelization": true,
+  "commit_docs": true,
+  "model_profile": "quality",
+  "workflow": {
+    "research": true,
+    "plan_check": true,
+    "verifier": true,
+    "nyquist_validation": true,
+    "auto_advance": true
+  },
+  "planning": {
+    "umbrella_repo": true,
+    "scope": "multi-repo",
+    "repos": {
+      "llm-agent": "this repo — core stdlib-only abstractions",
+      "llm-agent-providers": "sister repo — OpenAI / Anthropic / Ollama adapters",
+      "llm-agent-otel": "sister repo — OpenTelemetry observability adapter",
+      "llm-agent-customer-support": "sister repo — reference deployable service"
+    }
+  }
+}
