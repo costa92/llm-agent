@@ -1,0 +1,3495 @@
+# API snapshot — github.com/costa92/llm-agent (Phase 0 baseline)
+# Generated: 2026-05-10T05:02:23Z
+# Pitfall 22 baseline — diff at every /gsd-transition
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent
+===================================================================
+package agents // import "github.com/costa92/llm-agent"
+
+Package agents implements Agent paradigms (Simple/ReAct/Reflection/PlanAndSolve)
+and a Tool subsystem on top of pkg/llm. Subpackage of pkg/llm; inherits the
+same portability contract: no internal/* imports, no project-specific pkg/*,
+no business vocabulary.
+
+Package agents implements five Agent paradigms (Simple, ReAct, Reflection,
+Plan-and-Solve, FunctionCall) and a Tool subsystem (Registry, Chain,
+AsyncRunner) on top of the llm subpackage.
+
+# Portability contract
+
+agents is a stdlib-only Go module. Constraints:
+
+  - Zero third-party Go dependencies
+  - No business vocabulary (tenant, faq, kb, channel, ...)
+  - Sentinel errors only — callers translate to their project taxonomy via
+    errors.Is
+
+# Quick start
+
+    client, _ := llm.NewClient(llm.Config{Provider: "mock"})
+    agent := agents.NewSimpleAgent(client, agents.SimpleOptions{})
+    res, err := agent.Run(ctx, "Hello")
+
+See example_simple_test.go / example_tool_use_test.go /
+example_multi_agent_test.go for runnable examples covering all five agents and
+the tool subsystem.
+
+# Agents
+
+  - SimpleAgent: single-shot LLM forward.
+  - ReActAgent: Thought → Action → Observation loop, parses LLM output for
+    "Action: <tool>" / "Args: <json>" / "Final: <answer>" lines.
+  - ReflectionAgent: gen → critique → revise loop, exits early on critique
+    containing "APPROVED".
+  - PlanAndSolveAgent: plan once (numbered steps), execute each step, synthesize
+    final answer.
+  - FunctionCallAgent: single-turn native function-calling — uses pkg/llm.Tool
+    / resp.ToolCalls instead of prompt parsing; AsyncRunner for parallel tool
+    execution with bounded parallelism.
+
+# Observability
+
+Every Agent exposes two observation channels:
+
+  - Options.OnStep func(Step): synchronous callback fired at each trace step.
+    Lowest overhead; use for in-process logging.
+  - RunStream(ctx, input) (<-chan StepEvent, error): channel-based streaming for
+    cross-boundary consumers (HTTP SSE, gRPC stream). The channel is closed when
+    the agent finishes; final event has Done=true with either Final or Err set.
+
+# Tools
+
+  - Tool interface: Name / Description / Schema / Execute.
+  - NewFuncTool: wrap a plain function as a Tool without writing a struct.
+  - Registry: name→Tool with sorted List, AsLLMTools, PromptDescription helpers.
+  - Chain: pipes Tools sequentially; itself satisfies Tool.
+  - AsyncRunner: parallel Task execution with ctx cancellation; per-Task errors
+    do not abort siblings.
+
+Built-in tools live in the builtin subpackage (Calculator, MockSearch).
+
+VARIABLES
+
+var (
+	ErrMaxStepsExceeded      = errors.New("agents: max steps exceeded")
+	ErrToolNotFound          = errors.New("agents: tool not found")
+	ErrToolAlreadyRegistered = errors.New("agents: tool already registered")
+	ErrPlanningFailed        = errors.New("agents: planning failed")
+	ErrParseToolCall         = errors.New("agents: failed to parse tool call")
+	ErrEmptyInput            = errors.New("agents: empty input")
+)
+    Sentinel errors. Subpackage stays portable — does not import pkg/errors.
+    Callers in internal/* translate via errors.Is at the boundary.
+
+
+FUNCTIONS
+
+func AsLLMTool(t Tool) llm.Tool
+    AsLLMTool translates an agents.Tool into pkg/llm.Tool so it can be passed to
+    llm.Client via GenerateRequest.Tools (native function-calling).
+
+
+TYPES
+
+type Agent interface {
+	Name() string
+	Run(ctx context.Context, input string) (Result, error)
+	// RunStream emits trace step events through a channel. The channel is closed
+	// when the Agent finishes; the final event always has Done=true with either
+	// Final or Err set. Phase 8 SSE handlers are the natural consumer; service
+	// layers don't need to write Step→event conversion themselves.
+	RunStream(ctx context.Context, input string) (<-chan StepEvent, error)
+}
+    Agent is the minimal contract every Agent implementation satisfies.
+
+type AsyncRunner struct {
+	// Has unexported fields.
+}
+    AsyncRunner executes Tasks in parallel.
+
+      - Single Task failures are captured in TaskResult.Err and do not abort
+        other Tasks (no fail-fast).
+      - The function-level error is set only when ctx is cancelled / times out.
+      - A Task panic is recovered and surfaced as TaskResult.Err
+        (*fanout.ErrTaskPanic), so a single misbehaving Tool no longer crashes
+        the process.
+
+func NewAsyncRunner(maxParallel int) *AsyncRunner
+    NewAsyncRunner returns an AsyncRunner. maxParallel <= 0 means unlimited.
+
+func (r *AsyncRunner) Execute(ctx context.Context, tasks []Task) ([]TaskResult, error)
+    Execute fans out tasks via pkg/fanout, waits for all, returns results
+    indexed by input position.
+
+type Chain struct {
+	// Has unexported fields.
+}
+    Chain pipes Tools sequentially: each tool's string output becomes the next
+    tool's args (wrapped as {"input": "..."}). Chain itself satisfies Tool,
+    so it can be registered or nested.
+
+func NewChain(name string, tools ...Tool) *Chain
+    NewChain constructs a Chain. The first tool receives the original args;
+    subsequent tools receive {"input": <prev_output>}.
+
+func (c *Chain) Description() string
+    Description implements Tool.
+
+func (c *Chain) Execute(ctx context.Context, args json.RawMessage) (string, error)
+    Execute runs each tool in sequence, piping output → next args as {"input":
+    <prev>}.
+
+func (c *Chain) Name() string
+    Name implements Tool.
+
+func (c *Chain) Schema() json.RawMessage
+    Schema implements Tool — delegates to the first tool's schema.
+
+type ExecuteFunc func(ctx context.Context, args json.RawMessage) (string, error)
+    ExecuteFunc is the signature used when wrapping a plain function as a Tool.
+
+type FunctionCallAgent struct {
+	// Has unexported fields.
+}
+    FunctionCallAgent uses native OpenAI-style function-calling: pkg/llm.Tool +
+    resp.ToolCalls instead of prompt-based parsing. Single-turn — emits one LLM
+    call, executes returned tool calls in parallel via AsyncRunner, aggregates
+    outputs as the answer.
+
+    Why single-turn: pkg/llm.Message has no ToolCallID field, so we can't
+    feed tool results back to the LLM per OpenAI spec for multi-turn
+    function-calling. Multi-turn would require a pkg/llm enhancement (out of
+    scope for this phase).
+
+func NewFunctionCallAgent(client llm.Client, opts FunctionCallOptions) *FunctionCallAgent
+    NewFunctionCallAgent constructs a FunctionCallAgent.
+
+func (a *FunctionCallAgent) Name() string
+    Name implements Agent.
+
+func (a *FunctionCallAgent) Run(ctx context.Context, input string) (Result, error)
+    Run executes one round of function-calling.
+
+func (a *FunctionCallAgent) RunStream(ctx context.Context, input string) (<-chan StepEvent, error)
+    RunStream emits step events through a channel; see Agent interface docs.
+
+type FunctionCallOptions struct {
+	Name         string     // default "function-call"
+	Registry     *Registry  // required
+	SystemPrompt string     // optional
+	MaxParallel  int        // default 4 — caps goroutines spawned per Run
+	OnStep       func(Step) // optional
+}
+    FunctionCallOptions configures FunctionCallAgent.
+
+type PlanAndSolveAgent struct {
+	// Has unexported fields.
+}
+    PlanAndSolveAgent: plan once (LLM emits N steps), then execute each step in
+    a single LLM call, finally synthesize a final answer.
+
+func NewPlanAndSolveAgent(client llm.Client, opts PlanAndSolveOptions) *PlanAndSolveAgent
+    NewPlanAndSolveAgent constructs a PlanAndSolveAgent.
+
+func (a *PlanAndSolveAgent) Name() string
+    Name implements Agent.
+
+func (a *PlanAndSolveAgent) Run(ctx context.Context, input string) (Result, error)
+    Run executes plan → step1..stepN → synthesize.
+
+func (a *PlanAndSolveAgent) RunStream(ctx context.Context, input string) (<-chan StepEvent, error)
+    RunStream emits step events through a channel; see Agent interface docs.
+
+type PlanAndSolveOptions struct {
+	Name        string     // default "plan-and-solve"
+	MaxSteps    int        // default 8 — caps the number of steps the planner may emit
+	PlanPrompt  string     // default planPromptDefault
+	StepPrompt  string     // default stepPromptDefault
+	SynthPrompt string     // default synthPromptDefault
+	OnStep      func(Step) // optional, called for each trace step (synchronous)
+}
+    PlanAndSolveOptions configures PlanAndSolveAgent.
+
+type ReActAgent struct {
+	// Has unexported fields.
+}
+    ReActAgent runs a Thought→Action→Observation loop until the LLM emits a
+    "Final:" line or MaxSteps is exceeded.
+
+    Output format the LLM is instructed to emit:
+
+        Thought: <reasoning>
+        Action: <tool_name>
+        Args: <json>
+        -- or --
+        Thought: <reasoning>
+        Final: <answer>
+
+func NewReActAgent(client llm.Client, opts ReActOptions) *ReActAgent
+    NewReActAgent constructs a ReActAgent.
+
+func (a *ReActAgent) Name() string
+    Name implements Agent.
+
+func (a *ReActAgent) Run(ctx context.Context, input string) (Result, error)
+    Run executes the ReAct loop.
+
+func (a *ReActAgent) RunStream(ctx context.Context, input string) (<-chan StepEvent, error)
+    RunStream emits step events through a channel; see Agent interface docs.
+
+type ReActOptions struct {
+	Name         string     // default "react"
+	Registry     *Registry  // tools the agent can call (nil = no tools, only Final allowed)
+	MaxSteps     int        // default 8 — bound on round-trips before ErrMaxStepsExceeded
+	SystemPrompt string     // optional override; default = reactSystemPrompt
+	OnStep       func(Step) // optional, called for each trace step (synchronous)
+}
+    ReActOptions configures ReActAgent.
+
+type ReflectionAgent struct {
+	// Has unexported fields.
+}
+    ReflectionAgent: generate → critique → revise → ... up to MaxRounds.
+    If the critique contains "APPROVED" (case-insensitive), stops early.
+
+func NewReflectionAgent(client llm.Client, opts ReflectionOptions) *ReflectionAgent
+    NewReflectionAgent constructs a ReflectionAgent.
+
+func (a *ReflectionAgent) Name() string
+    Name implements Agent.
+
+func (a *ReflectionAgent) Run(ctx context.Context, input string) (Result, error)
+    Run executes the gen→critique→revise loop.
+
+func (a *ReflectionAgent) RunStream(ctx context.Context, input string) (<-chan StepEvent, error)
+    RunStream emits step events through a channel; see Agent interface docs.
+
+type ReflectionOptions struct {
+	Name           string     // default "reflection"
+	MaxRounds      int        // default 2
+	GenPrompt      string     // default genPromptDefault
+	CritiquePrompt string     // default critiquePromptDefault
+	RevisePrompt   string     // default revisePromptDefault
+	OnStep         func(Step) // optional, called for each trace step (synchronous)
+}
+    ReflectionOptions configures ReflectionAgent.
+
+type Registry struct {
+	// Has unexported fields.
+}
+    Registry holds a name→Tool map. Use one Registry per Agent (or share) so
+    test isolation is preserved (no init()-time global singleton).
+
+func NewRegistry(tools ...Tool) *Registry
+    NewRegistry returns a Registry with the given tools batch-registered. Panics
+    if duplicate names appear in the variadic args (constructor-time safety:
+    prefer panic over silent shadowing).
+
+func (r *Registry) AsLLMTools() []llm.Tool
+    AsLLMTools returns all tools formatted for llm.GenerateRequest.Tools.
+
+func (r *Registry) Get(name string) (Tool, bool)
+    Get returns the tool registered under name.
+
+func (r *Registry) List() []Tool
+    List returns all tools sorted by Name (deterministic).
+
+func (r *Registry) PromptDescription() string
+    PromptDescription formats all tools as a "- name: description" list
+    suitable for prompt injection. Empty registry returns "(none)\n". Used
+    by ReActAgent internally and exposed for external prompt assembly (e.g.,
+    Phase 8 PlannerAgent).
+
+func (r *Registry) Register(t Tool) error
+    Register adds a tool. Returns ErrToolAlreadyRegistered if name collides.
+
+type Result struct {
+	Answer string
+	Trace  []Step
+	Usage  Usage
+}
+    Result carries the final answer plus full trace and accumulated usage.
+
+    Trace memory contract (eng review 2026-04-27): Result.Trace is a debug
+    snapshot for synchronous Run() callers and has no size limit. Streaming
+    consumers (RunStream / SSE / gRPC stream) should consume StepEvents only
+    and ignore Result.Trace at the end — they're the same information twice.
+    Phase 8 SSE handlers should discard res.Trace once the channel closes
+    (events already flushed to client). High-concurrency services that ignore
+    this rule end up holding 50–100 Steps (~4KB each) per in-flight handler —
+    100 concurrent handlers ≈ 40MB wasted.
+
+type SimpleAgent struct {
+	// Has unexported fields.
+}
+    SimpleAgent forwards user input to an llm.Client in a single call. No tools,
+    no loop — the simplest possible Agent.
+
+func NewSimpleAgent(client llm.Client, opts SimpleOptions) *SimpleAgent
+    NewSimpleAgent constructs a SimpleAgent.
+
+func (a *SimpleAgent) Name() string
+    Name implements Agent.
+
+func (a *SimpleAgent) Run(ctx context.Context, input string) (Result, error)
+    Run sends one prompt and returns the LLM's reply as the final answer.
+
+func (a *SimpleAgent) RunStream(ctx context.Context, input string) (<-chan StepEvent, error)
+    RunStream emits step events through a channel; see Agent interface docs.
+
+type SimpleOptions struct {
+	Name         string     // default "simple"
+	SystemPrompt string     // optional, prepended to user input as a system context
+	OnStep       func(Step) // optional, called for each trace step (synchronous)
+}
+    SimpleOptions configures SimpleAgent.
+
+type Step struct {
+	Kind    StepKind
+	Content string // Thought / Reflection / Plan body
+	Tool    string // Action only
+	Args    string // Action only — raw JSON string
+	Result  string // Observation only
+}
+    Step is one entry in the trace. Kind decides which fields are meaningful.
+
+type StepEvent struct {
+	Step  Step
+	Done  bool
+	Final *Result
+	Err   error
+}
+    StepEvent is the transport unit emitted by RunStream.
+
+      - Done = false: Step is an intermediate event, Final/Err are nil.
+      - Done = true: terminal event, exactly one of Final or Err is non-nil.
+      - Channel close after the terminal event signals no more events.
+
+type StepKind string
+    StepKind enumerates trace step types.
+
+const (
+	StepThought     StepKind = "thought"
+	StepAction      StepKind = "action"
+	StepObservation StepKind = "observation"
+	StepReflection  StepKind = "reflection"
+	StepPlan        StepKind = "plan"
+	StepFinal       StepKind = "final"
+)
+type Task struct {
+	Tool Tool
+	Args json.RawMessage
+}
+    Task pairs a Tool with its args for a single async invocation.
+
+type TaskResult struct {
+	Index  int // position in the input tasks slice
+	Output string
+	Err    error
+}
+    TaskResult carries one Task's outcome.
+
+type Tool interface {
+	Name() string
+	Description() string
+	Schema() json.RawMessage
+	Execute(ctx context.Context, args json.RawMessage) (string, error)
+}
+    Tool is a capability unit an Agent may invoke.
+
+    Description is shown to the LLM (it decides whether to call); Schema
+    describes the parameters as raw JSON Schema (we don't validate it — upstream
+    provider does); Execute does the work and returns a string suitable
+    for either prompt-injection (ReActAgent's Observation) or aggregation
+    (FunctionCallAgent's answer).
+
+func NewFuncTool(name, description string, schema json.RawMessage, fn ExecuteFunc) Tool
+    NewFuncTool wraps a plain function as a Tool — saves writing a struct with
+    Name/Description/Schema/Execute methods when the tool is trivial.
+
+        tool := agents.NewFuncTool(
+            "weather",
+            "Get weather for a city",
+            json.RawMessage(`{"type":"object","properties":{"city":{"type":"string"}}}`),
+            func(ctx context.Context, args json.RawMessage) (string, error) {
+                var p struct{ City string }
+                json.Unmarshal(args, &p)
+                return "sunny in " + p.City, nil
+            },
+        )
+
+type Usage struct {
+	LLMCalls int
+	Tokens   int
+}
+    Usage tracks LLM cost across a single Run.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/bench
+===================================================================
+package bench // import "github.com/costa92/llm-agent/bench"
+
+Package bench layers benchmark + judging primitives on top of pkg/llm/agents/rl.
+Phase 7 of the agents framework.
+
+What's here:
+
+  - BFCL (function calling): mini fixture, BFCLEvaluator, simplified
+    parseSimpleCall + matchFunctionCalls (no Python AST dependency).
+  - GAIA (general assistant): mini fixture, GAIAEvaluator, Quasi- Exact-Match
+    scoring (number normalization + article/punct strip).
+  - Judge (LLM-as-Judge): rubric-driven scoring + ComputeJudgeMetrics.
+  - Win Rate (pairwise): WinRateEvaluator with SwapEval (default on) to fight
+    position bias; ComputeWinRate aggregator.
+  - Reporter: Markdown + ASCII bar + JSON renderer; one-shot helpers for each
+    evaluator (RenderBFCLReport / RenderGAIAReport / etc.).
+
+What's NOT here (deliberate cuts per spec §11):
+
+  - Real BFCL / GAIA dataset downloaders (size + auth costs)
+  - BFCL official CLI integration / GAIA leaderboard submission
+  - Python AST matching for BFCL
+  - Gradio annotation UI
+  - Engineering perf metrics (latency / throughput / cost) — separate concern,
+    would need a perf/ subpackage
+
+All evaluators reuse rl.Dataset / rl.Trajectory / rl.EvaluatorOptions — DRY with
+Phase 6.
+
+# Portability
+
+bench inherits the agents/pkg/llm portability contract.
+
+VARIABLES
+
+var ErrBFCLLoaderNotImplemented = stderrors.New("bench: real BFCL loader is out of scope for Phase 7; build your own LineParser via rl.NewJSONLDataset")
+    ErrBFCLLoaderNotImplemented is returned by LoadBFCLFromJSONL.
+
+var ErrJudgeNoLLM = stderrors.New("bench: judge requires non-nil llm.Client")
+    ErrJudgeNoLLM is returned by Evaluate when the Judge has no LLM.
+
+var ErrWinRateNoLLM = stderrors.New("bench: WinRateEvaluator requires non-nil judge llm.Client")
+    ErrWinRateNoLLM is returned by Compare when the judge LLM is nil.
+
+
+FUNCTIONS
+
+func ExportJSON(w io.Writer, v any) error
+    ExportJSON writes the value as JSON to w (no markdown wrapper).
+
+func LoadBFCLFromJSONL(_ string) (rl.Dataset, error)
+    LoadBFCLFromJSONL is reserved for users who download real BFCL data.
+    Not implemented in Phase 7 (would require BFCL's exact JSON schema); returns
+    ErrBFCLLoaderNotImplemented until someone wires it.
+
+func MiniBFCL() rl.Dataset
+    MiniBFCL returns the built-in 5-sample fixture as an rl.Dataset.
+
+func MiniGAIA() rl.Dataset
+    MiniGAIA returns the built-in 3-sample fixture (one per level).
+
+func NewBFCLDataset(name string, samples []BFCLSample) rl.Dataset
+    NewBFCLDataset wraps the provided samples in an rl.Dataset.
+
+func NewGAIADataset(name string, samples []GAIASample) rl.Dataset
+    NewGAIADataset wraps the provided samples in an rl.Dataset.
+
+func RenderBFCLReport(w io.Writer, agentName string, m BFCLMetrics, trajs []rl.Trajectory)
+    RenderBFCLReport writes a full BFCL evaluation report.
+
+func RenderGAIAReport(w io.Writer, agentName string, m GAIAMetrics, trajs []rl.Trajectory)
+    RenderGAIAReport writes a full GAIA evaluation report.
+
+func RenderJudgeReport(w io.Writer, scope string, m JudgeMetrics, scores []JudgeScore)
+    RenderJudgeReport writes a Judge scoring report.
+
+func RenderWinRateReport(w io.Writer, scope string, m WinRateMetrics)
+    RenderWinRateReport writes a head-to-head report.
+
+
+TYPES
+
+type AIMESample struct {
+	ID        string
+	Question  string
+	Reference string
+}
+    AIMESample is a competition-math style sample for Judge evaluation. No
+    GroundTruth field — Judge scores based on Reference solution + LLM-rendered
+    rubrics.
+
+func MiniAIMESamples() []AIMESample
+    MiniAIMESamples returns 3 AIME-style competition math problems — fixture for
+    Judge-style subjective scoring (LLM judges the quality of the *reasoning*,
+    not just final answer).
+
+type BFCLEvaluator struct {
+	// Has unexported fields.
+}
+    BFCLEvaluator wraps rl.Evaluator with BFCL-specific match logic.
+
+func NewBFCLEvaluator(agent agents.Agent, opts rl.EvaluatorOptions) *BFCLEvaluator
+    NewBFCLEvaluator constructs a BFCL evaluator around an agent.
+
+func (b *BFCLEvaluator) Run(ctx context.Context, ds rl.Dataset) (BFCLMetrics, []rl.Trajectory, error)
+    Run evaluates the BFCL dataset. ds may be a *bfclDataset (uses per-sample
+    Category info) or a generic rl.Dataset (Category-aware fields will be
+    empty).
+
+type BFCLMetrics struct {
+	rl.Metrics
+	OverallAccuracy  float64
+	PerCategory      map[string]float64
+	WeightedAccuracy float64 // weighted by category sample count
+}
+    BFCLMetrics extends rl.Metrics with BFCL-specific accuracy fields.
+
+type BFCLSample struct {
+	rl.Sample
+	Category      string
+	ExpectedCalls []FunctionCall
+}
+    BFCLSample carries one BFCL row + the expected function calls. Embeds
+    rl.Sample so it works in any rl.Dataset.
+
+func MiniBFCLSamples() []BFCLSample
+    MiniBFCLSamples returns 5 hand-crafted BFCL-style function-call samples
+    covering: simple, multiple, parallel, irrelevance.
+
+type Comparison struct {
+	SampleID string
+	Question string
+	AnswerA  string
+	AnswerB  string
+}
+    Comparison is one pairwise input.
+
+type ComparisonResult struct {
+	SampleID string
+	Verdict  Verdict
+	Reason   string
+}
+    ComparisonResult is one pairwise outcome.
+
+type FunctionCall struct {
+	Name string
+	Args map[string]any
+}
+    FunctionCall represents one parsed function invocation. Args is keyed by
+    argument name; values are string / number / bool — no nested objects (BFCL
+    fixture style).
+
+type GAIAEvaluator struct {
+	// Has unexported fields.
+}
+    GAIAEvaluator computes per-level accuracy + drop rates.
+
+func NewGAIAEvaluator(agent agents.Agent, opts rl.EvaluatorOptions) *GAIAEvaluator
+    NewGAIAEvaluator constructs a GAIA evaluator.
+
+func (g *GAIAEvaluator) Run(ctx context.Context, ds rl.Dataset) (GAIAMetrics, []rl.Trajectory, error)
+    Run evaluates the GAIA dataset using Quasi-Exact-Match scoring.
+
+type GAIAMetrics struct {
+	rl.Metrics
+	ExactMatchRate float64
+	PerLevel       map[int]float64
+	DropRate12     float64 // (Acc_L1 - Acc_L2) / Acc_L1
+	DropRate23     float64
+}
+    GAIAMetrics extends rl.Metrics with GAIA-specific fields.
+
+type GAIASample struct {
+	rl.Sample
+	Level int
+}
+    GAIASample is one GAIA-style sample with a difficulty Level (1-3).
+
+func MiniGAIASamples() []GAIASample
+    MiniGAIASamples returns 3 hand-crafted GAIA-style samples — one per
+    difficulty level. Question / GroundTruth match GAIA's exact-match scoring
+    style.
+
+type Judge struct {
+	// Has unexported fields.
+}
+    Judge wraps an LLM client into a multi-rubric evaluator.
+
+func NewJudge(client llm.Client, rubrics []JudgeRubric, opts JudgeOptions) *Judge
+    NewJudge constructs a Judge.
+
+func (j *Judge) Evaluate(ctx context.Context, items []JudgeItem) ([]JudgeScore, error)
+    Evaluate scores every item under bounded concurrency.
+
+type JudgeItem struct {
+	SampleID  string
+	Question  string
+	Answer    string
+	Reference string // optional
+}
+    JudgeItem is one (question, answer[, reference]) input row.
+
+type JudgeMetrics struct {
+	Total         int
+	AverageScore  float64
+	PassRate      float64 // AvgScore ≥ scale*0.7
+	ExcellentRate float64 // AvgScore ≥ scale*0.9
+	PerRubric     map[string]float64
+}
+    JudgeMetrics aggregates JudgeScores into a scoresheet.
+
+func ComputeJudgeMetrics(scores []JudgeScore, scale int) JudgeMetrics
+    ComputeJudgeMetrics aggregates scores. scale is the rubric scale (used to
+    compute PassRate / ExcellentRate thresholds).
+
+type JudgeOptions struct {
+	Concurrency    int
+	Timeout        time.Duration // per-item timeout; default 30s
+	PromptTemplate string        // override default; %s order: question, answer, ref-line, scale, scale, rubric-list
+}
+    JudgeOptions configures Judge.Evaluate.
+
+type JudgeRubric struct {
+	Name        string
+	Description string
+	Scale       int
+}
+    JudgeRubric is one scoring dimension. Scale defines the int range 1..Scale
+    (Scale=5 → 1-5 scoring).
+
+type JudgeScore struct {
+	SampleID  string
+	Scores    map[string]int
+	AvgScore  float64
+	Reasoning string
+}
+    JudgeScore is the LLM's per-item verdict.
+
+type Reporter struct {
+	// Has unexported fields.
+}
+    Reporter writes Markdown-flavored reports + embedded JSON to an io.Writer.
+    Sections are independent — call any combination.
+
+func NewReporter(title string, output io.Writer) *Reporter
+    NewReporter constructs a Reporter. title becomes the top H1 heading when
+    WriteHeader is called.
+
+func (r *Reporter) WriteAccuracyBar(label string, ratio float64, width int)
+    WriteAccuracyBar writes one ASCII progress bar:
+
+        label: ████████░░░░░░░ 50.00%
+
+func (r *Reporter) WriteHeader()
+    WriteHeader writes the report's H1 + a blank line.
+
+func (r *Reporter) WriteJSON(name string, v any) error
+    WriteJSON writes the value as a fenced JSON code block.
+
+func (r *Reporter) WriteOverview(fields map[string]string)
+    WriteOverview writes a "## Overview" section as a 2-column table.
+
+func (r *Reporter) WriteSection(heading, body string)
+    WriteSection writes "## <heading>\n\n<body>\n\n".
+
+func (r *Reporter) WriteTable(headers []string, rows [][]string)
+    WriteTable writes a Markdown table.
+
+type Verdict string
+    Verdict is one comparison's outcome.
+
+const (
+	VerdictA   Verdict = "a"
+	VerdictB   Verdict = "b"
+	VerdictTie Verdict = "tie"
+)
+type WinRateEvaluator struct {
+	// Has unexported fields.
+}
+    WinRateEvaluator runs LLM-judged head-to-head comparisons.
+
+func NewWinRateEvaluator(judge llm.Client, opts WinRateOptions) *WinRateEvaluator
+    NewWinRateEvaluator constructs a WinRateEvaluator. SwapEval defaults to true
+    (anti-position-bias: each pair evaluated A-vs-B and B-vs-A, final verdict
+    majority-vote).
+
+func (w *WinRateEvaluator) Compare(ctx context.Context, items []Comparison) ([]ComparisonResult, error)
+    Compare runs the comparison set under bounded concurrency.
+
+type WinRateMetrics struct {
+	Total    int
+	WinA     int
+	WinB     int
+	Tie      int
+	WinRateA float64
+	WinRateB float64
+	TieRate  float64
+}
+    WinRateMetrics aggregates ComparisonResults.
+
+func ComputeWinRate(results []ComparisonResult) WinRateMetrics
+    ComputeWinRate aggregates results.
+
+type WinRateOptions struct {
+	Concurrency int
+	Timeout     time.Duration // per-pair timeout; default 30s
+	SwapEval    bool          // if true, evaluate (A,B) AND (B,A) per item; defaults to true
+}
+    WinRateOptions configures WinRateEvaluator.Compare.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/builtin
+===================================================================
+package builtin // import "github.com/costa92/llm-agent/builtin"
+
+Package builtin provides ready-to-use Tool implementations for agents. These are
+minimal, dependency-free tools intended for learning/demo — the calculator is a
+hand-rolled Pratt parser; the search is a mock.
+
+Package builtin provides ready-to-use Tool implementations for the agents
+subsystem: a hand-rolled arithmetic Calculator and an in-memory substring-match
+MockSearch.
+
+These tools have ZERO external dependencies (stdlib only) so the agents
+subsystem stays runnable in any environment without setup. MockSearch is
+explicitly NOT a real search engine — it is a deterministic substring matcher
+over an in-memory document slice, suitable for tests and learning demos only.
+
+# Portability
+
+builtin inherits the agents/pkg/llm portability contract — no imports from
+internal/*, no project-specific pkg/*, no business vocabulary in identifiers or
+strings.
+
+VARIABLES
+
+var ErrTerminalDisabled = errors.New("builtin: terminal tool requires EnableUnsafeExecution=true")
+    ErrTerminalDisabled is returned by NewTerminalTool when the caller fails to
+    set EnableUnsafeExecution=true.
+
+
+TYPES
+
+type Calculator struct{}
+    Calculator evaluates arithmetic expressions with + - * / and parens.
+    Supports integers, decimals, unary minus.
+
+func NewCalculator() *Calculator
+    NewCalculator returns a Calculator tool.
+
+func (Calculator) Description() string
+    Description implements agents.Tool.
+
+func (Calculator) Execute(_ context.Context, args json.RawMessage) (string, error)
+    Execute parses and evaluates expr from args.
+
+func (Calculator) Name() string
+    Name implements agents.Tool.
+
+func (Calculator) Schema() json.RawMessage
+    Schema implements agents.Tool.
+
+type Doc struct {
+	Title string
+	Body  string
+}
+    Doc is a single document searched by MockSearch.
+
+type MockSearch struct {
+	// Has unexported fields.
+}
+    MockSearch performs case-insensitive substring matching against an in-memory
+    document list. NOT a real search engine — intended for learning/demo only.
+
+func NewMockSearch(docs ...Doc) *MockSearch
+    NewMockSearch returns a MockSearch with the provided docs. If none are
+    provided, falls back to a small built-in Go FAQ corpus.
+
+func (MockSearch) Description() string
+    Description implements agents.Tool.
+
+func (s *MockSearch) Execute(_ context.Context, args json.RawMessage) (string, error)
+    Execute runs the substring match.
+
+func (MockSearch) Name() string
+    Name implements agents.Tool.
+
+func (MockSearch) Schema() json.RawMessage
+    Schema implements agents.Tool.
+
+type Note struct {
+	ID        string
+	Title     string
+	Type      string
+	Tags      []string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Body      string
+}
+
+type NoteTool struct {
+	// Has unexported fields.
+}
+    NoteTool persists structured notes (YAML frontmatter + Markdown body) to a
+    workspace directory. Cross-session memory: notes survive process restart
+    while Memory subsystems (Phase 2/3) stay in-process.
+
+    File format per note (one .md file per note ID):
+
+        ---
+        id: note_20260427_153000_0
+        title: ...
+        type: task_state
+        tags: [a, b]
+        created_at: 2026-04-27T15:30:00Z
+        updated_at: 2026-04-27T15:30:00Z
+        ---
+
+        <markdown body>
+
+    Frontmatter parser is a minimal hand-rolled YAML subset (key: value,
+    with `[a, b]` list form) — keeps the package zero-dep. Round-trips notes we
+    wrote ourselves; not a general YAML parser.
+
+func NewNoteTool(workspace string) (*NoteTool, error)
+    NewNoteTool constructs a NoteTool. Workspace is created if missing.
+
+func (*NoteTool) Description() string
+    Description implements agents.Tool.
+
+func (n *NoteTool) Execute(_ context.Context, args json.RawMessage) (string, error)
+    Execute dispatches on action.
+
+func (*NoteTool) Name() string
+    Name implements agents.Tool.
+
+func (*NoteTool) Schema() json.RawMessage
+    Schema implements agents.Tool.
+
+type TerminalTool struct {
+	// Has unexported fields.
+}
+    TerminalTool runs a curated subset of POSIX commands inside a sandbox
+    directory. It is INTENTIONALLY restrictive: no pipes, no redirects, no shell
+    metacharacters, no subshells, no env-var substitution.
+
+    SECURITY: This tool is DEFAULT-DISABLED. Constructing it requires
+    EnableUnsafeExecution=true on the config. Even with that flag, the 4 layers
+    below stay enforced:
+
+     1. Whitelist: command must be in AllowedCommands; metacharacters in args
+        are rejected.
+     2. Sandbox: working directory locked to Workspace via filepath.Abs;
+        paths containing ".." rejected.
+     3. Timeout: exec.CommandContext + WithTimeout cancels the process.
+     4. Output cap: io.LimitReader + truncation marker.
+
+    What this tool will NOT do (by design): pipe ("|"), redirect (">" "<"),
+    background ("&"), AND/OR ("&&" "||"), command substitution ("$(", "`"),
+    env substitution ("$VAR"), subshells ("(", "(;").
+
+func NewTerminalTool(cfg TerminalToolConfig) (*TerminalTool, error)
+    NewTerminalTool constructs a TerminalTool. Returns ErrTerminalDisabled when
+    EnableUnsafeExecution is false.
+
+func (t *TerminalTool) Description() string
+    Description implements agents.Tool.
+
+func (t *TerminalTool) Execute(ctx context.Context, raw json.RawMessage) (string, error)
+    Execute implements agents.Tool. Returns command stdout (capped), or an error
+    explaining which guard rejected the command.
+
+func (t *TerminalTool) Name() string
+    Name implements agents.Tool.
+
+func (t *TerminalTool) Schema() json.RawMessage
+    Schema implements agents.Tool.
+
+type TerminalToolConfig struct {
+	Workspace             string        // sandbox root; required, must exist
+	AllowedCommands       []string      // whitelist; defaults to a safe read-only set
+	Timeout               time.Duration // default 30s
+	MaxOutputBytes        int           // default 10MB
+	EnableUnsafeExecution bool          // MUST be true; tool refuses to construct otherwise
+}
+    TerminalToolConfig configures a TerminalTool.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/comm
+===================================================================
+package comm // import "github.com/costa92/llm-agent/comm"
+
+Package comm provides the shared transport + envelope layer for the agent
+communication protocols (MCP, A2A, ANP). Each protocol lives in its own
+subpackage and reuses comm.Transport + comm.Envelope.
+
+# What's here
+
+  - Envelope / Response / RPCError — protocol-agnostic message types
+  - Transport interface
+  - 3 transports: InMemory (test/same-process), HTTP (A2A default), Stdio (MCP
+    default — runs a subprocess and exchanges JSON lines)
+  - Sentinel errors: ErrTransportClosed / ErrTimeout / ErrUnsupported /
+    ErrServerError
+
+# Subpackages
+
+  - mcp — Model Context Protocol client/server (JSON-RPC 2.0, 4 RPCs +
+    Initialize)
+  - a2a — Agent-to-Agent skill/task HTTP protocol (custom-and-tiny)
+  - anp — Agent Network Protocol service registry (in-memory, no DID)
+
+# Portability
+
+comm inherits the agents/pkg/llm portability contract — no internal/*,
+no project pkg/*, no business vocabulary.
+
+Package comm is the shared transport + message-envelope layer for the
+agent-to-agent (A2A), Model-Context-Protocol (MCP), and Agent- Network-Protocol
+(ANP) sub-protocols. Each sub-protocol lives in its own subpackage and reuses
+comm.Transport + comm.Envelope.
+
+# Portability
+
+comm inherits the agents/pkg/llm portability contract — no internal/*,
+no project pkg/*, no business vocabulary.
+
+VARIABLES
+
+var (
+	ErrTransportClosed = errors.New("comm: transport closed")
+	ErrTimeout         = errors.New("comm: timeout")
+	ErrUnsupported     = errors.New("comm: method unsupported")
+	ErrServerError     = errors.New("comm: server error")
+)
+    Common sentinel errors. Sub-protocols may wrap these or define their own;
+    keep top-level set small.
+
+
+TYPES
+
+type Envelope struct {
+	ID       string          // request-response correlation
+	Method   string          // RPC method / handler name
+	Params   json.RawMessage // arbitrary payload
+	Metadata map[string]string
+}
+    Envelope is the in-process representation of a request. Sub-protocols
+    translate Envelope <-> their wire format (JSON-RPC 2.0 for MCP, task-shape
+    JSON for A2A, etc.).
+
+type HTTPTransport struct {
+	// Has unexported fields.
+}
+    HTTPTransport POSTs the Envelope as JSON and parses the Response from the
+    HTTP body. Wire shape: request body is the envelope JSON; response body is a
+    JSON Response document.
+
+func NewHTTPTransport(endpoint string, opts HTTPTransportOptions) *HTTPTransport
+    NewHTTPTransport constructs an HTTPTransport.
+
+func (t *HTTPTransport) Call(ctx context.Context, env Envelope) (Response, error)
+    Call implements Transport.
+
+func (t *HTTPTransport) Close() error
+    Close implements Transport. The underlying http.Client is shared and not
+    closed (transport-level, not connection-level).
+
+type HTTPTransportOptions struct {
+	HTTPClient *http.Client      // nil → http.DefaultClient with Timeout
+	Timeout    time.Duration     // default 30s
+	Headers    map[string]string // additional request headers (auth, tracing)
+}
+    HTTPTransportOptions configures HTTPTransport.
+
+type Handler func(ctx context.Context, env Envelope) (Response, error)
+    Handler is the server-side function an InMemoryTransport calls.
+
+type InMemoryTransport struct {
+	// Has unexported fields.
+}
+    InMemoryTransport invokes a server-side Handler in-process. Useful for unit
+    tests and same-process Agent-to-Agent demos. Goroutine-safe.
+
+func NewInMemoryTransport(handler Handler) *InMemoryTransport
+    NewInMemoryTransport wraps handler as a Transport.
+
+func (t *InMemoryTransport) Call(ctx context.Context, env Envelope) (Response, error)
+    Call implements Transport.
+
+func (t *InMemoryTransport) Close() error
+    Close implements Transport.
+
+type RPCError struct {
+	Code    int
+	Message string
+	Data    json.RawMessage
+}
+    RPCError carries protocol-level errors back to the caller. Code follows
+    JSON-RPC 2.0 conventions where applicable; Data is opaque.
+
+func (e *RPCError) Error() string
+    Error implements error so RPCError can be returned from Transport helpers
+    when convenient.
+
+type Response struct {
+	ID     string
+	Result json.RawMessage
+	Error  *RPCError
+}
+    Response pairs with Envelope.ID. Either Result or Error is set; never both.
+
+type StdioTransport struct {
+	// Has unexported fields.
+}
+    StdioTransport runs a child process and exchanges JSON Envelopes over
+    its stdin/stdout (one JSON document per line). MCP stdio servers (e.g.
+    `npx @modelcontextprotocol/server-filesystem`) follow this convention.
+
+    Note: requests are serialized via mu; a multi-RPC server that wants
+    concurrent in-flight calls would need request-ID-keyed dispatch.
+
+func NewStdioTransport(command string, args []string, opts StdioTransportOptions) (*StdioTransport, error)
+    NewStdioTransport launches command with args and returns a ready transport.
+    Returns the start-up error if the process fails to spawn.
+
+func (t *StdioTransport) Call(ctx context.Context, env Envelope) (Response, error)
+    Call implements Transport. Writes Envelope as a single JSON line + newline;
+    reads one JSON line back.
+
+func (t *StdioTransport) Close() error
+    Close implements Transport. Closes stdin and waits for the process to exit.
+
+type StdioTransportOptions struct {
+	Env            []string      // additional env vars (KEY=VAL)
+	WorkingDir     string        // process cwd; default = inherit
+	StartupTimeout time.Duration // max time to wait for first response after Start; default 5s
+}
+    StdioTransportOptions configures StdioTransport.
+
+type Transport interface {
+	Call(ctx context.Context, env Envelope) (Response, error)
+	Close() error
+}
+    Transport sends an Envelope and waits for the matching Response.
+    Implementations must be safe for concurrent calls (in-process
+    implementations may serialize internally).
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/comm/a2a
+===================================================================
+package a2a // import "github.com/costa92/llm-agent/comm/a2a"
+
+Package a2a is a simplified Agent-to-Agent protocol over HTTP.
+
+What's covered:
+
+  - Server: registers skills, exposes /skills + POST /tasks + GET /tasks/{id}
+  - Task state machine: pending → running → completed/failed
+  - Client: ListSkills + ExecuteSkill (POST + poll until artifact)
+  - AsAgentTool: wrap a remote skill as agents.Tool
+
+What's NOT covered:
+
+  - Wire compatibility with Google's a2a-sdk (custom-and-tiny schema)
+  - Cancel / pause / resume on tasks (only the basic happy/fail path)
+  - Auth / encryption / signed messages
+  - Long-running task persistence (in-memory only; restart loses state)
+
+# Portability
+
+a2a inherits the agents/pkg/llm portability contract.
+
+Package a2a is a simplified Agent-to-Agent protocol: HTTP server exposing skills
++ an async task state machine, plus a client that invokes remote skills (POST →
+poll → artifact).
+
+This is NOT wire-compatible with Google's a2a-sdk — the schema is
+custom-and-tiny so the concept fits in ≤500 LOC. Use comm.HTTPTransport with a
+real a2a server and write your own translator if you need interop.
+
+# Portability
+
+a2a inherits the agents/pkg/llm portability contract.
+
+VARIABLES
+
+var (
+	ErrSkillNotFound = errors.New("a2a: skill not found")
+	ErrTaskNotFound  = errors.New("a2a: task not found")
+)
+    Sentinel errors.
+
+
+FUNCTIONS
+
+func AsAgentTool(client *Client, skillName, prefix string) agents.Tool
+    AsAgentTool wraps a remote skill as an agents.Tool. The schema is permissive
+    ({"type":"object"}) — A2A doesn't standardize per-skill schemas in our
+    minimal version. Override via NewFuncTool if you need stricter contracts.
+
+
+TYPES
+
+type Client struct {
+	// Has unexported fields.
+}
+    Client talks to an A2A server's HTTP routes.
+
+func NewClient(endpoint string, opts ClientOptions) *Client
+    NewClient constructs a Client.
+
+func (c *Client) ExecuteSkill(ctx context.Context, skill string, input json.RawMessage) (json.RawMessage, error)
+    ExecuteSkill creates a task and polls until completion. Returns the artifact
+    bytes on success.
+
+func (c *Client) GetTask(ctx context.Context, id string) (*Task, error)
+    GetTask returns the current state of one task.
+
+func (c *Client) ListSkills(ctx context.Context) ([]SkillDescriptor, error)
+    ListSkills fetches the server's skill catalog.
+
+type ClientOptions struct {
+	HTTPClient   *http.Client  // nil → http.DefaultClient with Timeout
+	Timeout      time.Duration // per-call HTTP timeout; default 30s
+	PollInterval time.Duration // task polling interval; default 200ms
+	PollMax      time.Duration // max time to poll before giving up; default 60s
+}
+    ClientOptions configures Client.
+
+type Server struct {
+	// Has unexported fields.
+}
+    Server exposes skills + an async task lifecycle over HTTP.
+
+    Routes:
+
+        GET  /skills        — JSON array of SkillDescriptor
+        POST /tasks         — create a task; body = {skill, input}; returns Task
+        GET  /tasks/{id}    — fetch one task by ID
+
+func NewServer(name, description string) *Server
+    NewServer constructs an A2A server.
+
+func (s *Server) HTTPHandler() http.Handler
+    HTTPHandler returns the http.Handler exposing the routes above.
+
+func (s *Server) Name() string
+    Name returns the server's identity.
+
+func (s *Server) RegisterSkill(name, description string, handler SkillHandler)
+    RegisterSkill adds one skill.
+
+type SkillDescriptor struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+    SkillDescriptor describes one skill the server exposes.
+
+type SkillHandler func(ctx context.Context, input json.RawMessage) (json.RawMessage, error)
+    SkillHandler is the function executed for one skill invocation.
+
+type Task struct {
+	ID        string          `json:"id"`
+	Skill     string          `json:"skill"`
+	Input     json.RawMessage `json:"input"`
+	State     TaskState       `json:"state"`
+	Artifact  json.RawMessage `json:"artifact,omitempty"`
+	Error     string          `json:"error,omitempty"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}
+    Task is one server-side task entry. Artifact is the produced result (only
+    populated when State == TaskCompleted).
+
+type TaskState string
+    TaskState is the state machine for one server-side task.
+
+const (
+	TaskPending   TaskState = "pending"
+	TaskRunning   TaskState = "running"
+	TaskCompleted TaskState = "completed"
+	TaskFailed    TaskState = "failed"
+)
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/comm/anp
+===================================================================
+package anp // import "github.com/costa92/llm-agent/comm/anp"
+
+Package anp is a minimal Agent Network Protocol implementation.
+
+What's covered:
+
+  - Service / Registry types
+  - Register / Unregister / Discover / GetBest
+  - Default scoreFn = HealthScore / (1 + load)
+  - AsAgentTool: 5-action JSON tool wrapper
+
+What's NOT covered (out of scope for Phase 5 minimal):
+
+  - DID (decentralized identity) / private-key signing / public-key verification
+  - Trust evaluation / reputation
+  - Cross-network discovery / gossip / DHT
+  - Active health probing
+
+This is single-process, in-memory, learning scope only — NOT a real peer-to-peer
+network. Real ANP nodes would need at minimum the DID + signing layer to be
+safely federated.
+
+# Portability
+
+anp inherits the agents/pkg/llm portability contract.
+
+Package anp is a minimal Agent Network Protocol implementation: in-memory
+service discovery + load-aware selection. NO DID, no signing, no key
+verification — those are the defining ANP features in real deployments and out
+of scope for Phase 5 minimal.
+
+What's covered:
+
+  - Service / Registry types
+  - Register / Discover / GetBest with caller-supplied scoreFn
+  - Default score = 1 / (1 + load), so lower-load services win
+  - AsAgentTool: expose registry operations as a single agents.Tool
+
+# Portability
+
+anp inherits the agents/pkg/llm portability contract.
+
+VARIABLES
+
+var (
+	ErrServiceIDRequired = errors.New("anp: service.ID is required")
+	ErrNoMatch           = errors.New("anp: no service matches")
+)
+    Sentinel errors.
+
+
+FUNCTIONS
+
+func AsAgentTool(reg *Registry) agents.Tool
+    AsAgentTool exposes Registry operations as a single agents.Tool. Schema
+    actions:
+
+      - register — args: {service: Service}
+      - unregister — args: {id: string}
+      - discover — args: {service_type: string}
+      - get_best — args: {service_type: string}
+      - stats — no args
+
+
+TYPES
+
+type Registry struct {
+	// Has unexported fields.
+}
+    Registry holds Services in memory under RWMutex.
+
+func NewRegistry() *Registry
+    NewRegistry constructs an empty Registry.
+
+func (r *Registry) Discover(serviceType string) []*Service
+    Discover returns all registered services whose Type matches. Pass "" to get
+    every service.
+
+func (r *Registry) GetBest(serviceType string, scoreFn func(*Service) float64) (*Service, error)
+    GetBest returns the highest-scoring service of the given type. If scoreFn is
+    nil, the default 1/(1+load) is used. Returns ErrNoMatch when no service of
+    that type is registered.
+
+func (r *Registry) Register(s *Service) error
+    Register adds (or replaces) a service by ID. Returns ErrServiceIDRequired if
+    ID is empty.
+
+func (r *Registry) Stats() (count int)
+    Stats returns the count of registered services.
+
+func (r *Registry) Unregister(id string)
+    Unregister removes a service by ID. No-op if absent.
+
+type Service struct {
+	ID          string
+	Type        string // "compute" / "search" / ...
+	Endpoints   []string
+	Metadata    map[string]any // load / region / cpu_cores / ...
+	HealthScore float64        // [0,1]; caller-set, not auto-probed
+}
+    Service is one registered network endpoint. Endpoints is a list so a service
+    can publish multiple URLs (HTTP + gRPC + …).
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/comm/mcp
+===================================================================
+package mcp // import "github.com/costa92/llm-agent/comm/mcp"
+
+Package mcp implements a minimal MCP (Model Context Protocol) client + toy
+server. Wire format: JSON-RPC 2.0 (self-written, no third- party library).
+
+What's covered (4 essential RPCs + handshake):
+
+  - initialize — capability handshake
+  - list_tools / call_tool
+  - list_resources / read_resource
+
+What's NOT covered (out of scope for Phase 5 minimal):
+
+  - capabilities negotiation
+  - notifications / sampling / progress / cancellation
+  - prompts surface
+
+Real MCP servers (e.g. `npx @modelcontextprotocol/server-filesystem`) can be
+reached via comm.NewStdioTransport — the 4 RPCs above are enough to discover +
+invoke the server's tools.
+
+AsAgentTools exposes a remote MCP server's catalog as []agents.Tool so a Phase 1
+ReActAgent can use them directly.
+
+# Portability
+
+mcp inherits the agents/pkg/llm portability contract.
+
+Package mcp implements a minimal Model Context Protocol client + toy server.
+Wire format: JSON-RPC 2.0. Self-written (no third-party library) because MCP
+layers Initialize/Notifications on top.
+
+What's covered: 4 essential RPCs (list_tools / call_tool / list_resources /
+read_resource) + Initialize handshake. Capabilities negotiation, sampling,
+notifications, progress, cancellation are out of scope (Phase 5 minimal-credible
+scope).
+
+FUNCTIONS
+
+func AsAgentTools(ctx context.Context, client *Client, prefix string) ([]agents.Tool, error)
+    AsAgentTools fetches the MCP server's tool catalog and returns one
+    agents.Tool per remote tool. Names are prefixed with prefix + "_" so
+    multiple servers can register without collisions.
+
+    Caller must have called client.Initialize first.
+
+func DecodeRequest(line []byte) (comm.Envelope, error)
+    DecodeRequest parses one JSON-RPC 2.0 request line into an Envelope.
+
+func DecodeResponse(line []byte) (comm.Response, error)
+    DecodeResponse parses a JSON-RPC 2.0 response line into a comm.Response.
+
+func EncodeRequest(env comm.Envelope) ([]byte, error)
+    EncodeRequest serializes an Envelope into a JSON-RPC 2.0 request line.
+
+func EncodeResponse(r comm.Response) ([]byte, error)
+    EncodeResponse serializes a comm.Response into a JSON-RPC 2.0 response line.
+
+
+TYPES
+
+type CallResult struct {
+	Content string `json:"content"`
+	IsError bool   `json:"is_error,omitempty"`
+}
+    CallResult is the unified result from CallTool. Content is the tool output
+    (text payload); IsError flags errors surfaced by the tool itself (vs
+    transport-level RPC errors).
+
+type Client struct {
+	// Has unexported fields.
+}
+    Client speaks MCP to a server through an underlying comm.Transport.
+    One Initialize call per Client; subsequent RPCs reuse the same transport.
+
+func NewClient(transport comm.Transport) *Client
+    NewClient wraps transport.
+
+func (c *Client) CallTool(ctx context.Context, name string, args json.RawMessage) (CallResult, error)
+    CallTool invokes a tool by name with raw JSON args. Returns CallResult;
+    tool-side errors become CallResult.IsError=true (not Go errors).
+
+func (c *Client) Close() error
+    Close releases the underlying transport.
+
+func (c *Client) Initialize(ctx context.Context) error
+    Initialize performs the MCP handshake. Returns the server's identity
+    captured for ServerInfo. Idempotent — second call is a no-op.
+
+func (c *Client) ListResources(ctx context.Context) ([]Resource, error)
+    ListResources fetches the server's resource list.
+
+func (c *Client) ListTools(ctx context.Context) ([]ToolDescriptor, error)
+    ListTools fetches the server's tool catalog.
+
+func (c *Client) ReadResource(ctx context.Context, uri string) (ResourceContent, error)
+    ReadResource fetches a single resource by URI.
+
+func (c *Client) ServerInfo() ServerInfo
+    ServerInfo returns the server-side identity captured during Initialize.
+    Empty if Initialize hasn't run.
+
+type Resource struct {
+	URI         string `json:"uri"`
+	Name        string `json:"name,omitempty"`
+	Description string `json:"description,omitempty"`
+	MimeType    string `json:"mime_type,omitempty"`
+}
+    Resource is one item from list_resources.
+
+type ResourceContent struct {
+	URI      string `json:"uri"`
+	MimeType string `json:"mime_type,omitempty"`
+	Text     string `json:"text"`
+}
+    ResourceContent is what read_resource returns.
+
+type Server struct {
+	// Has unexported fields.
+}
+    Server is a toy in-memory MCP server: callers register tools + resources,
+    then expose Server.Handler() as a comm.Handler that any transport can serve.
+    NOT production — Phase 5 minimal scope.
+
+func NewServer(name, version string) *Server
+    NewServer constructs a Server.
+
+func (s *Server) Handler() comm.Handler
+    Handler returns a comm.Handler suitable for InMemoryTransport (or for a
+    custom HTTP wrapper). Routes the 5 supported methods.
+
+func (s *Server) RegisterResource(r Resource, read func(ctx context.Context) (ResourceContent, error))
+    RegisterResource adds one resource to the catalog.
+
+func (s *Server) RegisterTool(d ToolDescriptor, handler func(ctx context.Context, args json.RawMessage) (CallResult, error))
+    RegisterTool adds one tool to the catalog.
+
+type ServerInfo struct {
+	Name    string `json:"name"`
+	Version string `json:"version,omitempty"`
+}
+    ServerInfo is what Initialize returns about the server side.
+
+type ToolDescriptor struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description,omitempty"`
+	Schema      json.RawMessage `json:"input_schema,omitempty"`
+}
+    ToolDescriptor is the schema-bearing description of one MCP tool.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/context
+===================================================================
+package context // import "github.com/costa92/llm-agent/context"
+
+Package context implements GSSC (Gather→Select→Structure→Compress) context
+engineering for LLM agents.
+
+The Builder accepts BuildInput (system prompt + history + memory hits + RAG hits
++ custom packets) and returns a budget-respecting prompt.
+
+# GSSC pipeline
+
+  - Gather: every source becomes []Packet, each tagged with Source
+  - Timestamp + TokenCount.
+  - Select: score = recency × Wᵣ + relevance × Wₗ; drop below MinRelevance;
+    greedy fill until (1-ReserveRatio)*MaxTokens. System packets always survive.
+  - Structure: render kept packets into 5 fixed sections — [Role & Policies] /
+    [Task] / [Evidence] / [Context] / [History]
+  - Compress: if still over budget, optionally LLM-summarize (when
+    EnableCompress + WithLLM); otherwise hard-truncate with a trailing
+    "[truncated]" marker.
+
+# Plug points
+
+  - WithTokenCounter: swap SimpleCounter for tiktoken-go etc.
+  - WithEmbedder: swap Jaccard for cosine via rag.Embedder.
+  - WithLLM: enable LLM-backed Compress phase.
+
+# Naming caveat
+
+This package is named `context` and lives at pkg/llm/agents/context. It does NOT
+replace stdlib `context`. When importing both, alias one of them:
+
+    import (
+        "context"
+
+        aictx "github.com/costa92/llm-agent/context"
+    )
+
+# Portability
+
+context inherits the agents/pkg/llm portability contract — no internal/*,
+no project pkg/*, no business vocabulary.
+
+Package context implements GSSC (Gather→Select→Structure→Compress) context
+engineering: a pipeline that turns multi-source data into a budget-respecting
+LLM prompt.
+
+NOTE on naming: this package is named `context` and does NOT replace stdlib
+context. Disambiguate with an import alias when both are used:
+
+    import (
+        "context"
+
+        aictx "github.com/costa92/llm-agent/context"
+    )
+
+See doc.go for the full pipeline overview.
+
+TYPES
+
+type BuildInput struct {
+	UserQuery    string
+	SystemPrompt string
+	History      []llm.Message
+	MemoryHits   []memory.SearchResult
+	RAGHits      []rag.SearchHit
+	Custom       []Packet
+}
+    BuildInput is the multi-source assembly of a single Build call.
+
+type BuildOutput struct {
+	Prompt       string
+	Selected     []Packet
+	UsedTokens   int
+	DroppedCount int
+}
+    BuildOutput is the result of Build. Prompt is ready to feed llm.Generate.
+    Selected is the actual kept set (audit trail).
+
+type Builder struct {
+	// Has unexported fields.
+}
+    Builder runs the GSSC pipeline. Construct via New + functional Options.
+
+func New(cfg Config, opts ...Option) *Builder
+    New constructs a Builder with cfg defaults applied.
+
+func (b *Builder) Build(input BuildInput) BuildOutput
+    Build runs Gather → Select → Structure → Compress and returns the prompt
+    + audit info. Background context is used internally; pass a real ctx via
+    BuildCtx if you need cancellation propagation.
+
+func (b *Builder) BuildCtx(ctx stdctx.Context, input BuildInput) BuildOutput
+    BuildCtx is the ctx-aware variant. Cancellation only matters when
+    EnableCompress=true + Builder has an LLM (the Compress LLM call honors ctx)
+    or when WithEmbedder is in use (the embedder may call network providers).
+
+type Config struct {
+	MaxTokens       int     // budget cap; default 3000
+	ReserveRatio    float64 // fraction reserved for system + meta; default 0.2
+	MinRelevance    float64 // packets below this are dropped before Select; default 0.1
+	RecencyWeight   float64 // weight on time-decay in Select score; default 0.3
+	RelevanceWeight float64 // weight on similarity in Select score; default 0.7
+	EnableCompress  bool    // enable Structure-phase truncation/summarization; default true
+}
+    Config tunes the GSSC pipeline. Zero-values get sensible defaults applied by
+    Builder.
+
+type Option func(*Builder)
+    Option mutates a Builder in New. Functional options keep New signature
+    stable as we add knobs.
+
+func WithEmbedder(e rag.Embedder) Option
+    WithEmbedder swaps Jaccard relevance for embedding cosine similarity during
+    Select. The query is embedded once per Build call.
+
+func WithLLM(c llm.Client) Option
+    WithLLM enables the Compress phase's optional LLM-backed summarization.
+
+func WithTokenCounter(c TokenCounter) Option
+    WithTokenCounter swaps the default SimpleCounter.
+
+type Packet struct {
+	Content    string
+	Source     Source
+	Timestamp  time.Time
+	TokenCount int
+	Relevance  float64 // ∈ [0, 1]
+	Metadata   map[string]any
+}
+    Packet is the unit the GSSC pipeline operates on. TokenCount is filled by
+    Gather; Relevance by Select.
+
+type SimpleCounter struct{}
+    SimpleCounter is a no-dep CJK-aware estimator:
+      - ASCII letters / digits: count words → words × 1.3
+      - CJK ideographs: each rune = 1 token
+      - other runes (spaces, punct): contribute to word boundary only
+
+    Rough match for OpenAI-style BPE on English (≈1.3 tok/word) and for
+    character-level on Chinese (1 tok/CJK char). Intentionally pessimistic —
+    better to over-budget than under.
+
+func (SimpleCounter) Count(text string) int
+    Count implements TokenCounter.
+
+type Source string
+    Source identifies the origin of a Packet, used for grouping during the
+    Structure phase.
+
+const (
+	SourceSystem       Source = "system"
+	SourceMemory       Source = "memory"
+	SourceRAG          Source = "rag"
+	SourceConversation Source = "conversation"
+	SourceCustom       Source = "custom"
+)
+type TokenCounter interface {
+	Count(text string) int
+}
+    TokenCounter estimates the LLM-side token cost of a string. Implementations
+    may use a real tokenizer (tiktoken-go) or estimate cheaply.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/internal/testenv
+===================================================================
+package testenv // import "github.com/costa92/llm-agent/internal/testenv"
+
+
+FUNCTIONS
+
+func CanListenTCP4() error
+    CanListenTCP4 reports whether the current environment permits opening a
+    loopback TCP listener.
+
+func CanStartHTTPServer() (err error)
+    CanStartHTTPServer reports whether httptest can bootstrap a local HTTP
+    server. httptest.NewServer panics on listen failure, so recover and surface
+    the cause as an error that tests can turn into Skip.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/llm
+===================================================================
+package llm // import "github.com/costa92/llm-agent/llm"
+
+Package llm owns the capability-aware LLM-provider contract for the agents
+framework.
+
+The contract is intentionally narrow — only the types an Agent or Tool
+implementation needs to call a model:
+
+  - ChatModel base interface (Generate + Stream + Info)
+  - ToolCaller capability: native function-calling (WithTools is immutable;
+    returns a new value)
+  - Embedder capability: vector embeddings (does NOT embed ChatModel —
+    orthogonal to chat)
+  - StructuredOutputs capability: JSON-schema-constrained output
+  - StreamReader iterator-style streaming (Next + Close)
+  - StreamEvent typed union (TextDelta / ToolCall* / Done)
+  - ProviderInfo bound provider+model identity returned by Info()
+  - Capabilities per-(provider × model) feature struct (Tools / Embeddings /
+    StructuredOutputs / PromptCaching as bool fields; JSON-serializable for OTel
+    attribute emission)
+  - Tool / ToolCall function-call schema + invocation
+  - Message single conversation turn
+  - Request / Response chat-layer request/response (NEW in v0.3)
+  - Vector / Usage / UsageSource embeddings + token accounting
+  - FinishReason + 6 const OpenAI-compatible stop reasons (shared between
+    LegacyClient and ChatModel surfaces)
+  - LegacyClient v0.2 contract retained for source compatibility; Deprecated,
+    removal target v0.4.0
+  - ScriptedLLM full-capability deterministic mock (NEW in v0.3)
+  - ChatOnlyMock ChatModel-only mock (capability-degradation tests)
+
+# Capability negotiation
+
+Callers detect capabilities via type assertion AND consult
+ProviderInfo.Capabilities. The two checks together are the canonical idiom —
+type assertion is the compile-time signal, Capabilities is the runtime signal
+for per-(provider × model) variation that type assertion cannot see (Ollama's Go
+type implements ToolCaller, but for `llama2` Capabilities.Tools is false):
+
+    if tc, ok := model.(llm.ToolCaller); ok && model.Info().Capabilities.Tools {
+        bound, err := tc.WithTools(tools)
+        if err != nil { return err }
+        return bound.Generate(ctx, req)
+    }
+    // Fall back to scratchpad templating
+    return model.Generate(ctx, scratchpadReq(req))
+
+# Streaming
+
+StreamReader is iterator-style (Next/Close) rather than channel- based.
+Consumers MUST defer sr.Close() to prevent goroutine leaks. AccumulateStream is
+a convenience for consumers that want a flat Response from a stream.
+
+# Deprecation
+
+LegacyClient (the v0.2 Client interface, renamed) and its companion types
+(GenerateRequest, GenerateResponse, StreamChunk, StreamUsage) remain callable
+through the v0.3.x cycle and will be removed in v0.4.0. New code MUST use
+ChatModel and the new Request/Response/ StreamReader/StreamEvent types.
+See docs/migration-v0.2-to-v0.3.md.
+
+VARIABLES
+
+var (
+	// ErrCapabilityNotSupported is returned by methods on capability
+	// interfaces when the bound model does not actually support the
+	// capability — even though the Go type implements the interface.
+	//
+	// Canonical wrap pattern:
+	//   return nil, fmt.Errorf("anthropic: embeddings: %w", llm.ErrCapabilityNotSupported)
+	//
+	// Callers detect with errors.Is(err, llm.ErrCapabilityNotSupported).
+	ErrCapabilityNotSupported = errors.New("llm: capability not supported by bound model")
+
+	// ErrScriptExhausted is returned by ScriptedLLM when the script runs
+	// out of pre-recorded responses. Test code matches with errors.Is.
+	ErrScriptExhausted = errors.New("llm: scripted llm: script exhausted")
+)
+    Sentinel errors for the llm package. Callers detect via errors.Is. Both
+    sentinels MUST survive `fmt.Errorf("...: %w", sentinel)` wrapping.
+
+
+TYPES
+
+type Capabilities struct {
+	Tools             bool `json:"tools"`              // Native function-calling supported by the bound model
+	Embeddings        bool `json:"embeddings"`         // Embed() returns vectors (NOT ErrCapabilityNotSupported)
+	StructuredOutputs bool `json:"structured_outputs"` // WithSchema() applies a JSON schema constraint
+	PromptCaching     bool `json:"prompt_caching"`     // Anthropic explicit / OpenAI auto (consumed Phase 5+)
+}
+    Capabilities is a value type — JSON-serializable for OTel attribute emission
+    (gen_ai.provider.capabilities.* in Phase 5). Per D-02, this is a struct
+    (NOT methods, NOT a bitmask): self-documenting in test failures, extensible
+    with non-bool fields later (e.g., MaxToolsPerCall int) without breaking JSON
+    consumers.
+
+    Type assertion remains the PRIMARY signal at compile time (`if tc, ok :=
+    model.(ToolCaller); ok { ... }`); Capabilities is the RUNTIME signal for
+    per-(provider × model) variation that type assertion cannot see — Ollama's
+    Go type implements ToolCaller, but for `llama2` the Capabilities.Tools bool
+    is false.
+
+type ChatModel interface {
+	Generate(ctx context.Context, req Request) (Response, error)
+	Stream(ctx context.Context, req Request) (StreamReader, error)
+	Info() ProviderInfo
+}
+    ChatModel is the base contract every provider implements. It is the
+    smallest possible interface: Generate (one-shot), Stream (iterator),
+    Info (per-(provider × model) identity).
+
+    Capabilities beyond plain text generation are expressed as separate
+    interfaces (ToolCaller, Embedder, StructuredOutputs); callers detect them
+    via type assertion. ProviderInfo.Capabilities is the runtime signal for
+    per-(provider × model) variation that type assertion cannot see — see doc.go
+    for the canonical negotiation idiom.
+
+    All implementations MUST be safe for concurrent use; concurrent Generate /
+    Stream calls on the same value are part of the contract.
+
+type ChatOnlyMock struct {
+	Provider string
+	Model    string
+	Resp     Response
+}
+    ChatOnlyMock implements ONLY ChatModel — no ToolCaller, no Embedder,
+    no StructuredOutputs. Used in agent tests (Phase 3) to verify graceful
+    capability degradation: ReAct falls back to scratchpad templating when
+    model.(ToolCaller) fails. Phase 0 lands the type so downstream tests have a
+    canonical capability-degraded mock.
+
+func (m *ChatOnlyMock) Generate(_ context.Context, _ Request) (Response, error)
+
+func (m *ChatOnlyMock) Info() ProviderInfo
+
+func (m *ChatOnlyMock) Stream(_ context.Context, _ Request) (StreamReader, error)
+
+type Client = LegacyClient
+    Client is an alias for LegacyClient retained for v0.2 source compatibility.
+
+    Deprecated: Use llm.ChatModel instead. Client will be removed in v0.4.0.
+    See docs/migration-v0.2-to-v0.3.md.
+
+type Embedder interface {
+	Embed(ctx context.Context, texts []string) (vectors []Vector, usage Usage, err error)
+	EmbedDimensions() int
+}
+    Embedder is the capability for vector embeddings. Returns vectors in
+    input order with len(vectors) == len(texts). Providers without embedding
+    endpoints (Anthropic, in v0.3) do NOT implement this interface; callers
+    detect via type assertion AND consult Capabilities.Embeddings on the bound
+    ProviderInfo.
+
+    Embedder deliberately does NOT embed ChatModel. A pure embedding-only
+    adapter (e.g., a future voyageai adapter) might implement Embedder without
+    ChatModel — orthogonality preserves that option.
+
+type FinishReason = legacyFinishReason
+    FinishReason is an alias for the underlying legacyFinishReason string type
+    defined in legacy.go. The alias means LegacyClient and ChatModel callers
+    see the same FinishReason name and the same constant set (FinishReasonStop,
+    FinishReasonLength, etc.) — type identity is preserved across the v0.2 /
+    v0.3 surfaces.
+
+const (
+	FinishReasonStop          FinishReason = "stop"
+	FinishReasonLength        FinishReason = "length"
+	FinishReasonContentFilter FinishReason = "content_filter"
+	FinishReasonToolCalls     FinishReason = "tool_calls"
+	FinishReasonFunctionCall  FinishReason = "function_call"
+	FinishReasonUnknown       FinishReason = "unknown"
+)
+    FinishReason constants mirror the OpenAI /v1/chat/completions stop_reason
+    field so that providers that surface this can pass it through without
+    conversion.
+
+type GenerateRequest struct {
+	Prompt  string         `json:"prompt"`
+	Context map[string]any `json:"context,omitempty"`
+	// Tools enables function calling — providers that don't support
+	// tools simply ignore the field.
+	Tools []Tool `json:"tools,omitempty"`
+	// History threads prior turns into the messages array so
+	// multi-turn dialog is possible without forcing the caller to
+	// hand-craft a single mega-prompt.
+	History []Message `json:"history,omitempty"`
+}
+    GenerateRequest is the v0.2 request type passed to LegacyClient.Generate.
+
+    Deprecated: Use llm.Request instead. GenerateRequest will be removed in
+    v0.4.0. See docs/migration-v0.2-to-v0.3.md.
+
+type GenerateResponse struct {
+	Text         string         `json:"text"`
+	FinishReason FinishReason   `json:"finish_reason,omitempty"`
+	Provider     string         `json:"provider"`
+	Model        string         `json:"model,omitempty"`
+	UsageToken   int            `json:"usage_token,omitempty"`
+	Metadata     map[string]any `json:"metadata,omitempty"`
+	// ToolCalls are populated when the model decides to invoke one or
+	// more registered Tools. Callers route them to executors and feed
+	// results back via History on the next turn.
+	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
+}
+    GenerateResponse is the v0.2 response type returned by
+    LegacyClient.Generate.
+
+    Deprecated: Use llm.Response instead. GenerateResponse will be removed in
+    v0.4.0. See docs/migration-v0.2-to-v0.3.md.
+
+type LegacyClient interface {
+	Generate(ctx context.Context, req GenerateRequest) (GenerateResponse, error)
+	GenerateStream(ctx context.Context, req GenerateRequest) (<-chan StreamChunk, error)
+}
+    LegacyClient is the v0.2 LLM contract — superseded by ChatModel.
+
+    Deprecated: Use llm.ChatModel instead. LegacyClient will be removed in
+    v0.4.0. See docs/migration-v0.2-to-v0.3.md.
+
+type Message struct {
+	Role    string `json:"role"` // "user", "assistant", "tool", "system"
+	Content string `json:"content"`
+}
+    Message is a single turn in a conversation. Reused unchanged from the
+    v0.2 surface — same Role/Content shape. System messages are lifted to
+    Request.SystemPrompt before sending to providers; the "system" role string
+    remains valid for callers that prefer embedding it in Messages (LegacyClient
+    flow).
+
+type ProviderInfo struct {
+	Provider     string       `json:"provider"` // "openai", "anthropic", "ollama"
+	Model        string       `json:"model"`    // "gpt-4o-mini", "claude-3-5-haiku", "llama3.1:8b"
+	Capabilities Capabilities `json:"capabilities"`
+}
+    ProviderInfo describes a bound provider+model combination. Returned
+    by ChatModel.Info(). Capabilities reflect THIS bound model, not the
+    provider type generically (Pitfall 6). Provider instances bind a model at
+    construction time — `openai.New(openai.WithModel("gpt-4o"))` — so Info() is
+    constant for the lifetime of the value.
+
+type Request struct {
+	Messages        []Message      `json:"messages"`                    // multi-turn dialog (preferred over Prompt)
+	SystemPrompt    string         `json:"system_prompt,omitempty"`     // lifted out of Messages for Anthropic top-level system
+	MaxOutputTokens int            `json:"max_output_tokens,omitempty"` // 0 = use provider default
+	Temperature     *float32       `json:"temperature,omitempty"`       // pointer: nil = use provider default
+	Metadata        map[string]any `json:"metadata,omitempty"`          // provider-specific extras (rare; prefer typed)
+}
+    Request is the new-surface request type. Replaces GenerateRequest at
+    the new-interface (ChatModel) layer. LegacyClient continues to use
+    GenerateRequest (defined in legacy.go).
+
+    Why a separate type: the v0.2 GenerateRequest used Prompt+History; the
+    v0.3 surface is messages-only with SystemPrompt lifted out so Anthropic's
+    top-level system parameter has a clean home and OpenAI's system-role message
+    can be derived from it.
+
+type Response struct {
+	Text         string       `json:"text"`
+	FinishReason FinishReason `json:"finish_reason,omitempty"`
+	Provider     string       `json:"provider"`
+	Model        string       `json:"model,omitempty"`
+	Usage        Usage        `json:"usage"`
+	ToolCalls    []ToolCall   `json:"tool_calls,omitempty"`
+}
+    Response is the new-surface response type. Replaces GenerateResponse at the
+    ChatModel layer.
+
+func AccumulateStream(sr StreamReader) (Response, error)
+    AccumulateStream is a convenience for consumers that don't care about
+    streaming granularity — drains sr to completion and returns the equivalent
+    non-streaming Response. Closes sr on exit (caller need not defer Close when
+    using this helper).
+
+func TextResponse(text string) Response
+    TextResponse is a convenience constructor for plain-text responses ending in
+    FinishReasonStop.
+
+func ToolCallResponse(name, argsJSON string) Response
+    ToolCallResponse builds a tool-call response (FinishReasonToolCalls) for the
+    given tool name and JSON arguments string.
+
+type ScriptedLLM struct {
+	// Has unexported fields.
+}
+    ScriptedLLM is a deterministic full-capability mock. It implements ChatModel
+    + ToolCaller + Embedder + StructuredOutputs and is used across the umbrella
+    as the canonical reference: agent unit tests (this repo), conformance
+    baseline (sister repos, Phase 1), example programs.
+
+    Construction is via functional options:
+
+        m := llm.NewScriptedLLM(
+            llm.WithProvider("scripted"),
+            llm.WithModel("test-1"),
+            llm.WithCapabilities(llm.Capabilities{Tools: true, Embeddings: true}),
+            llm.WithResponses(
+                llm.TextResponse("hello"),
+                llm.ToolCallResponse("calc", `{"a":2,"b":3}`),
+            ),
+        )
+
+    Concurrent-safe: the cursor is protected by sync.Mutex.
+
+func NewScriptedLLM(opts ...ScriptedOption) *ScriptedLLM
+    NewScriptedLLM constructs a ScriptedLLM with functional options.
+    Default Capabilities are ALL TRUE (full-capability default; for
+    capability-degradation testing use ChatOnlyMock instead).
+
+func (s *ScriptedLLM) Embed(_ context.Context, texts []string) ([]Vector, Usage, error)
+    Embed returns deterministic per-text vectors of EmbedDimensions length.
+    If WithEmbeds was used to script per-call vectors, those are returned in
+    cursor order (independent cursor from Generate).
+
+func (s *ScriptedLLM) EmbedDimensions() int
+    EmbedDimensions returns the bound vector dimension. Defaults to 4 (small for
+    fast tests) unless overridden via WithEmbedDimensions.
+
+func (s *ScriptedLLM) Generate(_ context.Context, _ Request) (Response, error)
+    Generate returns the next scripted Response or ErrScriptExhausted.
+
+func (s *ScriptedLLM) Info() ProviderInfo
+    Info returns the bound provider/model + Capabilities.
+
+func (s *ScriptedLLM) Stream(_ context.Context, _ Request) (StreamReader, error)
+    Stream synthesises a streaming view of the next scripted Response. Emits
+    EventTextDelta (if Text != "") then EventDone with Usage and FinishReason
+    populated from the Response.
+
+func (s *ScriptedLLM) WithSchema(_ []byte) (ChatModel, error)
+    WithSchema is honored as a no-op (the mock does not validate JSON schemas)
+    but returns a NEW *ScriptedLLM (immutable). Returning ChatModel matches the
+    StructuredOutputs interface signature.
+
+func (s *ScriptedLLM) WithTools(tools []Tool) (ToolCaller, error)
+    WithTools returns a NEW *ScriptedLLM with tools bound (immutable — Pattern
+    2). The receiver is unchanged; safe to call concurrently.
+
+type ScriptedOption func(*ScriptedLLM)
+    ScriptedOption configures a ScriptedLLM at construction time.
+
+func WithCapabilities(c Capabilities) ScriptedOption
+    WithCapabilities sets the Capabilities returned by Info().
+
+func WithEmbedDimensions(d int) ScriptedOption
+    WithEmbedDimensions overrides the EmbedDimensions return value.
+
+func WithModel(m string) ScriptedOption
+    WithModel sets the Model field returned by Info().
+
+func WithProvider(p string) ScriptedOption
+    WithProvider sets the Provider field returned by Info().
+
+func WithResponses(rs ...Response) ScriptedOption
+    WithResponses appends scripted Responses; Generate/Stream consume in order.
+
+type StreamChunk struct {
+	Text  string       `json:"text"`
+	Done  bool         `json:"done"`
+	Usage *StreamUsage `json:"usage,omitempty"`
+	// ToolCall is set on stream chunks when the model emits a function
+	// call delta. Done==true with ToolCall set marks the end of a tool
+	// invocation; subsequent calls are a new chunk sequence.
+	ToolCall *ToolCall `json:"tool_call,omitempty"`
+}
+    StreamChunk is a v0.2 streaming primitive returned over <-chan StreamChunk.
+
+    Deprecated: Use llm.StreamEvent instead. StreamChunk will be removed in
+    v0.4.0. See docs/migration-v0.2-to-v0.3.md.
+
+type StreamEvent struct {
+	Kind         StreamEventKind
+	Text         string         // EventTextDelta, EventThinkingDelta
+	ToolCall     *ToolCallDelta // EventToolCall* kinds
+	Usage        *Usage         // EventDone (when provider reports it)
+	FinishReason FinishReason   // EventDone
+}
+    StreamEvent is the typed union. Field population is gated by Kind:
+
+        Kind = EventTextDelta:         Text != ""
+        Kind = EventToolCallStart:     ToolCall != nil; ToolCall.{Index, ID, Name} populated
+        Kind = EventToolCallArgsDelta: ToolCall != nil; ToolCall.{Index, ArgsDelta} populated
+        Kind = EventToolCallEnd:       ToolCall != nil; ToolCall.Index populated
+        Kind = EventThinkingDelta:     Text != ""
+        Kind = EventDone:               Usage != nil; FinishReason != ""
+
+type StreamEventKind uint8
+    StreamEventKind enumerates the typed-union variants. Adapters emit their
+    NATIVE granularity (OpenAI per-index deltas, Anthropic per- content-block
+    deltas, Ollama whole-tool-call). Consumers that don't care about granularity
+    use AccumulateStream below.
+
+const (
+	EventTextDelta         StreamEventKind = iota // adapter emitted text
+	EventToolCallStart                            // tool_call begins; ToolCall.{Index, ID, Name} known
+	EventToolCallArgsDelta                        // partial args JSON for an in-flight tool_call
+	EventToolCallEnd                              // tool_call complete; consumer may dispatch
+	EventThinkingDelta                            // reasoning models / Anthropic thinking blocks
+	EventDone                                     // terminal; Usage + FinishReason populated
+)
+type StreamReader interface {
+	Next() (StreamEvent, error)
+	Close() error
+}
+    StreamReader is the iterator-style interface for streaming responses.
+    Next returns io.EOF (from package "io") when the stream ends cleanly,
+    or ctx.Err() when the underlying context is cancelled. Close is idempotent
+    and MUST be called by every consumer (typically via `defer sr.Close()`) to
+    prevent goroutine leaks (Pitfall 3).
+
+    Iterator (rather than <-chan StreamEvent) is chosen for: explicit
+    cancellation semantics, single-call error propagation, prevention of
+    producer-goroutine leaks when consumers break out early, and composability
+    with the K4 retry state machine (Phase 2).
+
+type StreamUsage struct {
+	PromptTokens     int `json:"prompt_tokens,omitempty"`
+	CompletionTokens int `json:"completion_tokens,omitempty"`
+	TotalTokens      int `json:"total_tokens,omitempty"`
+}
+    StreamUsage carries token counts for a streaming response.
+
+    Deprecated: Use llm.Usage instead. StreamUsage will be removed in v0.4.0.
+    See docs/migration-v0.2-to-v0.3.md.
+
+type StructuredOutputs interface {
+	ChatModel
+	WithSchema(schema []byte) (ChatModel, error)
+}
+    StructuredOutputs is the capability for JSON-schema-constrained generation
+    (OpenAI response_format, Anthropic tool-as-output trick).
+
+    WithSchema is IMMUTABLE — like WithTools — and returns ChatModel (NOT
+    StructuredOutputs): re-applying a schema is meaningless, so the return type
+    signals that the value is now schema-bound and a second WithSchema call is
+    not the intended call shape.
+
+type Tool struct {
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Parameters  json.RawMessage `json:"parameters"`
+}
+    Tool declares a function the model may call. Parameters is a raw JSON Schema
+    document — this package doesn't validate it (the upstream provider does) so
+    callers can use whatever schema dialect their provider expects.
+
+    Shape unchanged from v0.2; shared between LegacyClient and ChatModel
+    surfaces deliberately (the field names haven't needed to evolve in 6 months
+    of v0.2; sharing avoids two parallel type systems).
+
+type ToolCall struct {
+	ID        string          `json:"id,omitempty"` // provider-assigned; NEW vs v0.2
+	Name      string          `json:"name"`
+	Arguments json.RawMessage `json:"arguments"`
+}
+    ToolCall is what the model returns when it decides to invoke a Tool. The ID
+    field is NEW vs. v0.2's ToolCall — it's the provider-assigned identifier
+    (OpenAI tool_call_id, Anthropic content_block.id) that the agent dedupe
+    layer (Phase 3) uses as one half of the (message_id, tool_use_id) dedupe key
+    (Pitfall 4).
+
+    v0.2 callers that READ ToolCalls keep working because the model is the only
+    producer of ToolCall values — v0.2 did not construct ToolCalls explicitly,
+    so adding an ID field is back-compat.
+
+type ToolCallDelta struct {
+	Index     int    // stable across chunks for a single tool call
+	ID        string // provider-assigned ID; empty until provider emits it
+	Name      string // populated on EventToolCallStart
+	ArgsDelta string // partial JSON; concat all deltas for this Index to get final args
+}
+    ToolCallDelta carries per-tool-call streaming state.
+
+    Index is the STABLE per-tool-call key: across all chunks for a single tool
+    call, Index is identical. The agent-layer accumulator joins by Index,
+    NOT by Name (Pitfall 1: "OpenAI streaming tool_calls — losing chunks because
+    you keyed by name instead of index").
+
+    ID is the provider-side identifier (OpenAI tool_call_id, Anthropic
+    content_block id) — used by the agent dedupe layer (Phase 3) keyed by
+    (message_id, tool_use_id).
+
+    Name is populated ONCE on the EventToolCallStart event for that
+    Index. ArgsDelta is the partial JSON string; concatenation
+    across chunks for a given Index yields the final arguments JSON
+    (matches OpenAI's function.arguments delta string and Anthropic's
+    input_json_delta.partial_json).
+
+type ToolCaller interface {
+	ChatModel
+	WithTools(tools []Tool) (ToolCaller, error)
+}
+    ToolCaller is the capability for native tool/function-calling. WithTools
+    is IMMUTABLE: it returns a new ToolCaller bound to the given tools;
+    the receiver is unchanged. This rejects Eino's deprecated BindTools mutation
+    pattern (concurrent calls on the same model with different tool sets would
+    otherwise race).
+
+    Implementations MUST satisfy ChatModel — a tool-bound model is still a
+    ChatModel that can Generate / Stream.
+
+type Usage struct {
+	InputTokens  int         `json:"input_tokens"`
+	OutputTokens int         `json:"output_tokens"`
+	TotalTokens  int         `json:"total_tokens,omitempty"`
+	Source       UsageSource `json:"source,omitempty"`
+}
+    Usage carries token accounting for one request. Source distinguishes
+    reported (provider returned actual counts), estimated (computed from
+    tokenizer), and unknown (mid-stream abort, no usage available).
+
+    Source != "" is an invariant after Phase 2 lands (K4); for Phase 0 the
+    Source field exists but defaults to UsageUnknown when the zero value is
+    used.
+
+type UsageSource string
+    UsageSource enumerates the provenance of token counts in a Usage. Reported
+    = provider returned actual counts; Estimated = computed from a tokenizer;
+    Unknown = mid-stream abort, no usage available (NOT zero-tokens — Pitfall
+    5).
+
+const (
+	UsageReported  UsageSource = "reported"
+	UsageEstimated UsageSource = "estimated"
+	UsageUnknown   UsageSource = "unknown"
+)
+type Vector []float32
+    Vector is one embedding. Length matches Embedder.EmbedDimensions().
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/memory
+===================================================================
+package memory // import "github.com/costa92/llm-agent/memory"
+
+Package memory implements 3 in-process Memory types + a Manager + an agents.Tool
+adapter:
+
+  - WorkingMemory — capacity-bounded, time-decay, "what's recent + active"
+  - EpisodicMemory — long-term, recency-weighted, "what happened over time"
+  - SemanticMemory — K-V with tag-aware ranking, "facts I know"
+
+All three satisfy the Memory interface. Manager coordinates Add / Search
+across kinds and adds Consolidate (working→episodic by importance) + Forget (3
+strategies).
+
+AsTool wraps a Manager so any pkg/llm/agents Agent can call memory operations
+through the standard Tool surface.
+
+# Score formulas (per spec §6.3)
+
+    Working   = (vec×0.7 + keyword×0.3) × time_decay × (0.8 + importance×0.4)
+    Episodic  = (vec×0.8 + recency×0.2) ×              (0.8 + importance×0.4)
+    Semantic  = (vec×0.7 + tag_overlap×0.3) ×          (0.8 + importance×0.4)
+
+Vector scoring uses pkg/llm/agents/rag.Embedder. Phase 2 ships HashEmbedder (FNV
+bucket, deterministic, low-quality semantic). Real embedders land in Phase 3 —
+drop them in via the same interface.
+
+# Portability
+
+memory inherits the agents/pkg/llm portability contract — no internal/*,
+no project pkg/*, no business vocabulary.
+
+Package memory implements 3 in-process Memory types (Working / Episodic /
+Semantic) plus a Manager that coordinates Consolidate and Forget. Each type
+satisfies the Memory interface so a single Agent can route writes/reads by Kind.
+
+Backend dependency: pkg/llm/agents/rag.Embedder for vector scoring. Phase 2
+ships HashEmbedder (zero-deps); Phase 3 adds real backends.
+
+# Portability
+
+memory inherits the agents/pkg/llm portability contract — no internal/*,
+no project pkg/*, no business vocabulary.
+
+VARIABLES
+
+var ErrConsolidateUnavailable = errors.New("memory: consolidate requires both working and episodic memories")
+    ErrConsolidateUnavailable is returned by Consolidate when either working or
+    episodic is nil.
+
+var ErrEmbedderRequired = errors.New("memory: embedder is required")
+    ErrEmbedderRequired is returned by constructors when Embedder is nil.
+
+var ErrEmptyQuery = errors.New("memory: query is required")
+    ErrEmptyQuery is returned by Search when query is whitespace-only.
+
+var ErrKindDisabled = errors.New("memory: kind disabled on this manager")
+    ErrKindDisabled is returned when an operation targets a memory kind that
+    wasn't activated on this Manager.
+
+var ErrNoMemories = errors.New("memory: manager requires at least one active memory")
+    ErrNoMemories is returned by NewManager when all 3 memory fields are nil.
+
+var ErrNotFound = errors.New("memory: item not found")
+    ErrNotFound is returned by Get / Update / Remove when id is absent.
+
+
+FUNCTIONS
+
+func AsTool(mgr *Manager) agents.Tool
+    AsTool wraps a Manager as an agents.Tool. The schema accepts an `action`
+    discriminator; payload fields are action-specific.
+
+    Supported actions: add / search / get / update / remove / consolidate /
+    forget / stats.
+
+    JSON output shape varies per action; format docs in the spec §6.5.
+
+
+TYPES
+
+type ConsolidateOptions struct {
+	Threshold float64
+	MinAge    time.Duration
+}
+    ConsolidateOptions tunes Consolidate. Threshold is the minimum importance to
+    promote (default 0.7). MinAge optionally requires items to have been around
+    at least this long before promotion (default 0 = any age qualifies).
+
+type EpisodicMemory struct {
+	// Has unexported fields.
+}
+    EpisodicMemory holds long-term events with NO capacity cap. Score formula
+    per spec §6.3:
+
+        (vec×0.8 + recency×0.2) × (0.8 + importance×0.4)
+
+    recency = exp(-age_days/RecencyHalfLifeDays); default
+    RecencyHalfLifeDays=30.
+
+func NewEpisodic(e rag.Embedder, opts EpisodicOptions) (*EpisodicMemory, error)
+    NewEpisodic constructs an EpisodicMemory.
+
+func (m *EpisodicMemory) Add(ctx context.Context, item MemoryItem) (string, error)
+
+func (m *EpisodicMemory) Get(_ context.Context, id string) (MemoryItem, error)
+
+func (m *EpisodicMemory) Remove(_ context.Context, id string) error
+
+func (m *EpisodicMemory) Search(ctx context.Context, query string, topK int) ([]SearchResult, error)
+
+func (m *EpisodicMemory) Stats() Stats
+    Stats implements Memory. Capacity field is 0 (unlimited).
+
+func (m *EpisodicMemory) Type() Kind
+
+func (m *EpisodicMemory) Update(ctx context.Context, id string, fn func(*MemoryItem)) error
+
+type EpisodicOptions struct {
+	RecencyHalfLifeDays float64 // 0 → defaults to 30
+}
+    EpisodicOptions configures an EpisodicMemory.
+
+type ForgetOptions struct {
+	Strategy  ForgetStrategy
+	Threshold float64       // for importance
+	MaxAge    time.Duration // for age
+	Keep      int           // for capacity (number of items to KEEP)
+}
+    ForgetOptions tunes Forget. Threshold is the cutoff for the "importance"
+    strategy; MaxAge for "age"; Keep is the cap retained after "capacity"
+    eviction.
+
+type ForgetStrategy string
+    ForgetStrategy picks the rule used by Forget.
+
+const (
+	ForgetByImportance ForgetStrategy = "importance"
+	ForgetByAge        ForgetStrategy = "age"
+	ForgetByCapacity   ForgetStrategy = "capacity"
+)
+type Kind string
+    Kind identifies which of the three Memory types an item belongs to.
+
+const (
+	KindWorking  Kind = "working"
+	KindEpisodic Kind = "episodic"
+	KindSemantic Kind = "semantic"
+)
+type Manager struct {
+	// Has unexported fields.
+}
+    Manager coordinates the 3 Memory types under one façade. nil entries are
+    valid — callers can opt out of any kind by passing nil for that field on
+    construction.
+
+func NewManager(opts ManagerOptions) (*Manager, error)
+    NewManager constructs a Manager. Returns ErrNoMemories if all three fields
+    are nil.
+
+func (m *Manager) Add(ctx context.Context, kind Kind, item MemoryItem) (string, error)
+    Add routes an item to the named memory.
+
+func (m *Manager) Consolidate(ctx context.Context, opts ConsolidateOptions) (int, error)
+    Consolidate copies items from working memory whose Importance ≥ Threshold
+    to episodic memory. Source items are NOT deleted. Returns the count of items
+    copied.
+
+    Requires both Working and Episodic to be active; otherwise returns
+    ErrConsolidateUnavailable.
+
+func (m *Manager) Forget(ctx context.Context, kind Kind, opts ForgetOptions) (int, error)
+    Forget applies the chosen strategy to one named memory and returns the count
+    deleted.
+
+func (m *Manager) Get(ctx context.Context, kind Kind, id string) (MemoryItem, error)
+    Get fetches an item from the named memory.
+
+func (m *Manager) Remove(ctx context.Context, kind Kind, id string) error
+    Remove deletes an item from the named memory.
+
+func (m *Manager) Search(ctx context.Context, kind Kind, query string, topK int) ([]SearchResult, error)
+    Search runs a search against one named memory.
+
+func (m *Manager) SearchAll(ctx context.Context, query string, topK int) (map[Kind][]SearchResult, error)
+    SearchAll fans out the query to every active memory and returns the per-kind
+    result lists. Per-kind topK is honored (not a global cap).
+
+func (m *Manager) StatsAll() map[Kind]Stats
+    StatsAll returns Stats for every active memory.
+
+func (m *Manager) Update(ctx context.Context, kind Kind, id string, fn func(*MemoryItem)) error
+    Update mutates an item in the named memory.
+
+type ManagerOptions struct {
+	Working  *WorkingMemory
+	Episodic *EpisodicMemory
+	Semantic *SemanticMemory
+}
+    ManagerOptions allows the caller to specify which memories are active. Pass
+    nil for any field to disable that kind. At least one memory must be non-nil;
+    otherwise NewManager returns an error.
+
+type Memory interface {
+	Type() Kind
+	Add(ctx context.Context, item MemoryItem) (string, error) // returns generated ID
+	Search(ctx context.Context, query string, topK int) ([]SearchResult, error)
+	Get(ctx context.Context, id string) (MemoryItem, error)
+	Update(ctx context.Context, id string, fn func(*MemoryItem)) error
+	Remove(ctx context.Context, id string) error
+	Stats() Stats
+}
+    Memory is the contract every memory type satisfies. All methods are
+    goroutine-safe in the bundled implementations.
+
+type MemoryItem struct {
+	ID         string
+	Content    string
+	Tags       []string
+	Importance float64
+	CreatedAt  time.Time
+	AccessedAt time.Time
+	Metadata   map[string]any
+}
+    MemoryItem is the unit of storage. Importance ∈ [0,1] drives forget +
+    consolidate. Tags are arbitrary labels (used by Semantic for overlap
+    scoring; cosmetic in Working/Episodic).
+
+type SearchResult struct {
+	Item  MemoryItem
+	Score float64
+}
+    SearchResult pairs a MemoryItem with its query-relevance Score. Score is a
+    domain-specific composite (per Memory type) in [0, +∞).
+
+type SemanticMemory struct {
+	// Has unexported fields.
+}
+    SemanticMemory is K-V style with tag-aware ranking. Score formula per spec
+    §6.3:
+
+        (vec×0.7 + tag_overlap×0.3) × (0.8 + importance×0.4)
+
+    Search supports tag-pre-filter: prefix the query with "tag:foo,bar " to
+    restrict to items containing any of those tags. Otherwise all items are
+    considered.
+
+func NewSemantic(e rag.Embedder, opts SemanticOptions) (*SemanticMemory, error)
+    NewSemantic constructs a SemanticMemory.
+
+func (m *SemanticMemory) Add(ctx context.Context, item MemoryItem) (string, error)
+
+func (m *SemanticMemory) Get(_ context.Context, id string) (MemoryItem, error)
+
+func (m *SemanticMemory) Remove(_ context.Context, id string) error
+
+func (m *SemanticMemory) Search(ctx context.Context, query string, topK int) ([]SearchResult, error)
+
+func (m *SemanticMemory) Stats() Stats
+
+func (m *SemanticMemory) Type() Kind
+
+func (m *SemanticMemory) Update(ctx context.Context, id string, fn func(*MemoryItem)) error
+
+type SemanticOptions struct {
+}
+    SemanticOptions configures a SemanticMemory.
+
+type Stats struct {
+	Count         int
+	Capacity      int           // 0 = unlimited
+	OldestAge     time.Duration // duration since the oldest item's CreatedAt
+	AvgImportance float64
+}
+    Stats summarizes a Memory's contents — useful for debugging + the MemoryTool
+    stats action.
+
+type WorkingMemory struct {
+	// Has unexported fields.
+}
+    WorkingMemory holds the most recent / most active items. Capacity is
+    enforced by evicting the lowest-scoring item on Add. Score formula per spec
+    §6.3:
+
+        (vec×0.7 + keyword×0.3) × time_decay × (0.8 + importance×0.4)
+
+    time_decay defaults to exp(-age/Decay) with Decay=24h.
+
+func NewWorking(e rag.Embedder, opts WorkingOptions) (*WorkingMemory, error)
+    NewWorking constructs a WorkingMemory. Returns ErrEmbedderRequired if e is
+    nil.
+
+func (w *WorkingMemory) Add(ctx context.Context, item MemoryItem) (string, error)
+    Add inserts item. If at capacity, evicts the lowest-scoring item against the
+    new item's content as the eviction probe.
+
+func (w *WorkingMemory) Get(_ context.Context, id string) (MemoryItem, error)
+    Get implements Memory.
+
+func (w *WorkingMemory) Remove(_ context.Context, id string) error
+    Remove implements Memory.
+
+func (w *WorkingMemory) Search(ctx context.Context, query string, topK int) ([]SearchResult, error)
+    Search returns the topK items ranked by the working-memory composite.
+
+func (w *WorkingMemory) Stats() Stats
+    Stats implements Memory.
+
+func (w *WorkingMemory) Type() Kind
+    Type implements Memory.
+
+func (w *WorkingMemory) Update(ctx context.Context, id string, fn func(*MemoryItem)) error
+    Update implements Memory.
+
+type WorkingOptions struct {
+	Capacity int           // 0 → defaults to 50
+	Decay    time.Duration // 0 → defaults to 24h
+}
+    WorkingOptions configures a WorkingMemory.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/orchestrate
+===================================================================
+package orchestrate // import "github.com/costa92/llm-agent/orchestrate"
+
+Package orchestrate implements 4 multi-Agent orchestration paradigms on top of
+pkg/llm/agents.Agent.
+
+中文说明：Package orchestrate 在 pkg/llm/agents.Agent 之上实现多 Agent 编排能力。
+
+  - Pipeline — A → B → C linear data-flow (AgentScope-style)
+  - FanOutFanIn — planner → parallel workers → aggregator
+  - RoundRobinChat — N agents take turns until termination (AutoGen-style)
+  - RolePlay — user + assistant 2-agent dialog with done-marker (CAMEL-style)
+  - StateGraph[S] — typed graph with conditional edges + cycles
+    (LangGraph-style, Go generics)
+
+中文说明：
+  - Pipeline — A → B → C 线性数据流（AgentScope 风格）
+  - FanOutFanIn — planner → 并行 workers → aggregator
+  - RoundRobinChat — N 个 agent 轮流对话直到终止（AutoGen 风格）
+  - RolePlay — user + assistant 的双 agent 对话，带 done-marker（CAMEL 风格）
+  - StateGraph[S] — 带条件边和循环的 typed graph（LangGraph 风格，Go 泛型）
+
+Plus a shared Termination interface + 4 combinators (MaxTurns / TextMatch / And
+/ Or).
+
+# Portability
+
+orchestrate inherits the agents/pkg/llm portability contract — no imports from
+internal/*, no project-specific pkg/*, no business vocabulary. Pure framework
+code reusable in any Go project that pulls in pkg/llm/agents.
+
+中文说明：orchestrate 继承 agents/pkg/llm 的可移植性约束，不能 import internal/*，不能依赖项目专属
+pkg/*，不能使用业务词汇。这里的代码应当是纯 框架层，可以被任何引入 pkg/llm/agents 的 Go 项目复用。
+
+# Choosing a paradigm
+
+  - Single-Agent loop with retries → don't use orchestrate; use Phase 1's
+    ReAct/Reflection directly
+  - Linear A→B→C with no branching → Pipeline
+  - Planner → parallel specialists → summary → FanOutFanIn
+  - "Two writers + an editor" emergent collaboration → RoundRobinChat
+  - Task decomposition with explicit done signal → RolePlay
+  - Explicit branches/loops/observable state → StateGraph
+
+中文选型：
+  - 单 Agent 重试循环 → 不用 orchestrate，直接用 Phase 1 的 ReAct/Reflection
+  - 线性 A→B→C 且无分支 → Pipeline
+  - planner → 多个 specialist 并行 → summary → FanOutFanIn
+  - 两个 writer + 一个 editor 的协作 → RoundRobinChat
+  - 带明确完成信号的任务分解 → RolePlay
+  - 需要分支 / 循环 / 可观测状态 → StateGraph
+
+# StateGraph guidance
+
+StateGraph is the right fit when a multi-agent workflow needs explicit, testable
+control flow:
+
+  - planner → reviewer → either revise or finish
+  - dispatcher loops over a backlog until no tasks remain
+  - supervisor routes shared state to different specialists
+
+Keep the state shape as your domain struct, put work inside node funcs, and use
+conditional edges only where routing is needed. StateGraph is intentionally
+small: it's a typed orchestration primitive, not a new DSL.
+
+中文说明：StateGraph 适合需要显式、可测试控制流的多 agent 工作流。 状态建议直接使用领域 struct，把工作放到 node
+函数里，只在需要路由时使用 conditional edges。StateGraph 故意保持很小，它是 typed orchestration
+primitive，不是新的 DSL。
+
+Full design notes and Mermaid flow charts live in:
+
+完整设计说明和 Mermaid 流程图见：
+
+    docs/superpowers/specs/2026-05-06-pkg-llm-agents-multi-agent-orchestration-design.md
+
+Entry can be declared with either SetEntry("node") or AddEdge(NodeStart,
+"node"). Use WithMaxSteps on Run when loops are intentional and need a larger
+guard-rail.
+
+# Integration with Phase 8 (Deep Research)
+
+internal/research.Coordinator hand-rolls plan→summarize×N→report today.
+It can be refactored to use Pipeline for the plan+report ends (the parallel
+summarize×N middle still uses agents.AsyncRunner). Migration is optional —
+direct orchestration is fine for a 3-stage pipeline.
+
+CONSTANTS
+
+const (
+	NodeStart = "__start__"
+	NodeEnd   = "__end__"
+)
+    Reserved node names used by Compile/Run as graph entry/terminator.
+
+
+VARIABLES
+
+var (
+	ErrFanOutNilPlanner    = errors.New("orchestrate: fanout requires non-nil planner")
+	ErrFanOutNilAggregator = errors.New("orchestrate: fanout requires non-nil aggregator")
+	ErrFanOutNoWorkers     = errors.New("orchestrate: fanout requires at least one worker")
+	ErrFanOutNoTasks       = errors.New("orchestrate: fanout planner returned no tasks")
+	ErrFanOutUnknownWorker = errors.New("orchestrate: fanout task references unknown worker")
+	ErrFanOutNilWorker     = errors.New("orchestrate: fanout worker is nil")
+)
+var ErrEmptyPipeline = errors.New("orchestrate: pipeline has no steps")
+    ErrEmptyPipeline is returned by Run when no Steps were registered.
+
+var ErrGraphMaxSteps = errors.New("orchestrate: graph max steps exceeded")
+    ErrGraphMaxSteps is returned when Run exceeds MaxSteps (default 100).
+
+var ErrNilAgent = errors.New("orchestrate: roleplay requires non-nil user and assistant agents")
+    ErrNilAgent is returned by Run when user or assistant is nil.
+
+var ErrNoAgents = errors.New("orchestrate: roundrobin chat has no agents")
+    ErrNoAgents is returned by Run when the agents slice is empty.
+
+
+TYPES
+
+type AggregateInputBuilder func(originalInput string, plan agents.Result, results []TaskResult) string
+    AggregateInputBuilder formats the fan-out execution into the aggregator's
+    input prompt. Nil uses a deterministic default formatter.
+
+type ChatResult struct {
+	History []Message
+	Usage   agents.Usage
+	Stopped string // "termination" | "max_turns" | "ctx_cancel"
+}
+    ChatResult carries the full conversation history + accumulated usage.
+    Stopped distinguishes natural termination from cap / cancel.
+
+type CompiledGraph[S any] struct {
+	// Has unexported fields.
+}
+    CompiledGraph is the Run-ready, immutable result of Compile.
+
+func (c *CompiledGraph[S]) Run(ctx context.Context, initial S, opts ...RunOption) (S, error)
+    Run executes the graph starting at entry. Each iteration: run current node
+    → consult conditional edge (if any) else unconditional edge → if next ==
+    NodeEnd, return state. ErrGraphMaxSteps fires if the loop runs longer than
+    MaxSteps (default 100).
+
+type ConditionFunc[S any] func(state S) string
+    ConditionFunc is the body of a conditional edge. Returns the NAME of the
+    next node (must be either NodeEnd or a registered node name).
+
+type FanOutFanIn struct {
+	// Has unexported fields.
+}
+    FanOutFanIn runs a planner -> parallel workers -> aggregator workflow.
+
+    Use this when an input naturally decomposes into mostly independent
+    sub-tasks that can be executed concurrently and then summarized.
+
+func NewFanOutFanIn(name string, opts FanOutFanInOptions) *FanOutFanIn
+    NewFanOutFanIn constructs a FanOutFanIn orchestrator.
+
+func (f *FanOutFanIn) Name() string
+    Name returns the orchestrator name used in errors/logs.
+
+func (f *FanOutFanIn) Run(ctx context.Context, input string) (FanOutFanInResult, error)
+    Run executes planner -> workers -> aggregator.
+
+type FanOutFanInOptions struct {
+	Planner        agents.Agent
+	Workers        map[string]agents.Agent
+	Aggregator     agents.Agent
+	ParsePlan      PlanParser
+	BuildAggregate AggregateInputBuilder
+	MaxConcurrency int // default = len(tasks)
+}
+    FanOutFanInOptions configures planner/worker/aggregator orchestration.
+
+type FanOutFanInResult struct {
+	Plan             agents.Result
+	Tasks            []PlannedTask
+	WorkerResults    []TaskResult
+	AggregatorResult agents.Result
+	FinalAnswer      string
+	TotalUsage       agents.Usage
+}
+    FanOutFanInResult carries the full plan, each worker result in task order,
+    and the final aggregated answer.
+
+type Message struct {
+	Speaker string
+	Content string
+}
+    Message is one turn in a multi-Agent conversation. Used by RoundRobinChat,
+    RolePlay, and any Termination implementation that inspects history.
+
+type NodeFunc[S any] func(ctx context.Context, state S) (S, error)
+    NodeFunc is a single graph node. Receives current state, returns updated
+    state. State is generic so callers get type safety on their domain shape (no
+    map[string]any sprawl).
+
+type Pipeline struct {
+	// Has unexported fields.
+}
+    Pipeline runs Steps in order, threading each Step's Result into the next
+    Step's input. Linear A→B→C orchestration with no branching.
+
+    Mirrors AgentScope's sequential pipeline (Python). Phase 8's Coordinator can
+    use Pipeline for the plan→report ends; the parallel summarize×N middle keeps
+    using agents.AsyncRunner.
+
+func NewPipeline(name string, steps ...Step) *Pipeline
+    NewPipeline constructs a Pipeline. Steps run in the order passed. Empty
+    steps slice is allowed but Run will return an error on call.
+
+func (p *Pipeline) Name() string
+    Name returns the pipeline name (used in logs / Trace identifiers).
+
+func (p *Pipeline) Run(ctx context.Context, input string) (PipelineResult, error)
+    Run executes all Steps sequentially. Returns ErrEmptyPipeline if no steps
+    were provided. Step errors abort with the partial result captured for
+    inspection.
+
+type PipelineResult struct {
+	FinalAnswer string
+	StepResults []StepResult
+	TotalUsage  agents.Usage
+}
+    PipelineResult carries every step's full Result (for trace inspection) plus
+    the final answer + accumulated Usage.
+
+type PlanParser func(plan agents.Result) ([]PlannedTask, error)
+    PlanParser converts the planner agent's result into concrete tasks. Nil uses
+    the default newline parser: one non-empty line = one task.
+
+type PlannedTask struct {
+	Name   string
+	Input  string
+	Worker string // optional when exactly one worker is registered
+}
+    PlannedTask is one unit of work emitted by the planner and executed by a
+    worker agent.
+
+type RolePlay struct {
+	// Has unexported fields.
+}
+    RolePlay runs a CAMEL-style 2-agent dialog: the user agent issues
+    instructions, the assistant agent executes. They alternate until the
+    assistant emits DoneMarker or MaxTurns is hit.
+
+    This is NOT N-agent (use RoundRobinChat for that). RolePlay's value is the
+    structured user→assistant→user pattern with explicit "done" signaling,
+    useful for task-decomposition-style work.
+
+func NewRolePlay(user, assistant agents.Agent, taskPrompt string, opts RolePlayOptions) *RolePlay
+    NewRolePlay constructs a RolePlay duo. Both agents are required.
+
+func (r *RolePlay) Run(ctx context.Context) (RolePlayResult, error)
+    Run executes the role-play loop. Returns ErrNilAgent if either agent is nil.
+    ctx-cancel exits gracefully (Concluded=false).
+
+type RolePlayOptions struct {
+	DoneMarker string // default "<TASK_DONE>"
+	MaxTurns   int    // default 30
+	InitPrompt string // optional override for the first user prompt; default is CAMEL Inception Prompting
+}
+    RolePlayOptions configures a RolePlay duo. DoneMarker is the sentinel the
+    assistant emits to signal task completion (CAMEL convention: "<TASK_DONE>").
+    MaxTurns is the hard cap on user/assistant exchanges.
+
+type RolePlayResult struct {
+	Turns       []RolePlayTurn
+	Concluded   bool
+	FinalOutput string
+	Usage       agents.Usage
+}
+    RolePlayResult carries the full dialog + Concluded flag (true when
+    DoneMarker hit) + FinalOutput (the assistant's last message).
+
+type RolePlayTurn struct {
+	UserMsg      string
+	AssistantMsg string
+}
+    RolePlayTurn pairs one user message with the assistant's reply.
+
+type RoundRobinChat struct {
+	// Has unexported fields.
+}
+    RoundRobinChat runs N agents who take turns speaking. Each turn: the current
+    speaker reads the prior history + a task header and produces a Message.
+    Loop continues until Termination signals stop or MaxTurns is hit.
+
+    Mirrors AutoGen's RoundRobinGroupChat (Python). Useful for "two agents
+    critique each other" or "writer + editor + fact-checker" emergent patterns.
+
+func NewRoundRobinChat(name string, ag []agents.Agent, opts RoundRobinOptions) *RoundRobinChat
+    NewRoundRobinChat constructs a RoundRobinChat. Empty agents slice is allowed
+    but Run returns ErrNoAgents.
+
+func (r *RoundRobinChat) Name() string
+    Name returns the chat name (for logs).
+
+func (r *RoundRobinChat) Run(ctx context.Context, task string) (ChatResult, error)
+    Run executes the round-robin loop. task is the initial prompt. Returns
+    ErrNoAgents if zero agents were registered.
+
+type RoundRobinOptions struct {
+	Termination Termination // optional; default = MaxTurns(MaxTurns) only
+	MaxTurns    int         // hard cap; default 20
+}
+    RoundRobinOptions configures a RoundRobinChat. Termination is the preferred
+    stop signal; MaxTurns is a hard cap to prevent runaway loops if Termination
+    is forgotten.
+
+type RunOption func(*runOptions)
+    RunOption tunes per-Run behavior.
+
+func WithMaxSteps(n int) RunOption
+    WithMaxSteps overrides the default 100-step cap. Use a higher value for
+    graphs with intentional loops; lower for guard-rails.
+
+type StateGraph[S any] struct {
+	// Has unexported fields.
+}
+    StateGraph is a typed graph builder. Compile validates edges + entry,
+    then returns a CompiledGraph that you Run.
+
+    Mirrors LangGraph's StateGraph (Python). Use when you need explicit control
+    flow + observable state transitions, not just A→B→C.
+
+func NewStateGraph[S any]() *StateGraph[S]
+    NewStateGraph constructs an empty StateGraph.
+
+func (g *StateGraph[S]) AddConditionalEdge(from string, fn ConditionFunc[S]) *StateGraph[S]
+    AddConditionalEdge declares a conditional transition: when execution reaches
+    `from`, the ConditionFunc decides which named node is next. Conditional
+    edges take precedence over unconditional edges from the same source (so you
+    can register both — the conditional wins).
+
+func (g *StateGraph[S]) AddEdge(from, to string) *StateGraph[S]
+    AddEdge declares an unconditional transition from→to. The "to" can be
+    NodeEnd to terminate the graph. A NodeStart→X edge is shorthand for
+    SetEntry(X); last write wins if both forms are used.
+
+func (g *StateGraph[S]) AddNode(name string, fn NodeFunc[S]) *StateGraph[S]
+    AddNode registers a node by name. Builder-pattern (returns g) so calls
+    chain. Panics if name is reserved (NodeStart / NodeEnd).
+
+func (g *StateGraph[S]) Compile() (*CompiledGraph[S], error)
+    Compile validates the graph and returns an immutable CompiledGraph.
+    Validation: entry must exist, all edge targets must be registered nodes (or
+    NodeEnd), condEdges' returned names are NOT pre-validated (they're checked
+    at Run time per state). Entry may be declared either with SetEntry(name) or
+    AddEdge(NodeStart, name).
+
+func (g *StateGraph[S]) SetEntry(name string) *StateGraph[S]
+    SetEntry marks which node Run starts at. Overwrites any prior entry,
+    including one declared via AddEdge(NodeStart, "...").
+
+type Step struct {
+	Name  string
+	Agent agents.Agent
+	Adapt func(prev agents.Result) string
+}
+    Step is one stage of a Pipeline. Adapt is optional — when nil, the next
+    step's input is the previous step's Result.Answer.
+
+type StepResult struct {
+	Step   string
+	Result agents.Result
+}
+    StepResult pairs a Step's Name with its agents.Result (full Trace preserved
+    so callers can drill into intermediate behavior).
+
+type TaskResult struct {
+	Task   PlannedTask
+	Result agents.Result
+}
+    TaskResult pairs a planned task with the worker result that completed it.
+
+type Termination interface {
+	ShouldStop(history []Message) bool
+}
+    Termination decides when a multi-Agent loop should stop. Implementations
+    receive the full history-so-far and return true to stop.
+
+func And(ts ...Termination) Termination
+    And combines terminations: stops only when ALL of them want to stop.
+    Empty And never stops.
+
+func MaxTurns(n int) Termination
+    MaxTurns stops after the history reaches n messages.
+
+func Or(ts ...Termination) Termination
+    Or combines terminations: stops when ANY of them wants to stop. Empty Or
+    never stops.
+
+func TextMatch(marker string) Termination
+    TextMatch stops when any message's content contains the marker
+    (case-insensitive). Useful for "<TASK_DONE>" sentinels.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/pkg/fanout
+===================================================================
+package fanout // import "github.com/costa92/llm-agent/pkg/fanout"
+
+Package fanout is a stateless generic primitive for "N tasks -> N results with
+bounded concurrency" — the most common shape of ad-hoc fan-out scattered across
+this codebase before consolidation.
+
+# When to use
+
+Use Run when you have a finite slice of independent units of work, want bounded
+concurrency, and need each unit's outcome (value or error) back in input order.
+Examples: parallel tool calls, parallel LLM invocations, parallel scoring of
+evaluation items.
+
+# When NOT to use
+
+  - Long-lived background submission pool (use a goroutine pool like
+    panjf2000/ants instead).
+  - Streaming jobs of unknown size.
+  - When you only need ctx-bound concurrency and don't care about per-task
+    results — golang.org/x/sync/errgroup.Group with SetLimit is simpler.
+
+# Compared to errgroup
+
+  - fanout always returns one Result per input Task, even on cancel/panic.
+    errgroup loses individual errors after the first one.
+  - fanout's top-level error is only ctx.Err(); per-task errors live in
+    Result.Err. errgroup conflates the two.
+  - fanout recovers panics into *ErrTaskPanic. errgroup propagates them up the
+    goroutine stack and crashes the process.
+  - fanout has WithFailFast() opt-in; errgroup is fail-fast by default.
+
+# Invariants
+
+  - len(results) == len(tasks), always (even when ctx is already cancelled).
+  - results[i].Index == i (no sort needed by callers).
+  - Run never panics due to a Task's panic.
+  - Top-level error is ctx.Err() or nil — never a Task's error.
+
+# Concurrency primitive
+
+Pure stdlib: sync.WaitGroup + chan struct{} semaphore. No external deps.
+
+pkg/fanout/fanout.go
+
+TYPES
+
+type ErrTaskPanic struct {
+	Recovered any
+	Stack     []byte
+}
+    ErrTaskPanic wraps a panic recovered from a Task.
+
+    Stack captures the goroutine stack at the moment of recovery for
+    diagnostics. Error() deliberately omits the stack to keep log output
+    bounded; callers that need the stack must read the Stack field directly.
+
+func (e *ErrTaskPanic) Error() string
+
+type Option func(*config)
+    Option modifies Run's behavior.
+
+func WithFailFast() Option
+    WithFailFast: when any Task returns a non-nil error or panics, the internal
+    derived ctx is cancelled, prompting siblings blocked on ctx-aware operations
+    to exit cooperatively. Already-running Tasks are NOT force-killed; they see
+    runCtx.Done() and must check it themselves.
+
+    Errors are still written to the corresponding Result.Err — fail-fast only
+    propagates the cancel signal. Run's top-level error remains nil unless the
+    outer ctx is cancelled.
+
+type Result[T any] struct {
+	Index int
+	Value T
+	Err   error
+}
+    Result carries one Task's outcome. Value is meaningful only when Err == nil.
+
+func Run[T any](ctx context.Context, maxConcurrency int, tasks []Task[T], opts ...Option) ([]Result[T], error)
+    Run executes tasks with at most maxConcurrency in parallel.
+
+      - maxConcurrency <= 0 means unlimited (one goroutine per task,
+        no semaphore).
+      - Default collect-all: a single Task's failure / panic does not abort
+        siblings; each Task's err lands in its Result.Err.
+      - The top-level error is non-nil only when the outer ctx was cancelled
+        during Run (== ctx.Err()).
+      - tasks == nil or empty returns (nil, nil) without spawning goroutines.
+      - len(results) == len(tasks); results[i].Index == i (sorted by input
+        index).
+
+    Panic handling: a Task's panic is recovered and turned into *ErrTaskPanic
+    (placed in Result.Err). Run itself never panics due to a Task panic.
+
+type Task[T any] func(ctx context.Context) (T, error)
+    Task is the unit Run schedules.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/rag
+===================================================================
+package rag // import "github.com/costa92/llm-agent/rag"
+
+Package rag implements Retrieval-Augmented Generation primitives:
+
+  - Embedder — text→vector seam (HashEmbedder fallback ships zero-deps)
+  - Chunker — text→chunks seam (CharChunker prefers paragraph breaks)
+  - VectorStore — vector index seam (InMemoryStore ships, swap in pgvector etc.)
+  - RAGSystem — façade: AddText (chunk+embed+upsert) / Search / Ask
+  - Advanced retrieval (default off): MQE (multi-query expansion) + HyDE
+  - AsTool — wrap a RAGSystem as agents.Tool
+
+# Choosing implementations
+
+  - HashEmbedder is deterministic + free but semantically poor (no synonym
+    awareness). Sufficient for unit tests + learning demos. Swap in a real
+    Embedder (Ollama, OpenAI, vLLM) for production.
+  - InMemoryStore is O(N) per Search — fine up to a few thousand chunks.
+    Beyond that, drop in a backend that does ANN.
+
+# Portability
+
+rag inherits the agents/pkg/llm portability contract — no internal/*, no project
+pkg/*, no business vocabulary.
+
+VARIABLES
+
+var ErrDimMismatch = errors.New("rag: vector dimension mismatch")
+    ErrDimMismatch is returned by Upsert/Search when the vector dimension
+    differs from the store's configured Dim.
+
+var ErrEmptyQuery = errors.New("rag: query is required")
+    ErrEmptyQuery is returned by Search when query is whitespace-only.
+
+var ErrLLMRequired = errors.New("rag: llm.Client required for this operation")
+    ErrLLMRequired is returned by Ask / MQE / HyDE paths when no LLM client was
+    configured.
+
+var ErrStoreNotFound = errors.New("rag: document not found")
+    ErrStoreNotFound is returned by Get / Remove when id is absent.
+
+
+FUNCTIONS
+
+func AsTool(r *RAGSystem) agents.Tool
+    AsTool wraps a RAGSystem as an agents.Tool with 5 actions: add_text / search
+    / ask / remove / stats.
+
+    Output is JSON-encoded; shape varies per action.
+
+func CosineSimilarity(a, b []float32) float64
+    CosineSimilarity returns the cosine similarity of two equal-length
+    L2-normalized vectors. For non-normalized vectors it still returns the dot
+    product divided by the magnitude product (clamped [0, 1]).
+
+
+TYPES
+
+type CharChunker struct {
+	Overlap int // chars carried into the next chunk; default 0
+}
+    CharChunker is a character-budget chunker that prefers paragraph breaks
+    (\n\n) when one exists within the soft max. Optional Overlap (chars) carries
+    trailing context into the next chunk for retrieval continuity.
+
+    Soft max: if no paragraph break is found inside [maxChars, maxChars*1.2],
+    the chunker still cuts at maxChars to keep memory bounded.
+
+func (c CharChunker) Chunk(text string, maxChars int) []string
+    Chunk implements Chunker.
+
+type Chunker interface {
+	Chunk(text string, maxChars int) []string
+}
+    Chunker breaks long text into a slice of chunks for indexing.
+    Implementations may be character/sentence/structure aware. maxChars is a
+    soft upper bound on each chunk size.
+
+type Document struct {
+	ID       string
+	Content  string
+	Vector   []float32
+	Metadata map[string]any
+}
+    Document is the unit of vector storage. Vector is filled by the caller
+    (RAGSystem) before Upsert.
+
+type Embedder interface {
+	Embed(ctx context.Context, text string) ([]float32, error)
+	Dimension() int
+}
+    Embedder converts text into a fixed-dimension vector for similarity search.
+    Implementations may call out to a model (Ollama / OpenAI / DashScope) — the
+    interface stays portable.
+
+type HashEmbedder struct {
+	Dim int
+}
+    HashEmbedder is the zero-dependency fallback: tokenize, hash each token
+    via FNV-64 modulo Dim into a bucket, accumulate counts, then L2-normalize.
+    Deterministic + free; semantic quality is poor (no synonym awareness) but
+    it's sufficient for learning + tests.
+
+    Default Dim is 32. Set Dim explicitly via NewHashEmbedder(N) for larger
+    vectors. Larger Dim → fewer collisions but no semantic gain.
+
+func NewHashEmbedder(dim int) *HashEmbedder
+    NewHashEmbedder constructs a HashEmbedder. dim ≤ 0 → defaults to 32.
+
+func (h *HashEmbedder) Dimension() int
+    Dimension implements Embedder.
+
+func (h *HashEmbedder) Embed(_ context.Context, text string) ([]float32, error)
+    Embed implements Embedder. ctx is accepted for interface compliance but
+    unused (Hash embedding is local + fast).
+
+type InMemoryStore struct {
+	// Has unexported fields.
+}
+    InMemoryStore is a slice-backed brute-force store. O(N) per Search — fine
+    for ≤ a few thousand chunks. Goroutine-safe via RWMutex.
+
+func NewInMemoryStore(dim int) *InMemoryStore
+    NewInMemoryStore constructs an InMemoryStore for vectors of dimension dim.
+
+func (s *InMemoryStore) Get(_ context.Context, id string) (Document, error)
+    Get returns one document by ID. ErrStoreNotFound when absent.
+
+func (s *InMemoryStore) Remove(_ context.Context, id string) error
+    Remove deletes one document. ErrStoreNotFound when absent.
+
+func (s *InMemoryStore) Search(_ context.Context, query []float32, topK int) ([]SearchHit, error)
+    Search returns the topK most similar documents to query by cosine.
+
+func (s *InMemoryStore) Stats() StoreStats
+    Stats implements VectorStore.
+
+func (s *InMemoryStore) Upsert(_ context.Context, doc Document) error
+    Upsert inserts or replaces the doc by ID. Returns ErrDimMismatch if the
+    vector length doesn't match the configured dim.
+
+type Options struct {
+	Chunker       Chunker
+	Embedder      Embedder
+	Store         VectorStore
+	LLM           llm.Client
+	MaxChunkChars int
+}
+    Options configures a RAGSystem. All zero-values get safe defaults.
+
+type RAGSystem struct {
+	// Has unexported fields.
+}
+    RAGSystem is the orchestration façade: chunk → embed → upsert on AddText;
+    embed query → store.Search on Search; Search → render prompt → llm.Generate
+    on Ask.
+
+func New(opts Options) *RAGSystem
+    New constructs a RAGSystem with sensible defaults.
+
+func (r *RAGSystem) AddText(ctx context.Context, text string, meta map[string]any) ([]string, error)
+    AddText chunks text → embeds each chunk → upserts. Returns the new chunk IDs
+    in chunk order.
+
+func (r *RAGSystem) Ask(ctx context.Context, question string, opts SearchOptions) (string, error)
+    Ask runs Search and stuffs the hits into a context-aware prompt for the
+    configured LLM. ErrLLMRequired if no LLM was wired.
+
+func (r *RAGSystem) Remove(ctx context.Context, id string) error
+    Remove deletes one chunk by ID.
+
+func (r *RAGSystem) Search(ctx context.Context, query string, topK int, opts SearchOptions) ([]SearchHit, error)
+    Search runs the configured retrieval pipeline. With both MQE and HyDE off,
+    it's a single embed + store.Search. With either on, queries are
+    expanded/rewritten via LLM (requires r.llm) and results are merged +
+    de-duped + re-ranked.
+
+func (r *RAGSystem) Stats() StoreStats
+    Stats returns the underlying store stats.
+
+type SearchHit struct {
+	Doc   Document
+	Score float64
+}
+    SearchHit is one ranked result from a VectorStore.Search call. Score is
+    cosine similarity in [0, 1].
+
+type SearchOptions struct {
+	EnableMQE               bool // multi-query expansion via LLM
+	EnableHyDE              bool // hypothetical document embedding via LLM
+	MQECount                int  // # rewrites; default 3
+	CandidatePoolMultiplier int  // initial pool size = topK * multiplier; default 4
+}
+    SearchOptions tunes per-call retrieval.
+
+type StoreStats struct {
+	Count int
+	Dim   int
+}
+    StoreStats summarizes a store's contents.
+
+type VectorStore interface {
+	Upsert(ctx context.Context, doc Document) error
+	Search(ctx context.Context, query []float32, topK int) ([]SearchHit, error)
+	Get(ctx context.Context, id string) (Document, error)
+	Remove(ctx context.Context, id string) error
+	Stats() StoreStats
+}
+    VectorStore is the abstract vector index. InMemoryStore is the shipped
+    fallback; production usage swaps in pgvector / Qdrant / Milvus backends
+    behind the same interface.
+
+
+===================================================================
+PACKAGE: github.com/costa92/llm-agent/rl
+===================================================================
+package rl // import "github.com/costa92/llm-agent/rl"
+
+Package rl implements the EVALUATION layer of Agentic Reinforcement Learning.
+Training (SFT / GRPO / PPO / LoRA / gradient backprop) requires Python's
+TRL/transformers/torch stack and is INTENTIONALLY out of scope. Use TrainerProxy
+to bridge to a real Python backend.
+
+What this package gives you:
+
+  - Dataset / Sample loaders (JSONL + GSM8K parser)
+  - Trajectory / Episode types
+  - Reward interface + 4 built-ins (Accuracy, LengthPenalty, StepBonus,
+    Composite)
+  - Evaluator with bounded concurrency + ctx timeout + Pass@K sampling
+  - Pure metric functions: ComputeAccuracy / ComputePassAtK /
+    ComputeFormatCorrectness / ComputeNumericError
+  - TrainerProxy interface + UnsupportedTrainer no-op
+
+# Portability
+
+rl inherits the agents/pkg/llm portability contract — no internal/*, no project
+pkg/*, no business vocabulary.
+
+Package rl is the EVALUATION layer of Agentic Reinforcement Learning.
+
+What this package gives you:
+
+  - Dataset / Sample loaders (JSONL + GSM8K)
+  - Trajectory / Episode types reusing pkg/llm/agents.Step
+  - Reward interface + 4 built-ins (Accuracy / LengthPenalty / StepBonus /
+    Composite)
+  - Evaluator with bounded concurrency + Pass@K + per-sample timeout
+  - Pure metric functions: ComputeAccuracy / ComputePassAtK /
+    ComputeFormatCorrectness / ComputeNumericError
+  - TrainerProxy interface (default: UnsupportedTrainer fails fast)
+
+What this package DOES NOT do (and intentionally never will in Go):
+
+  - SFT / GRPO / PPO / LoRA / any gradient-based training. Training requires
+    Python TRL+transformers+torch. Go bridges to Python via a TrainerProxy
+    implementation (out of scope).
+
+# Recommended workflow
+
+Train in Python (TRL → produces a HF checkpoint), serve via vllm/TGI/sglang
+as OpenAI-compatible. Then point pkg/llm at the served endpoint and use this
+package's Evaluator to benchmark.
+
+# Portability
+
+rl inherits the agents/pkg/llm portability contract — no internal/*, no project
+pkg/*, no business vocabulary.
+
+VARIABLES
+
+var ErrTrainingNotSupported = errors.New("rl: training requires external Python backend (TRL); use a TrainerProxy bridge")
+    ErrTrainingNotSupported is returned by UnsupportedTrainer's Train and
+    LoadModel. Callers should detect this with errors.Is and either skip
+    training or instantiate a real backend.
+
+
+FUNCTIONS
+
+func ComputeAccuracy(trajs []Trajectory, samples []Sample) float64
+    ComputeAccuracy: fraction of trajectories whose extracted answer matches
+    GroundTruth (using the same normalization as AccuracyReward).
+
+func ComputeFormatCorrectness(trajs []Trajectory, validator func(string) bool) float64
+    ComputeFormatCorrectness: fraction of trajectories whose answer passes the
+    supplied validator.
+
+func ComputeNumericError(trajs []Trajectory, samples []Sample) (mean, p50, p95 float64)
+    ComputeNumericError returns mean / p50 / p95 of |predicted - ground_truth|
+    for trajectories whose answers parse as floats. Trajectories with
+    non-numeric answers are skipped (not penalized).
+
+func ComputePassAtK(trajsByID map[string][]Trajectory, samples []Sample, k int) float64
+    ComputePassAtK: per Sample, true if any of K trajectories matches.
+    trajsByID is grouping of K runs per sample. K is the requested K (used only
+    to validate input — actual K = len of group).
+
+
+TYPES
+
+type Dataset interface {
+	Iter(ctx context.Context) iter.Seq[Sample]
+	Len() int
+	Name() string
+}
+    Dataset is a stream of Samples. Iter returns a Go 1.23+ iter.Seq so callers
+    can lazy-iterate large files without loading them all.
+
+type Episode struct {
+	SampleID     string
+	Trajectories []Trajectory
+	AggReward    float64
+}
+    Episode is K trajectories from a single Sample (Pass@K sampling).
+    AggReward is whatever aggregation the caller wants — Evaluator fills it via
+    mean(rewards).
+
+type Evaluator struct {
+	// Has unexported fields.
+}
+    Evaluator orchestrates Agent×Sample evaluation. One Evaluator per (agent,
+    reward, opts) trio — reuse Run for multiple datasets.
+
+func NewEvaluator(agent agents.Agent, reward Reward, opts EvaluatorOptions) *Evaluator
+    NewEvaluator constructs an Evaluator. Agent + Reward must be non-nil.
+
+func (e *Evaluator) Run(ctx context.Context, ds Dataset) (Metrics, []Trajectory, error)
+    Run iterates the dataset, runs the agent K times per sample (bounded by
+    Concurrency), scores each trajectory, and returns aggregated Metrics
+    + the full trajectory list (in arbitrary order — sort by SampleID for
+    deterministic display).
+
+type EvaluatorOptions struct {
+	Concurrency int           // parallel sample workers; default 1
+	K           int           // Pass@K sampling; default 1
+	Timeout     time.Duration // per-sample timeout; default 60s
+}
+    EvaluatorOptions configures Evaluator.Run.
+
+type JSONLDataset struct {
+	// Has unexported fields.
+}
+    JSONLDataset loads samples line-by-line from a .jsonl file. Each line is fed
+    to a per-dataset LineParser.
+
+func NewJSONLDataset(name, path string, parser LineParser) (*JSONLDataset, error)
+    NewJSONLDataset opens path and validates it exists. Sample parsing is
+    deferred to Iter (so missing/corrupt lines surface during eval, not at
+    construction).
+
+func (d *JSONLDataset) Iter(ctx context.Context) iter.Seq[Sample]
+    Iter implements Dataset. ctx-cancellable. Lines that fail to parse are
+    silently dropped — pre-flight your dataset if you need strict validation.
+
+func (d *JSONLDataset) Len() int
+    Len implements Dataset. Counts non-blank lines on first call (cached
+    thereafter). Returns -1 if the file becomes unreadable mid-stream.
+
+func (d *JSONLDataset) Name() string
+    Name implements Dataset.
+
+type LineParser func(line []byte) (Sample, error)
+    LineParser converts one JSONL line into a Sample.
+
+type Metrics struct {
+	SampleCount       int
+	Accuracy          float64 // [0,1]
+	PassAtK           float64 // ≥ Accuracy when K > 1
+	AverageLength     float64 // chars
+	AverageSteps      float64
+	FormatCorrectness float64 // [0,1] fraction passing validator
+	AverageReward     float64
+}
+    Metrics is the summary scoresheet produced by Evaluator.Run.
+
+type Reward interface {
+	Score(ctx context.Context, traj Trajectory, sample Sample) (float64, error)
+	Name() string
+}
+    Reward scores a Trajectory against its Sample. Stateless (the scoring
+    doesn't update gradients — that's training, out of scope).
+
+func NewAccuracyReward() Reward
+    NewAccuracyReward returns a Reward that gives 1.0 when the extracted numeric
+    answer in traj.Answer matches sample.GroundTruth, else 0.0. Match strips
+    commas, whitespace, and trailing periods.
+
+func NewComposite(rewards ...Reward) Reward
+    NewComposite sums multiple Rewards. First-error short-circuits.
+
+func NewLengthPenalty(maxLen int, weight float64) Reward
+    NewLengthPenalty returns a Reward that subtracts weight × max(0,
+    len(answer)-maxLen). Discourages verbose answers.
+
+func NewStepBonus(bonus float64) Reward
+    NewStepBonus returns a Reward that adds bonus × #thought-steps. Encourages
+    multi-step reasoning chains.
+
+type Sample struct {
+	ID          string
+	Prompt      string
+	GroundTruth string
+	Metadata    map[string]any
+}
+    Sample is a single eval input. GroundTruth carries the expected answer
+    (extracted by the dataset's parser); Metadata is opaque.
+
+func ParseGSM8K(line []byte) (Sample, error)
+    ParseGSM8K parses the official GSM8K JSONL format:
+
+        {"question": "...", "answer": "Reasoning... #### 42"}
+
+    GroundTruth is the literal numeric string after "#### ". Trailing whitespace
+    / commas removed.
+
+type TrainConfig struct {
+	Algorithm   string  // "sft" | "grpo" | "ppo" — backend-defined
+	BaseModel   string  // HF model ID or local path
+	Dataset     Dataset // streamed by the backend
+	Reward      Reward  // GRPO/PPO reward; ignored by SFT
+	OutputDir   string
+	Hyperparams map[string]any
+}
+    TrainConfig captures everything needed by a backend to train. Hyperparams
+    stays open-ended to avoid Go-side enumeration of every algorithm-specific
+    knob.
+
+type TrainResult struct {
+	OutputDir string
+	FinalLoss float64
+	Metrics   Metrics
+}
+    TrainResult is the post-training summary.
+
+type TrainerProxy interface {
+	Train(ctx context.Context, cfg TrainConfig) (TrainResult, error)
+	LoadModel(path string) (llm.Client, error)
+}
+    TrainerProxy is the interface a Python-bridged trainer would implement. The
+    default implementation (UnsupportedTrainer) returns ErrTrainingNotSupported
+    on every call.
+
+    To wire a real trainer:
+     1. Stand up a Python TRL service (sft/grpo).
+     2. Write a bridge type satisfying TrainerProxy that calls into it (HTTP,
+        gRPC, subprocess).
+     3. Construct via your bridge instead of UnsupportedTrainer.
+
+type Trajectory struct {
+	SampleID string
+	Prompt   string
+	Steps    []agents.Step
+	Answer   string
+	Reward   float64
+	Latency  float64 // seconds (set by Evaluator)
+	Err      error   // non-nil if the agent or reward failed
+}
+    Trajectory captures one Agent's run on one Sample: the prompt, the
+    step-by-step trace, the final answer, and the reward assigned.
+
+type UnsupportedTrainer struct{}
+    UnsupportedTrainer is the default no-op implementation of TrainerProxy.
+
+func NewUnsupportedTrainer() *UnsupportedTrainer
+    NewUnsupportedTrainer returns the no-op trainer.
+
+func (UnsupportedTrainer) LoadModel(_ string) (llm.Client, error)
+    LoadModel always returns ErrTrainingNotSupported.
+
+func (UnsupportedTrainer) Train(_ context.Context, _ TrainConfig) (TrainResult, error)
+    Train always returns ErrTrainingNotSupported.
+
+
