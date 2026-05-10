@@ -9,12 +9,13 @@ See: .planning/PROJECT.md (updated 2026-05-10)
 
 ## Current Position
 
-Phase: 0 of 7 (Multi-repo infra + `llm/v2` keystone interfaces)
-Plan: 0 of 6 in current phase
-Status: Plans verified — ready to execute
-Last activity: 2026-05-10 — Phase 0 plans created and verified. 6 plans across 3 waves: 00-01a/00-01b (`llm/` reboot interfaces + mocks/tests/docs, Wave 1), 00-03 (3 sister GitHub repos, Wave 1), 00-02/00-04 (migration docs + workspace.sh + GOWORK=off, Wave 2), 00-05 (umbrella CI + release-precheck + api-snapshot baseline, Wave 3). Plan-checker iter 2: PASSED (4 BLOCKERs + 5 WARNINGs from iter 1 all resolved). 16/16 REQ-IDs covered. D-01..D-04 honored.
+Phase: 1 of 7 (Three-provider walking skeleton — Generate sync only) — STARTING
+Previous phase: 0 — Multi-repo infra + `llm/v2` keystone interfaces — ✓ COMPLETE 2026-05-10
+Plan: 0 of TBD in Phase 1
+Status: Phase 0 complete & verified — Phase 1 ready to plan
+Last activity: 2026-05-10 — Phase 0 executed and verified PASS. K1/K2/K3/K6 keystones locked in code. 16/16 requirements verified. Build/test green. 6 plans complete (00-01a, 00-01b, 00-02, 00-03, 00-04, 00-05). Sister repos (llm-agent-providers, -otel, -customer-support) created and pushed.
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█▒░░░░░░░░] 13% (1 of 8 phases complete)
 
 ## Performance Metrics
 
@@ -53,6 +54,9 @@ Recent decisions affecting current work:
 [From .planning/todos/pending/ — ideas captured during sessions]
 
 - **PROJECT.md cleanup**: move "Optional Kubernetes manifests / Helm chart variant" from `### Active` to `### Out of Scope` at next `/gsd-transition` (per Conflict D resolution).
+- **Out-of-band Phase 0 close**: `git tag v0.3.0-pre.1 && git push --tags` — flips sister-repo CI from RED to GREEN.
+- **Manual GitHub UI**: enable branch protection on `main` for the 3 sister repos (Settings → Branches → require status checks).
+- **Live smoke-test deferred**: push workflow files + open a PR + verify umbrella + release-precheck fire correctly. Bash logic verified by inspection; live verification accepted as deferred.
 
 ### Blockers/Concerns
 
@@ -69,5 +73,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-10
-Stopped at: Phase 0 planned + verified (iter 2 PASSED). Ready for `/gsd-execute-phase 0`.
-Resume file: .planning/phases/00-keystone-interfaces/ (6 plans + RESEARCH/VALIDATION/PATTERNS/CONTEXT)
+Stopped at: Phase 0 ✓ COMPLETE (verified PASS). Ready for `/gsd-discuss-phase 1` or `/gsd-plan-phase 1`.
+Resume file: .planning/phases/00-keystone-interfaces/00-VERIFICATION.md
