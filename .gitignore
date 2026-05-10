@@ -16,3 +16,7 @@ coverage.html
 .env
 .env.*
 !.env.example
+
+# Multi-repo workspace (Pitfall 13)
+go.work
+go.work.sum
