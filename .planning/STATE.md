@@ -9,18 +9,18 @@ See: .planning/PROJECT.md (updated 2026-05-10)
 
 ## Current Position
 
-Phase: 1 of 7 (Three-provider walking skeleton — Generate sync only) — STARTING
+Phase: 1 of 7 (Three-provider walking skeleton — Generate sync only) — IN PROGRESS
 Previous phase: 0 — Multi-repo infra + `llm/v2` keystone interfaces — ✓ COMPLETE 2026-05-10
-Plan: 0 of TBD in Phase 1
-Status: Phase 1 context captured — ready to plan
-Last activity: 2026-05-10 — Phase 1 CONTEXT.md captured. 4 decisions: D-01 P1 OpenAI Chat Completions only (Responses deferred); D-02 P1 functional options pattern across all 3 adapters; D-03 P1 per-adapter HTTP→typed-error mapping with PROVIDER_AUTHORING.md table; D-04 P1 testdata/*.json + httptest conformance fixtures with per-provider capture scripts. v0.3.0-pre.1 tag pushed — sister-repo CI now resolves.
+Plan: 1 of 7 in Phase 1
+Status: 01-01 implemented locally; summary written; release tag still pending
+Last activity: 2026-05-10 — Executed Phase 1 Plan 01 locally. Added llm.AuthError / RateLimitError / InvalidRequestError / TransientError plus regression tests and verification. `01-01-SUMMARY.md` written. `v0.3.0-pre.2` tag has not yet been created/pushed in this session.
 
 Progress: [█▒░░░░░░░░] 13% (1 of 8 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 0
+- Total plans completed: 1
 - Average duration: -
 - Total execution time: -
 
@@ -28,11 +28,11 @@ Progress: [█▒░░░░░░░░] 13% (1 of 8 phases complete)
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 1 | 1 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: -
-- Trend: -
+- Last 5 plans: 01-01 completed locally
+- Trend: establishing Phase 1 baseline
 
 *Updated after each plan completion*
 
@@ -60,7 +60,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-None yet. Phase 0 has no upstream dependencies.
+Current blocker for Wave 1 sister-repo work: `v0.3.0-pre.2` release tag is still pending, so cross-repo `go get github.com/costa92/llm-agent@v0.3.0-pre.2` cannot succeed until commit/tag/push is done.
 
 ## Deferred Items
 
@@ -73,5 +73,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-10
-Stopped at: Phase 1 CONTEXT.md captured. Ready for `/gsd-plan-phase 1`.
-Resume file: .planning/phases/01-walking-skeleton-generate/01-CONTEXT.md
+Stopped at: Phase 1 Plan 01 code complete locally; tag/push still pending before sister-repo adapter work.
+Resume file: .planning/phases/01-walking-skeleton-generate/01-01-SUMMARY.md
