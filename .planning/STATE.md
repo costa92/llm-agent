@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Phase 0 — Multi-repo infra + `llm/v2` keystone interfaces
+**Current focus:** Phase 1 — Three-provider walking skeleton (Generate sync only)
 
 ## Current Position
 
 Phase: 1 of 7 (Three-provider walking skeleton — Generate sync only) — STARTING
 Previous phase: 0 — Multi-repo infra + `llm/v2` keystone interfaces — ✓ COMPLETE 2026-05-10
 Plan: 0 of TBD in Phase 1
-Status: Phase 0 complete & verified — Phase 1 ready to plan
-Last activity: 2026-05-10 — Phase 0 executed and verified PASS. K1/K2/K3/K6 keystones locked in code. 16/16 requirements verified. Build/test green. 6 plans complete (00-01a, 00-01b, 00-02, 00-03, 00-04, 00-05). Sister repos (llm-agent-providers, -otel, -customer-support) created and pushed.
+Status: Phase 1 context captured — ready to plan
+Last activity: 2026-05-10 — Phase 1 CONTEXT.md captured. 4 decisions: D-01 P1 OpenAI Chat Completions only (Responses deferred); D-02 P1 functional options pattern across all 3 adapters; D-03 P1 per-adapter HTTP→typed-error mapping with PROVIDER_AUTHORING.md table; D-04 P1 testdata/*.json + httptest conformance fixtures with per-provider capture scripts. v0.3.0-pre.1 tag pushed — sister-repo CI now resolves.
 
 Progress: [█▒░░░░░░░░] 13% (1 of 8 phases complete)
 
@@ -54,7 +54,7 @@ Recent decisions affecting current work:
 [From .planning/todos/pending/ — ideas captured during sessions]
 
 - **PROJECT.md cleanup**: move "Optional Kubernetes manifests / Helm chart variant" from `### Active` to `### Out of Scope` at next `/gsd-transition` (per Conflict D resolution).
-- **Out-of-band Phase 0 close**: `git tag v0.3.0-pre.1 && git push --tags` — flips sister-repo CI from RED to GREEN.
+- ~~**Out-of-band Phase 0 close**: `git tag v0.3.0-pre.1 && git push --tags`~~ — ✓ done 2026-05-10.
 - **Manual GitHub UI**: enable branch protection on `main` for the 3 sister repos (Settings → Branches → require status checks).
 - **Live smoke-test deferred**: push workflow files + open a PR + verify umbrella + release-precheck fire correctly. Bash logic verified by inspection; live verification accepted as deferred.
 
@@ -73,5 +73,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-10
-Stopped at: Phase 0 ✓ COMPLETE (verified PASS). Ready for `/gsd-discuss-phase 1` or `/gsd-plan-phase 1`.
-Resume file: .planning/phases/00-keystone-interfaces/00-VERIFICATION.md
+Stopped at: Phase 1 CONTEXT.md captured. Ready for `/gsd-plan-phase 1`.
+Resume file: .planning/phases/01-walking-skeleton-generate/01-CONTEXT.md
