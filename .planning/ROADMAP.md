@@ -59,7 +59,16 @@ These are the cross-cut decisions from research/SUMMARY.md, settled here so phas
   5. `llm.Client` (v0.2 surface) carries a `// Deprecated:` godoc comment naming the target removal version (`v0.4.0`); `docs/migration-v0.2-to-v0.3.md` exists with a concrete diff example for at least the Simple paradigm.
   6. A `release-precheck` CI job rejects any pushed branch named `release/*` whose `go.mod` contains a non-empty `replace` block in any of the 4 repos.
 
-**Plans**: TBD — likely 4-5 plans (`llm/v2` interface package, mocks, multi-repo CI scaffolding incl. all 4 `go.mod`s, deprecation/migration docs, umbrella CI). Plans on different repos run in parallel.
+**Plans:** 5 plans
+
+Plans:
+- [ ] 00-01-PLAN.md — Core `llm/` reboot: ChatModel + capability interfaces + StreamEvent + ProviderInfo + ScriptedLLM v2 + ChatOnlyMock + LegacyClient rename (CORE-01..08)
+- [ ] 00-02-PLAN.md — Migration guide + DEPRECATIONS.md + CHANGELOG [Unreleased] section with versioning policy (CORE-09, INFRA-07)
+- [ ] 00-03-PLAN.md — Create + push 3 sister GitHub repo skeletons with go.mod / LICENSE / OWNERS / README / .gitignore / scripts/workspace.sh / per-repo test.yml + release-precheck.yml (INFRA-01..04, INFRA-06)
+- [ ] 00-04-PLAN.md — Core repo .gitignore + scripts/workspace.sh + GOWORK=off env in test.yml (INFRA-02, INFRA-03)
+- [ ] 00-05-PLAN.md — Core repo umbrella.yml (4-repo cross-build on PR) + release-precheck.yml (replace ban on release/** branches) (INFRA-04, INFRA-05)
+
+Wave structure: Wave 1 = {00-01, 00-03}; Wave 2 = {00-02, 00-04}; Wave 3 = {00-05}.
 
 ### Phase 1: Three-provider walking skeleton — Generate (sync) only
 
@@ -260,7 +269,7 @@ Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7. Wi
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Multi-repo infra + `llm/v2` | 0/TBD | Not started | - |
+| 0. Multi-repo infra + `llm/v2` | 0/5 | Not started | - |
 | 1. Walking skeleton — Generate | 0/TBD | Not started | - |
 | 2. Streaming + cost record + retry SM | 0/TBD | Not started | - |
 | 3. Tool calling + agent refactor | 0/TBD | Not started | - |
