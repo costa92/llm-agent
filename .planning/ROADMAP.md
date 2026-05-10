@@ -95,7 +95,18 @@ Wave structure: Wave 1 = {00-01a, 00-01b (depends on 01a), 00-03}; Wave 2 = {00-
   5. The nightly CI job spins up a testcontainers-go Ollama container, pulls a pinned model (`llama3.1:8b-instruct-q4_K_M`), runs the conformance suite against it, and posts a green/red status. The `release-precheck` gate confirms no `replace` in `llm-agent-providers/go.mod` before tagging `v0.1.0`.
   6. `llm-agent/PROVIDER_AUTHORING.md` v0.1 exists; a third-party would be able to write a Generate-only adapter using only the doc + the conformance suite.
 
-**Plans**: TBD — 5 plans (3 parallel adapters, 1 conformance harness, 1 author guide).
+**Plans:** 7 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Core repo: extend llm/errors.go with 4 typed-error structs (AuthError/RateLimitError/InvalidRequestError/TransientError) + errors_test.go + cut tag v0.3.0-pre.2 (OAI-05, ANT-05, OLL-05 prereq)
+- [ ] 01-02-PLAN.md — llm-agent-providers/openai: Phase-1 ChatModel adapter via openai-go/v3 Chat Completions; 10 httptest scenarios; Pitfall A asserter (OAI-01, OAI-05)
+- [ ] 01-03-PLAN.md — llm-agent-providers/anthropic: Phase-1 ChatModel adapter via anthropic-sdk-go Messages API; SystemPrompt top-level lift (Pitfall C); 529 overloaded → RateLimitError (ANT-01, ANT-05)
+- [ ] 01-04-PLAN.md — llm-agent-providers/ollama: Phase-1 ChatModel adapter via ollama/api /api/chat; statusCapturingTransport (Q3); 404 model-not-pulled → InvalidRequestError (OLL-01, OLL-05)
+- [ ] 01-05-PLAN.md — llm-agent-providers/internal/contract: cross-provider conformance harness + 13 testdata fixtures + 3 capture scripts + goleak + secret-leak canary (CONF-01, CONF-02, CONF-07, CONF-08)
+- [ ] 01-06-PLAN.md — llm-agent-providers/.github/workflows/nightly-ollama-live.yml + internal/contract/ollama_live_test.go (build-tagged) testcontainers-go integration (OLL-08)
+- [ ] 01-07-PLAN.md — Core repo PROVIDER_AUTHORING.md v0.1: 8 sections incl. D-03 mapping table + canonical New/wrapErr sketches (CORE-11)
+
+Wave structure: Wave 0 = {01-01}; Wave 1 = {01-02, 01-03, 01-04} (parallel — disjoint sister-repo subdirs); Wave 2 = {01-05} (depends on all 3 adapters); Wave 3 = {01-06, 01-07} (parallel — different repos).
 
 ### Phase 2: Streaming on all 3 providers + `StreamEvent` validation
 
