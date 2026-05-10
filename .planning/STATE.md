@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Transition from Phase 1 closeout into Phase 2 planning
+**Current focus:** Phase 2 planning - streaming on all 3 providers
 
 ## Current Position
 
-Phase: 1 of 7 (Three-provider walking skeleton — Generate sync only) — ✓ COMPLETE 2026-05-10
-Previous phase: 0 — Multi-repo infra + `llm/v2` keystone interfaces — ✓ COMPLETE 2026-05-10
-Plan: 7 of 7 in Phase 1
-Status: Phase 1 closed. All three Generate-only adapters landed, shared conformance shipped, nightly Ollama live CI added, and Provider Author Guide v0.1 published.
-Last activity: 2026-05-10 — Phase 1 Plans 06 and 07 completed. `llm-agent-providers` gained build-tagged nightly Ollama live coverage; core repo gained `PROVIDER_AUTHORING.md`.
+Phase: 2 of 7 (Streaming on all 3 providers + StreamEvent validation) — PLANNING READY
+Previous phase: 1 — Three-provider walking skeleton — Generate sync only — ✓ COMPLETE 2026-05-10
+Plan: 0 of 4 in Phase 2
+Status: Phase 2 planning bundle created. Wave 1 is three parallel provider streaming plans; Wave 2 is shared streaming conformance.
+Last activity: 2026-05-10 — seeded `.planning/phases/02-streaming-stream-event-validation/` with context, research, patterns, and plans `02-01` through `02-04`.
 
 Progress: [██▒░░░░░░░] 25% (2 of 8 phases complete)
 
@@ -32,7 +32,7 @@ Progress: [██▒░░░░░░░] 25% (2 of 8 phases complete)
 
 **Recent Trend:**
 - Last 5 plans: 01-03, 01-04, 01-05, 01-06, 01-07 completed
-- Trend: Generate-only walking skeleton complete; next step is streaming-phase planning
+- Trend: Phase 1 execution closed; Phase 2 execution can start with `02-01`, `02-02`, `02-03` in parallel
 
 *Updated after each plan completion*
 
@@ -62,7 +62,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Next logical work is opening Phase 2 planning for streaming on OpenAI, Anthropic, and Ollama.
+No current blocker. Next logical work is executing `02-01`, `02-02`, and `02-03` in the sister repo, then `02-04`.
 
 ## Deferred Items
 
@@ -75,5 +75,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-10
-Stopped at: Phase 1 complete; nightly live CI and provider authoring guide shipped.
-Resume file: .planning/phases/01-walking-skeleton-generate/01-07-SUMMARY.md
+Stopped at: Phase 2 planning seeded and ready for execution.
+Resume file: .planning/phases/02-streaming-stream-event-validation/02-01-PLAN.md
