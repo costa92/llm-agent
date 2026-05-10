@@ -11,16 +11,16 @@ See: .planning/PROJECT.md (updated 2026-05-10)
 
 Phase: 1 of 7 (Three-provider walking skeleton — Generate sync only) — IN PROGRESS
 Previous phase: 0 — Multi-repo infra + `llm/v2` keystone interfaces — ✓ COMPLETE 2026-05-10
-Plan: 3 of 7 in Phase 1
-Status: 01-01, 01-02, and 01-03 complete; one Wave 1 adapter remains
-Last activity: 2026-05-10 — Phase 1 Plan 03 completed in `llm-agent-providers`. Anthropic Generate-only adapter landed with top-level `system` lifting, public `anthropic.Error`-based status extraction, Stream Phase-1 stub, and typed-error mapping tests.
+Plan: 4 of 7 in Phase 1
+Status: Wave 1 adapter work complete; ready for shared conformance harness
+Last activity: 2026-05-10 — Phase 1 Plan 04 completed in `llm-agent-providers`. Ollama Generate-only adapter landed with transport-backed status capture, explicit `stream=false`, Stream Phase-1 stub, and local-daemon error mapping tests.
 
 Progress: [█▒░░░░░░░░] 13% (1 of 8 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
+- Total plans completed: 4
 - Average duration: -
 - Total execution time: -
 
@@ -28,11 +28,11 @@ Progress: [█▒░░░░░░░░] 13% (1 of 8 phases complete)
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 3 | - | - |
+| 1 | 4 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-01, 01-02, 01-03 completed
-- Trend: Wave 1 nearing completion
+- Last 5 plans: 01-01, 01-02, 01-03, 01-04 completed
+- Trend: moving from adapter breadth to shared validation
 
 *Updated after each plan completion*
 
@@ -60,7 +60,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Next logical work is Wave 1 completion in sister repo: Ollama (`01-04`), then shared conformance harness (`01-05`).
+No current blocker. Next logical work is `01-05`: shared `internal/contract` conformance harness over OpenAI, Anthropic, and Ollama.
 
 ## Deferred Items
 
@@ -73,5 +73,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-10
-Stopped at: Phase 1 Plan 03 complete; Anthropic adapter shipped in sister repo.
-Resume file: .planning/phases/01-walking-skeleton-generate/01-03-SUMMARY.md
+Stopped at: Phase 1 Plan 04 complete; Ollama adapter shipped in sister repo.
+Resume file: .planning/phases/01-walking-skeleton-generate/01-04-SUMMARY.md
