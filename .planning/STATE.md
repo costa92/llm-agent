@@ -11,8 +11,8 @@ See: .planning/PROJECT.md (updated 2026-05-10)
 
 Phase: 0 of 7 (Multi-repo infra + `llm/v2` keystone interfaces)
 Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-05-10 — Roadmap created; 65/65 v1 requirements mapped; conflicts A/B/C/D resolved.
+Status: Phase context gathered — ready to plan
+Last activity: 2026-05-10 — Phase 0 CONTEXT.md captured. 4 decisions: D-01 reboot `llm/` (old `Client`→`LegacyClient`); D-02 Capabilities embedded struct field on ProviderInfo; D-03 full ScriptedLLM v2 + ChatOnlyMock for fallback testing; D-04 sister GitHub repos created + pushed in Phase 0.
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -69,5 +69,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-10
-Stopped at: ROADMAP.md + STATE.md written; REQUIREMENTS.md traceability updated; ready for `/gsd-plan-phase 0`.
-Resume file: None
+Stopped at: Phase 0 context gathered (D-01..D-04). Ready for `/gsd-plan-phase 0`.
+Resume file: .planning/phases/00-keystone-interfaces/00-CONTEXT.md
