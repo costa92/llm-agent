@@ -1,21 +1,23 @@
-// Package llm owns the LLM-provider contract for the agents framework.
-// It is intentionally narrow: only the types an Agent needs to call a
-// model. Provider implementations (HTTP, Ollama, Volcano, MiniMax,
-// mock) live outside this module — anything satisfying Client works.
 package llm
 
-import (
-	"context"
-	"encoding/json"
-)
+import "context"
 
-// Client is the portable seam between business code and LLM providers.
-// Generate is one-shot; GenerateStream streams tokens over <-chan StreamChunk.
-type Client interface {
+// LegacyClient is the v0.2 LLM contract — superseded by ChatModel.
+//
+// Deprecated: Use llm.ChatModel instead. LegacyClient will be removed in v0.4.0. See docs/migration-v0.2-to-v0.3.md.
+type LegacyClient interface {
 	Generate(ctx context.Context, req GenerateRequest) (GenerateResponse, error)
 	GenerateStream(ctx context.Context, req GenerateRequest) (<-chan StreamChunk, error)
 }
 
+// Client is an alias for LegacyClient retained for v0.2 source compatibility.
+//
+// Deprecated: Use llm.ChatModel instead. Client will be removed in v0.4.0. See docs/migration-v0.2-to-v0.3.md.
+type Client = LegacyClient
+
+// GenerateRequest is the v0.2 request type passed to LegacyClient.Generate.
+//
+// Deprecated: Use llm.Request instead. GenerateRequest will be removed in v0.4.0. See docs/migration-v0.2-to-v0.3.md.
 type GenerateRequest struct {
 	Prompt  string         `json:"prompt"`
 	Context map[string]any `json:"context,omitempty"`
@@ -28,14 +30,9 @@ type GenerateRequest struct {
 	History []Message `json:"history,omitempty"`
 }
 
-// Message represents a single turn in a conversation. Role is one of
-// "user" / "assistant" (provider-specific extras like "system" / "tool"
-// land in Metadata-shaped extensions if a provider ever needs them).
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
+// GenerateResponse is the v0.2 response type returned by LegacyClient.Generate.
+//
+// Deprecated: Use llm.Response instead. GenerateResponse will be removed in v0.4.0. See docs/migration-v0.2-to-v0.3.md.
 type GenerateResponse struct {
 	Text         string         `json:"text"`
 	FinishReason FinishReason   `json:"finish_reason,omitempty"`
@@ -49,10 +46,13 @@ type GenerateResponse struct {
 	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 }
 
-// FinishReason mirrors the OpenAI /v1/chat/completions stop_reason field so
-// that providers that surface this can pass it through without conversion.
-type FinishReason string
+// legacyFinishReason is the underlying string type for FinishReason. The
+// public FinishReason name is declared in types.go as `type FinishReason = legacyFinishReason`
+// so legacy callers and new code see the same type.
+type legacyFinishReason string
 
+// FinishReason constants mirror the OpenAI /v1/chat/completions stop_reason field
+// so that providers that surface this can pass it through without conversion.
 const (
 	FinishReasonStop          FinishReason = "stop"
 	FinishReasonLength        FinishReason = "length"
@@ -62,6 +62,9 @@ const (
 	FinishReasonUnknown       FinishReason = "unknown"
 )
 
+// StreamChunk is a v0.2 streaming primitive returned over <-chan StreamChunk.
+//
+// Deprecated: Use llm.StreamEvent instead. StreamChunk will be removed in v0.4.0. See docs/migration-v0.2-to-v0.3.md.
 type StreamChunk struct {
 	Text  string       `json:"text"`
 	Done  bool         `json:"done"`
@@ -72,26 +75,11 @@ type StreamChunk struct {
 	ToolCall *ToolCall `json:"tool_call,omitempty"`
 }
 
+// StreamUsage carries token counts for a streaming response.
+//
+// Deprecated: Use llm.Usage instead. StreamUsage will be removed in v0.4.0. See docs/migration-v0.2-to-v0.3.md.
 type StreamUsage struct {
 	PromptTokens     int `json:"prompt_tokens,omitempty"`
 	CompletionTokens int `json:"completion_tokens,omitempty"`
 	TotalTokens      int `json:"total_tokens,omitempty"`
-}
-
-// Tool declares a function the model may call. Parameters is a raw
-// JSON Schema document — this package doesn't validate it (the
-// upstream provider does) so callers can use whatever schema dialect
-// their provider expects.
-type Tool struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  json.RawMessage `json:"parameters"`
-}
-
-// ToolCall is what the model returns when it decides to invoke a Tool.
-// Arguments is raw JSON because the model fills it per the Tool's
-// Parameters schema.
-type ToolCall struct {
-	Name      string          `json:"name"`
-	Arguments json.RawMessage `json:"arguments"`
 }
