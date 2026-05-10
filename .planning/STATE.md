@@ -11,16 +11,16 @@ See: .planning/PROJECT.md (updated 2026-05-10)
 
 Phase: 1 of 7 (Three-provider walking skeleton — Generate sync only) — IN PROGRESS
 Previous phase: 0 — Multi-repo infra + `llm/v2` keystone interfaces — ✓ COMPLETE 2026-05-10
-Plan: 1 of 7 in Phase 1
-Status: 01-01 implemented locally; summary written; release tag still pending
-Last activity: 2026-05-10 — Executed Phase 1 Plan 01 locally. Added llm.AuthError / RateLimitError / InvalidRequestError / TransientError plus regression tests and verification. `01-01-SUMMARY.md` written. `v0.3.0-pre.2` tag has not yet been created/pushed in this session.
+Plan: 2 of 7 in Phase 1
+Status: 01-01 and 01-02 complete; ready to continue Wave 1 adapter work
+Last activity: 2026-05-10 — Phase 1 Plan 02 completed in `llm-agent-providers`. OpenAI Generate-only adapter landed with `openai-go/v3`, model-bound `Info()`, Stream Phase-1 stub, and typed-error mapping tests. Core repo tag `v0.3.0-pre.2` has been pushed; sister-repo dependency now resolves.
 
 Progress: [█▒░░░░░░░░] 13% (1 of 8 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
+- Total plans completed: 2
 - Average duration: -
 - Total execution time: -
 
@@ -28,11 +28,11 @@ Progress: [█▒░░░░░░░░] 13% (1 of 8 phases complete)
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 1 | 1 | - | - |
+| 1 | 2 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 completed locally
-- Trend: establishing Phase 1 baseline
+- Last 5 plans: 01-01, 01-02 completed
+- Trend: Wave 1 in progress
 
 *Updated after each plan completion*
 
@@ -60,7 +60,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-Current blocker for Wave 1 sister-repo work: `v0.3.0-pre.2` release tag is still pending, so cross-repo `go get github.com/costa92/llm-agent@v0.3.0-pre.2` cannot succeed until commit/tag/push is done.
+No current blocker. Next logical work is Wave 1 continuation in sister repos: Anthropic (`01-03`) and Ollama (`01-04`), then shared conformance harness (`01-05`).
 
 ## Deferred Items
 
@@ -73,5 +73,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-10
-Stopped at: Phase 1 Plan 01 code complete locally; tag/push still pending before sister-repo adapter work.
-Resume file: .planning/phases/01-walking-skeleton-generate/01-01-SUMMARY.md
+Stopped at: Phase 1 Plan 02 complete; OpenAI adapter shipped in sister repo.
+Resume file: .planning/phases/01-walking-skeleton-generate/01-02-SUMMARY.md
