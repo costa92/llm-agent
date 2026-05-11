@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Phase 5 planning ready; next execution wave is OTel wrappers + semconv guardrails
+**Current focus:** Phase 5 execution underway; `05-01` wrapper construction is complete and the next wave is semconv centralization + observability guardrails
 
 ## Current Position
 
-Phase: 5 of 7 (OTel adapter) — planning ready 2026-05-11
+Phase: 5 of 7 (OTel adapter) — execution in progress 2026-05-11
 Previous phase: 4 — Embeddings on OpenAI + Ollama; Anthropic gap documented — ✓ COMPLETE 2026-05-11
-Plan: 0 of 5 in Phase 5
-Status: Phase 4 is complete and the Phase 5 planning bundle is now in place. Next execution wave is `llm-agent-otel` wrapper construction, semconv centralization, and observability guardrails.
-Last activity: 2026-05-11 — completed Phase 4 and created the Phase 5 planning bundle for `llm-agent-otel`.
+Plan: 1 of 5 in Phase 5
+Status: Phase 5 plan `05-01` is complete in `llm-agent-otel`. `otelmodel.Wrap(...)` now preserves capability interfaces and emits one span per generate/stream operation; the remaining work is semconv consolidation and exporter wiring.
+Last activity: 2026-05-11 — completed Phase 5 plan `05-01` in `llm-agent-otel` and recorded verification evidence.
 
 Progress: [█████░░░░░] 62% (5 of 8 phases complete)
 
@@ -32,8 +32,8 @@ Progress: [█████░░░░░] 62% (5 of 8 phases complete)
 | 2 | 4 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 04-01, 04-02, 04-03, 04-04, 04-05 completed
-- Trend: provider capability work is closed; observability work is queued with a 5-plan Phase 5 bundle
+- Last 5 plans: 04-02, 04-03, 04-04, 04-05, 05-01 completed
+- Trend: provider capability work is closed; observability execution has started in the sister repo with wrapper instrumentation landed first
 
 *Updated after each plan completion*
 
@@ -60,6 +60,7 @@ Recent decisions affecting current work:
 - Phase 3 plan 05 close: core agents now bind to `llm.ChatModel`; `ReAct` selects native tools only when `ToolCaller` and `Capabilities.Tools` both hold, while `FunctionCallAgent` is native-only and rejects chat-only models at construction.
 - Phase 4 close: provider embeddings now use the same capability-negotiation idiom as chat and tools; Anthropic's absence remains explicit contract data, not a hidden limitation.
 - Phase 5 planning open: OTel stays in the sister repo, wrappers preserve capability interfaces, and semconv/content-capture/cardinality rules must land before any refsvc integration.
+- Phase 5 plan 01 close: `otelmodel.Wrap(...)` now preserves `ToolCaller` / `Embedder` / `StructuredOutputs`, rewraps immutable bound models with the same tracer provider, and emits single-operation spans for generate/stream paths.
 
 ### Pending Todos
 
@@ -72,7 +73,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Next logical work is executing `05-01` through `05-04` in `llm-agent-otel`, then `05-05` for exporter wiring and compose docs.
+No current blocker. Next logical work is executing `05-02` through `05-04` in `llm-agent-otel`, then `05-05` for exporter wiring and compose docs.
 
 ## Deferred Items
 
@@ -85,5 +86,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-11
-Stopped at: Phase 5 planning ready; OTel wrapper execution is next.
-Resume file: .planning/phases/05-otel-adapter/05-01-PLAN.md
+Stopped at: Phase 5 `05-01` complete; semconv/content-capture guardrails are next.
+Resume file: .planning/phases/05-otel-adapter/05-02-PLAN.md
