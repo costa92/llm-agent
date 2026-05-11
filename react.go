@@ -21,8 +21,9 @@ import (
 //	Thought: <reasoning>
 //	Final: <answer>
 type ReActAgent struct {
-	client llm.Client
-	opts   ReActOptions
+	model      llm.ChatModel
+	toolCaller llm.ToolCaller
+	opts       ReActOptions
 }
 
 // ReActOptions configures ReActAgent.
@@ -49,7 +50,7 @@ Available tools:
 `
 
 // NewReActAgent constructs a ReActAgent.
-func NewReActAgent(client llm.Client, opts ReActOptions) *ReActAgent {
+func NewReActAgent(model llm.ChatModel, opts ReActOptions) *ReActAgent {
 	if opts.Name == "" {
 		opts.Name = "react"
 	}
@@ -59,7 +60,8 @@ func NewReActAgent(client llm.Client, opts ReActOptions) *ReActAgent {
 	if opts.SystemPrompt == "" {
 		opts.SystemPrompt = reactSystemPrompt
 	}
-	return &ReActAgent{client: client, opts: opts}
+	tc, _ := nativeToolCaller(model)
+	return &ReActAgent{model: model, toolCaller: tc, opts: opts}
 }
 
 // Name implements Agent.
@@ -82,7 +84,13 @@ func (a *ReActAgent) runInternal(ctx context.Context, input string, onStep func(
 	if strings.TrimSpace(input) == "" {
 		return Result{}, ErrEmptyInput
 	}
+	if a.toolCaller != nil && a.opts.Registry != nil {
+		return a.runNative(ctx, input, onStep)
+	}
+	return a.runScratchpad(ctx, input, onStep)
+}
 
+func (a *ReActAgent) runScratchpad(ctx context.Context, input string, onStep func(Step)) (Result, error) {
 	trace := make([]Step, 0, a.opts.MaxSteps*3)
 	usage := Usage{}
 
@@ -93,12 +101,12 @@ func (a *ReActAgent) runInternal(ctx context.Context, input string, onStep func(
 	scratchpad.WriteString("\n")
 
 	for step := 0; step < a.opts.MaxSteps; step++ {
-		resp, err := a.client.Generate(ctx, llm.GenerateRequest{Prompt: scratchpad.String()})
+		resp, err := generateFromPrompt(ctx, a.model, "", scratchpad.String())
 		if err != nil {
 			return Result{}, err
 		}
 		usage.LLMCalls++
-		usage.Tokens += resp.UsageToken
+		usage.Tokens += resp.Usage.TotalTokens
 
 		thought, action, args, final, perr := parseReAct(resp.Text)
 		if perr != nil {
@@ -141,6 +149,53 @@ func (a *ReActAgent) runInternal(ctx context.Context, input string, onStep func(
 		scratchpad.WriteString("\n")
 	}
 	return Result{}, ErrMaxStepsExceeded
+}
+
+func (a *ReActAgent) runNative(ctx context.Context, input string, onStep func(Step)) (Result, error) {
+	trace := []Step{}
+	toolModel, err := a.toolCaller.WithTools(a.opts.Registry.AsLLMTools())
+	if err != nil {
+		return Result{}, err
+	}
+	resp, err := generateFromPrompt(ctx, toolModel, "", input)
+	if err != nil {
+		return Result{}, err
+	}
+	usage := Usage{LLMCalls: 1, Tokens: resp.Usage.TotalTokens}
+
+	if len(resp.ToolCalls) == 0 {
+		final := Step{Kind: StepFinal, Content: resp.Text}
+		trace = append(trace, final)
+		onStep(final)
+		return Result{Answer: resp.Text, Trace: trace, Usage: usage}, nil
+	}
+
+	var outputs []string
+	for _, tc := range resp.ToolCalls {
+		actionStep := Step{Kind: StepAction, Tool: tc.Name, Args: string(tc.Arguments)}
+		trace = append(trace, actionStep)
+		onStep(actionStep)
+
+		tool, ok := a.opts.Registry.Get(tc.Name)
+		if !ok {
+			return Result{}, fmt.Errorf("%w: %q", ErrToolNotFound, tc.Name)
+		}
+		out, err := tool.Execute(ctx, tc.Arguments)
+		if err != nil {
+			return Result{}, fmt.Errorf("tool %q: %w", tc.Name, err)
+		}
+		outputs = append(outputs, out)
+
+		obsStep := Step{Kind: StepObservation, Result: out}
+		trace = append(trace, obsStep)
+		onStep(obsStep)
+	}
+
+	answer := strings.Join(outputs, "\n")
+	final := Step{Kind: StepFinal, Content: answer}
+	trace = append(trace, final)
+	onStep(final)
+	return Result{Answer: answer, Trace: trace, Usage: usage}, nil
 }
 
 func (a *ReActAgent) toolList() string {

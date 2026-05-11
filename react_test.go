@@ -57,6 +57,66 @@ func TestReActAgent_HappyPath_FinalAfterOneAction(t *testing.T) {
 	}
 }
 
+func TestReActAgent_NativeToolPath_UsesStructuredToolCalls(t *testing.T) {
+	tool := &recordingTool{name: "echo", out: "tool said hello"}
+	reg := NewRegistry(tool)
+	model := llm.NewScriptedLLM(
+		llm.WithProvider("scripted"),
+		llm.WithModel("tools"),
+		llm.WithCapabilities(llm.Capabilities{Tools: true}),
+		llm.WithResponses(llm.ToolCallResponse("echo", `{"x":1}`)),
+	)
+
+	a := NewReActAgent(model, ReActOptions{Registry: reg, MaxSteps: 5})
+	res, err := a.Run(context.Background(), "go")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Answer != "tool said hello" {
+		t.Fatalf("Answer = %q", res.Answer)
+	}
+	if len(tool.called) != 1 || tool.called[0] != `{"x":1}` {
+		t.Fatalf("tool.called = %v", tool.called)
+	}
+	want := []StepKind{StepAction, StepObservation, StepFinal}
+	if got := traceKinds(res.Trace); !equalSlice(got, want) {
+		t.Fatalf("Trace kinds = %v, want %v", got, want)
+	}
+	if res.Usage.LLMCalls != 1 {
+		t.Fatalf("LLMCalls = %d, want 1", res.Usage.LLMCalls)
+	}
+}
+
+func TestReActAgent_FallsBackWhenToolCapabilityUnavailable(t *testing.T) {
+	tool := &recordingTool{name: "echo", out: "tool said hello"}
+	reg := NewRegistry(tool)
+	model := &llm.ChatOnlyMock{
+		Provider: "test",
+		Model:    "chat-only",
+		Resp: llm.Response{
+			Text:         "Thought: Done.\nFinal: fallback path",
+			FinishReason: llm.FinishReasonStop,
+			Provider:     "test",
+		},
+	}
+
+	a := NewReActAgent(model, ReActOptions{Registry: reg, MaxSteps: 5})
+	res, err := a.Run(context.Background(), "go")
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if res.Answer != "fallback path" {
+		t.Fatalf("Answer = %q", res.Answer)
+	}
+	if len(tool.called) != 0 {
+		t.Fatalf("tool.called = %v, want no native tool execution", tool.called)
+	}
+	want := []StepKind{StepThought, StepFinal}
+	if got := traceKinds(res.Trace); !equalSlice(got, want) {
+		t.Fatalf("Trace kinds = %v, want %v", got, want)
+	}
+}
+
 func TestReActAgent_MaxStepsExceeded(t *testing.T) {
 	tool := &recordingTool{name: "loop"}
 	reg := NewRegistry(tool)

@@ -13,12 +13,13 @@ import (
 // newScriptedMultiAgent is a local test helper that creates a SimpleAgent
 // backed by a deterministic scripted LLM that returns the given responses in order.
 func newScriptedMultiAgent(name, systemPrompt string, responses ...string) agents.Agent {
-	resps := make([]llm.GenerateResponse, len(responses))
+	resps := make([]llm.Response, len(responses))
 	for i, text := range responses {
-		resps[i] = llm.GenerateResponse{
+		resps[i] = llm.Response{
 			Text:         text,
 			FinishReason: llm.FinishReasonStop,
 			Provider:     "scripted",
+			Usage:        llm.Usage{Source: llm.UsageReported},
 		}
 	}
 	client := &multiAgentScriptedLLM{resps: resps}
@@ -28,23 +29,34 @@ func newScriptedMultiAgent(name, systemPrompt string, responses ...string) agent
 	})
 }
 
-// multiAgentScriptedLLM is a minimal llm.Client stub for multi-agent examples.
+// multiAgentScriptedLLM is a minimal llm.ChatModel stub for multi-agent examples.
 type multiAgentScriptedLLM struct {
 	calls int
-	resps []llm.GenerateResponse
+	resps []llm.Response
 }
 
-func (s *multiAgentScriptedLLM) Generate(_ context.Context, _ llm.GenerateRequest) (llm.GenerateResponse, error) {
+func (s *multiAgentScriptedLLM) Generate(_ context.Context, _ llm.Request) (llm.Response, error) {
 	if s.calls >= len(s.resps) {
-		return llm.GenerateResponse{}, fmt.Errorf("scripted LLM: script exhausted")
+		return llm.Response{}, fmt.Errorf("scripted LLM: script exhausted")
 	}
 	r := s.resps[s.calls]
 	s.calls++
 	return r, nil
 }
 
-func (s *multiAgentScriptedLLM) GenerateStream(_ context.Context, _ llm.GenerateRequest) (<-chan llm.StreamChunk, error) {
-	return nil, fmt.Errorf("scripted LLM: streaming not supported")
+func (s *multiAgentScriptedLLM) Stream(ctx context.Context, req llm.Request) (llm.StreamReader, error) {
+	resp, err := s.Generate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return llm.NewScriptedLLM(llm.WithResponses(resp)).Stream(ctx, llm.Request{})
+}
+
+func (s *multiAgentScriptedLLM) Info() llm.ProviderInfo {
+	return llm.ProviderInfo{
+		Provider: "scripted",
+		Model:    "example",
+	}
 }
 
 // Example_pipeline demonstrates using orchestrate.Pipeline to chain two agents:
@@ -52,7 +64,7 @@ func (s *multiAgentScriptedLLM) GenerateStream(_ context.Context, _ llm.Generate
 // that condenses it. Pipeline threads the first agent's answer into the second
 // agent's input automatically.
 //
-// In production, each agent would use a real llm.Client with a domain-specific
+// In production, each agent would use a real llm.ChatModel with a domain-specific
 // system prompt. The scripted stubs here produce deterministic output for testing.
 func Example_pipeline() {
 	// Researcher: scripted to return a one-line finding.

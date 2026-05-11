@@ -17,8 +17,8 @@ import (
 // tool results back to the LLM per OpenAI spec for multi-turn function-calling.
 // Multi-turn would require a pkg/llm enhancement (out of scope for this phase).
 type FunctionCallAgent struct {
-	client llm.Client
-	opts   FunctionCallOptions
+	model llm.ToolCaller
+	opts  FunctionCallOptions
 }
 
 // FunctionCallOptions configures FunctionCallAgent.
@@ -31,14 +31,18 @@ type FunctionCallOptions struct {
 }
 
 // NewFunctionCallAgent constructs a FunctionCallAgent.
-func NewFunctionCallAgent(client llm.Client, opts FunctionCallOptions) *FunctionCallAgent {
+func NewFunctionCallAgent(model llm.ChatModel, opts FunctionCallOptions) (*FunctionCallAgent, error) {
 	if opts.Name == "" {
 		opts.Name = "function-call"
 	}
 	if opts.MaxParallel == 0 {
 		opts.MaxParallel = 4
 	}
-	return &FunctionCallAgent{client: client, opts: opts}
+	tc, ok := nativeToolCaller(model)
+	if !ok {
+		return nil, toolCapabilityError(model)
+	}
+	return &FunctionCallAgent{model: tc, opts: opts}, nil
 }
 
 // Name implements Agent.
@@ -70,15 +74,15 @@ func (a *FunctionCallAgent) runInternal(ctx context.Context, input string, onSte
 		prompt = a.opts.SystemPrompt + "\n\n" + input
 	}
 
-	req := llm.GenerateRequest{
-		Prompt: prompt,
-		Tools:  a.opts.Registry.AsLLMTools(),
-	}
-	resp, err := a.client.Generate(ctx, req)
+	toolModel, err := a.model.WithTools(a.opts.Registry.AsLLMTools())
 	if err != nil {
 		return Result{}, err
 	}
-	usage := Usage{LLMCalls: 1, Tokens: resp.UsageToken}
+	resp, err := generateFromPrompt(ctx, toolModel, "", prompt)
+	if err != nil {
+		return Result{}, err
+	}
+	usage := Usage{LLMCalls: 1, Tokens: resp.Usage.TotalTokens}
 	trace := []Step{}
 
 	// No tool call → return text directly.

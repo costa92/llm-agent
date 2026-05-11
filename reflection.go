@@ -11,8 +11,8 @@ import (
 // ReflectionAgent: generate → critique → revise → ... up to MaxRounds.
 // If the critique contains "APPROVED" (case-insensitive), stops early.
 type ReflectionAgent struct {
-	client llm.Client
-	opts   ReflectionOptions
+	model llm.ChatModel
+	opts  ReflectionOptions
 }
 
 // ReflectionOptions configures ReflectionAgent.
@@ -33,7 +33,7 @@ const (
 )
 
 // NewReflectionAgent constructs a ReflectionAgent.
-func NewReflectionAgent(client llm.Client, opts ReflectionOptions) *ReflectionAgent {
+func NewReflectionAgent(model llm.ChatModel, opts ReflectionOptions) *ReflectionAgent {
 	if opts.Name == "" {
 		opts.Name = "reflection"
 	}
@@ -49,7 +49,7 @@ func NewReflectionAgent(client llm.Client, opts ReflectionOptions) *ReflectionAg
 	if opts.RevisePrompt == "" {
 		opts.RevisePrompt = revisePromptDefault
 	}
-	return &ReflectionAgent{client: client, opts: opts}
+	return &ReflectionAgent{model: model, opts: opts}
 }
 
 // Name implements Agent.
@@ -76,14 +76,12 @@ func (a *ReflectionAgent) runInternal(ctx context.Context, input string, onStep 
 	usage := Usage{}
 
 	// initial gen
-	resp, err := a.client.Generate(ctx, llm.GenerateRequest{
-		Prompt: fmt.Sprintf(a.opts.GenPrompt, input),
-	})
+	resp, err := generateFromPrompt(ctx, a.model, "", fmt.Sprintf(a.opts.GenPrompt, input))
 	if err != nil {
 		return Result{}, err
 	}
 	usage.LLMCalls++
-	usage.Tokens += resp.UsageToken
+	usage.Tokens += resp.Usage.TotalTokens
 	current := resp.Text
 	initStep := Step{Kind: StepThought, Content: "initial draft: " + current}
 	trace = append(trace, initStep)
@@ -91,14 +89,12 @@ func (a *ReflectionAgent) runInternal(ctx context.Context, input string, onStep 
 
 	for round := 0; round < a.opts.MaxRounds; round++ {
 		// critique
-		critResp, err := a.client.Generate(ctx, llm.GenerateRequest{
-			Prompt: fmt.Sprintf(a.opts.CritiquePrompt, input, current),
-		})
+		critResp, err := generateFromPrompt(ctx, a.model, "", fmt.Sprintf(a.opts.CritiquePrompt, input, current))
 		if err != nil {
 			return Result{}, err
 		}
 		usage.LLMCalls++
-		usage.Tokens += critResp.UsageToken
+		usage.Tokens += critResp.Usage.TotalTokens
 		critique := critResp.Text
 		critStep := Step{Kind: StepReflection, Content: critique}
 		trace = append(trace, critStep)
@@ -109,14 +105,12 @@ func (a *ReflectionAgent) runInternal(ctx context.Context, input string, onStep 
 		}
 
 		// revise
-		revResp, err := a.client.Generate(ctx, llm.GenerateRequest{
-			Prompt: fmt.Sprintf(a.opts.RevisePrompt, input, current, critique),
-		})
+		revResp, err := generateFromPrompt(ctx, a.model, "", fmt.Sprintf(a.opts.RevisePrompt, input, current, critique))
 		if err != nil {
 			return Result{}, err
 		}
 		usage.LLMCalls++
-		usage.Tokens += revResp.UsageToken
+		usage.Tokens += revResp.Usage.TotalTokens
 		current = revResp.Text
 		revStep := Step{Kind: StepThought, Content: "revised: " + current}
 		trace = append(trace, revStep)

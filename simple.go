@@ -10,8 +10,8 @@ import (
 // SimpleAgent forwards user input to an llm.Client in a single call.
 // No tools, no loop — the simplest possible Agent.
 type SimpleAgent struct {
-	client llm.Client
-	opts   SimpleOptions
+	model llm.ChatModel
+	opts  SimpleOptions
 }
 
 // SimpleOptions configures SimpleAgent.
@@ -22,11 +22,11 @@ type SimpleOptions struct {
 }
 
 // NewSimpleAgent constructs a SimpleAgent.
-func NewSimpleAgent(client llm.Client, opts SimpleOptions) *SimpleAgent {
+func NewSimpleAgent(model llm.ChatModel, opts SimpleOptions) *SimpleAgent {
 	if opts.Name == "" {
 		opts.Name = "simple"
 	}
-	return &SimpleAgent{client: client, opts: opts}
+	return &SimpleAgent{model: model, opts: opts}
 }
 
 // Name implements Agent.
@@ -49,11 +49,7 @@ func (a *SimpleAgent) runInternal(ctx context.Context, input string, onStep func
 	if strings.TrimSpace(input) == "" {
 		return Result{}, ErrEmptyInput
 	}
-	prompt := input
-	if a.opts.SystemPrompt != "" {
-		prompt = a.opts.SystemPrompt + "\n\n" + input
-	}
-	resp, err := a.client.Generate(ctx, llm.GenerateRequest{Prompt: prompt})
+	resp, err := generateFromPrompt(ctx, a.model, a.opts.SystemPrompt, input)
 	if err != nil {
 		return Result{}, err
 	}
@@ -62,6 +58,6 @@ func (a *SimpleAgent) runInternal(ctx context.Context, input string, onStep func
 	return Result{
 		Answer: resp.Text,
 		Trace:  []Step{final},
-		Usage:  Usage{LLMCalls: 1, Tokens: resp.UsageToken},
+		Usage:  Usage{LLMCalls: 1, Tokens: resp.Usage.TotalTokens},
 	}, nil
 }

@@ -12,12 +12,10 @@ import (
 // values in order on each Generate call. After the script is exhausted
 // it returns errScriptExhausted. Concurrent-safe via mu.
 //
-// As of v0.3 (Phase 0), this type is a thin shim that re-uses the
-// canonical sentinel error from the new llm package. It still satisfies
-// the v0.2 llm.Client (= LegacyClient) interface so existing agent
-// paradigm tests in this package continue to compile unchanged. Phase 3
-// will migrate agent paradigms to llm.ChatModel and this shim will go
-// away.
+// As of v0.3 (Phase 3), this type is a thin shim that re-uses the
+// canonical sentinel error from the new llm package while satisfying
+// llm.ChatModel for the legacy package-local tests that still prefer a
+// lightweight scripted helper.
 //
 // Deprecated: New tests should use llm.NewScriptedLLM directly. Retained
 // until Phase 3 refactors agent paradigms.
@@ -35,25 +33,46 @@ func newScriptedLLM(resps ...llm.GenerateResponse) *scriptedLLM {
 	return &scriptedLLM{resps: resps}
 }
 
-// Generate returns the next scripted GenerateResponse or wraps
-// errScriptExhausted when the script is exhausted.
-func (s *scriptedLLM) Generate(_ context.Context, _ llm.GenerateRequest) (llm.GenerateResponse, error) {
+// Generate returns the next scripted Response or wraps errScriptExhausted
+// when the script is exhausted.
+func (s *scriptedLLM) Generate(_ context.Context, _ llm.Request) (llm.Response, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.calls >= len(s.resps) {
 		s.calls++
-		return llm.GenerateResponse{}, fmt.Errorf("scriptedLLM: %w", errScriptExhausted)
+		return llm.Response{}, fmt.Errorf("scriptedLLM: %w", errScriptExhausted)
 	}
 	r := s.resps[s.calls]
 	s.calls++
-	return r, nil
+	return llm.Response{
+		Text:         r.Text,
+		FinishReason: r.FinishReason,
+		Provider:     r.Provider,
+		Model:        r.Model,
+		Usage: llm.Usage{
+			TotalTokens: r.UsageToken,
+			Source:      llm.UsageReported,
+		},
+		ToolCalls: r.ToolCalls,
+	}, nil
 }
 
-// GenerateStream returns an error — streaming was not supported by the
-// v0.2 helper either. Phase 2 streaming work uses llm.ScriptedLLM
-// directly via the v0.3 surface.
-func (s *scriptedLLM) GenerateStream(_ context.Context, _ llm.GenerateRequest) (<-chan llm.StreamChunk, error) {
-	return nil, fmt.Errorf("scriptedLLM: streaming not supported (use llm.ScriptedLLM via v0.3 surface)")
+func (s *scriptedLLM) Stream(ctx context.Context, req llm.Request) (llm.StreamReader, error) {
+	resp, err := s.Generate(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return llm.NewScriptedLLM(llm.WithResponses(resp)).Stream(ctx, llm.Request{})
+}
+
+func (s *scriptedLLM) Info() llm.ProviderInfo {
+	return llm.ProviderInfo{
+		Provider: "scripted",
+		Model:    "test",
+		Capabilities: llm.Capabilities{
+			Tools: false,
+		},
+	}
 }
 
 // callCount returns how many times Generate was invoked. Preserved for
@@ -73,5 +92,4 @@ func textResp(text string) llm.GenerateResponse {
 	}
 }
 
-// Compile-time: scriptedLLM satisfies the v0.2 LegacyClient (= Client) contract.
-var _ llm.Client = (*scriptedLLM)(nil)
+var _ llm.ChatModel = (*scriptedLLM)(nil)

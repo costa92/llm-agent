@@ -12,8 +12,8 @@ import (
 // PlanAndSolveAgent: plan once (LLM emits N steps), then execute each step
 // in a single LLM call, finally synthesize a final answer.
 type PlanAndSolveAgent struct {
-	client llm.Client
-	opts   PlanAndSolveOptions
+	model llm.ChatModel
+	opts  PlanAndSolveOptions
 }
 
 // PlanAndSolveOptions configures PlanAndSolveAgent.
@@ -33,7 +33,7 @@ const (
 )
 
 // NewPlanAndSolveAgent constructs a PlanAndSolveAgent.
-func NewPlanAndSolveAgent(client llm.Client, opts PlanAndSolveOptions) *PlanAndSolveAgent {
+func NewPlanAndSolveAgent(model llm.ChatModel, opts PlanAndSolveOptions) *PlanAndSolveAgent {
 	if opts.Name == "" {
 		opts.Name = "plan-and-solve"
 	}
@@ -49,7 +49,7 @@ func NewPlanAndSolveAgent(client llm.Client, opts PlanAndSolveOptions) *PlanAndS
 	if opts.SynthPrompt == "" {
 		opts.SynthPrompt = synthPromptDefault
 	}
-	return &PlanAndSolveAgent{client: client, opts: opts}
+	return &PlanAndSolveAgent{model: model, opts: opts}
 }
 
 // Name implements Agent.
@@ -76,14 +76,12 @@ func (a *PlanAndSolveAgent) runInternal(ctx context.Context, input string, onSte
 	usage := Usage{}
 
 	// plan
-	planResp, err := a.client.Generate(ctx, llm.GenerateRequest{
-		Prompt: fmt.Sprintf(a.opts.PlanPrompt, input, a.opts.MaxSteps),
-	})
+	planResp, err := generateFromPrompt(ctx, a.model, "", fmt.Sprintf(a.opts.PlanPrompt, input, a.opts.MaxSteps))
 	if err != nil {
 		return Result{}, err
 	}
 	usage.LLMCalls++
-	usage.Tokens += planResp.UsageToken
+	usage.Tokens += planResp.Usage.TotalTokens
 	steps := parsePlan(planResp.Text)
 	if len(steps) == 0 {
 		return Result{}, fmt.Errorf("%w: empty plan from %q", ErrPlanningFailed, planResp.Text)
@@ -99,14 +97,12 @@ func (a *PlanAndSolveAgent) runInternal(ctx context.Context, input string, onSte
 	results := make([]string, 0, len(steps))
 	planText := strings.Join(steps, "\n")
 	for i, step := range steps {
-		resp, err := a.client.Generate(ctx, llm.GenerateRequest{
-			Prompt: fmt.Sprintf(a.opts.StepPrompt, input, planText, i+1, step),
-		})
+		resp, err := generateFromPrompt(ctx, a.model, "", fmt.Sprintf(a.opts.StepPrompt, input, planText, i+1, step))
 		if err != nil {
 			return Result{}, err
 		}
 		usage.LLMCalls++
-		usage.Tokens += resp.UsageToken
+		usage.Tokens += resp.Usage.TotalTokens
 		results = append(results, resp.Text)
 		thoughtStep := Step{Kind: StepThought, Content: fmt.Sprintf("step %d: %s → %s", i+1, step, resp.Text)}
 		trace = append(trace, thoughtStep)
@@ -118,14 +114,12 @@ func (a *PlanAndSolveAgent) runInternal(ctx context.Context, input string, onSte
 	for i, r := range results {
 		fmt.Fprintf(&bullets, "%d. %s\n", i+1, r)
 	}
-	synth, err := a.client.Generate(ctx, llm.GenerateRequest{
-		Prompt: fmt.Sprintf(a.opts.SynthPrompt, input, bullets.String()),
-	})
+	synth, err := generateFromPrompt(ctx, a.model, "", fmt.Sprintf(a.opts.SynthPrompt, input, bullets.String()))
 	if err != nil {
 		return Result{}, err
 	}
 	usage.LLMCalls++
-	usage.Tokens += synth.UsageToken
+	usage.Tokens += synth.Usage.TotalTokens
 
 	finalStep := Step{Kind: StepFinal, Content: synth.Text}
 	trace = append(trace, finalStep)

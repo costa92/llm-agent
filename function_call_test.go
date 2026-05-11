@@ -11,12 +11,15 @@ import (
 )
 
 func TestFunctionCallAgent_NoToolCalls_ReturnsText(t *testing.T) {
-	llmMock := newScriptedLLM(llm.GenerateResponse{
-		Text:         "direct answer",
-		FinishReason: llm.FinishReasonStop,
-		Provider:     "scripted",
-	})
-	a := NewFunctionCallAgent(llmMock, FunctionCallOptions{Registry: NewRegistry()})
+	llmMock := llm.NewScriptedLLM(
+		llm.WithProvider("scripted"),
+		llm.WithCapabilities(llm.Capabilities{Tools: true}),
+		llm.WithResponses(llm.TextResponse("direct answer")),
+	)
+	a, err := NewFunctionCallAgent(llmMock, FunctionCallOptions{Registry: NewRegistry()})
+	if err != nil {
+		t.Fatal(err)
+	}
 	res, err := a.Run(context.Background(), "hi")
 	if err != nil {
 		t.Fatal(err)
@@ -31,14 +34,21 @@ func TestFunctionCallAgent_RunsToolCallsInParallel(t *testing.T) {
 	tool2 := &recordingTool{name: "search", out: "blue sky"}
 	reg := NewRegistry(tool1, tool2)
 
-	llmMock := newScriptedLLM(llm.GenerateResponse{
-		Provider: "scripted",
-		ToolCalls: []llm.ToolCall{
-			{Name: "calc", Arguments: json.RawMessage(`{"expr":"6*7"}`)},
-			{Name: "search", Arguments: json.RawMessage(`{"q":"sky"}`)},
-		},
-	})
-	a := NewFunctionCallAgent(llmMock, FunctionCallOptions{Registry: reg})
+	llmMock := llm.NewScriptedLLM(
+		llm.WithProvider("scripted"),
+		llm.WithCapabilities(llm.Capabilities{Tools: true}),
+		llm.WithResponses(llm.Response{
+			Provider: "scripted",
+			ToolCalls: []llm.ToolCall{
+				{Name: "calc", Arguments: json.RawMessage(`{"expr":"6*7"}`)},
+				{Name: "search", Arguments: json.RawMessage(`{"q":"sky"}`)},
+			},
+		}),
+	)
+	a, err := NewFunctionCallAgent(llmMock, FunctionCallOptions{Registry: reg})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	res, err := a.Run(context.Background(), "ask both")
 	if err != nil {
@@ -59,20 +69,34 @@ func TestFunctionCallAgent_RunsToolCallsInParallel(t *testing.T) {
 }
 
 func TestFunctionCallAgent_UnknownTool(t *testing.T) {
-	llmMock := newScriptedLLM(llm.GenerateResponse{
-		Provider:  "scripted",
-		ToolCalls: []llm.ToolCall{{Name: "nope", Arguments: json.RawMessage(`{}`)}},
-	})
-	a := NewFunctionCallAgent(llmMock, FunctionCallOptions{Registry: NewRegistry()})
-	_, err := a.Run(context.Background(), "x")
+	llmMock := llm.NewScriptedLLM(
+		llm.WithProvider("scripted"),
+		llm.WithCapabilities(llm.Capabilities{Tools: true}),
+		llm.WithResponses(llm.Response{
+			Provider:  "scripted",
+			ToolCalls: []llm.ToolCall{{Name: "nope", Arguments: json.RawMessage(`{}`)}},
+		}),
+	)
+	a, err := NewFunctionCallAgent(llmMock, FunctionCallOptions{Registry: NewRegistry()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = a.Run(context.Background(), "x")
 	if !errors.Is(err, ErrToolNotFound) {
 		t.Errorf("err = %v, want ErrToolNotFound", err)
 	}
 }
 
 func TestFunctionCallAgent_EmptyInput(t *testing.T) {
-	a := NewFunctionCallAgent(newScriptedLLM(), FunctionCallOptions{Registry: NewRegistry()})
-	_, err := a.Run(context.Background(), "  ")
+	model := llm.NewScriptedLLM(
+		llm.WithProvider("scripted"),
+		llm.WithCapabilities(llm.Capabilities{Tools: true}),
+	)
+	a, err := NewFunctionCallAgent(model, FunctionCallOptions{Registry: NewRegistry()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = a.Run(context.Background(), "  ")
 	if !errors.Is(err, ErrEmptyInput) {
 		t.Errorf("err = %v", err)
 	}
@@ -95,20 +119,42 @@ func TestFunctionCallAgent_PartialToolFailure_AbortsButOthersAlreadyRan(t *testi
 		})
 	reg := NewRegistry(toolA, toolB)
 
-	llmMock := newScriptedLLM(llm.GenerateResponse{
-		Provider: "scripted",
-		ToolCalls: []llm.ToolCall{
-			{Name: "a-ok", Arguments: json.RawMessage(`{}`)},
-			{Name: "b-fail", Arguments: json.RawMessage(`{}`)},
-		},
-	})
-	a := NewFunctionCallAgent(llmMock, FunctionCallOptions{Registry: reg})
-	_, err := a.Run(context.Background(), "x")
+	llmMock := llm.NewScriptedLLM(
+		llm.WithProvider("scripted"),
+		llm.WithCapabilities(llm.Capabilities{Tools: true}),
+		llm.WithResponses(llm.Response{
+			Provider: "scripted",
+			ToolCalls: []llm.ToolCall{
+				{Name: "a-ok", Arguments: json.RawMessage(`{}`)},
+				{Name: "b-fail", Arguments: json.RawMessage(`{}`)},
+			},
+		}),
+	)
+	a, err := NewFunctionCallAgent(llmMock, FunctionCallOptions{Registry: reg})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = a.Run(context.Background(), "x")
 
 	if err == nil || !strings.Contains(err.Error(), "intentional fail") {
 		t.Errorf("err = %v, want 'intentional fail'", err)
 	}
 	if !calledA {
 		t.Error("toolA should have been called (parallel execution before failure check)")
+	}
+}
+
+func TestFunctionCallAgent_FailsFastWithoutToolCapability(t *testing.T) {
+	model := &llm.ChatOnlyMock{
+		Provider: "test",
+		Model:    "chat-only",
+		Resp:     llm.Response{Text: "unused"},
+	}
+	_, err := NewFunctionCallAgent(model, FunctionCallOptions{Registry: NewRegistry()})
+	if !errors.Is(err, llm.ErrCapabilityNotSupported) {
+		t.Fatalf("err = %v, want ErrCapabilityNotSupported", err)
+	}
+	if !strings.Contains(err.Error(), "test/chat-only") {
+		t.Fatalf("err = %v, want provider/model context", err)
 	}
 }

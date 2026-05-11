@@ -32,10 +32,13 @@ func main() {
 		scriptedllm.ToolCall("calculator", `{"expr":"3*7"}`),
 	)
 
-	agent := agents.NewFunctionCallAgent(client, agents.FunctionCallOptions{
+	agent, err := agents.NewFunctionCallAgent(client, agents.FunctionCallOptions{
 		Name:     "math-agent",
 		Registry: reg,
 	})
+	if err != nil {
+		log.Fatalf("agent construction failed: %v", err)
+	}
 
 	res, err := agent.Run(context.Background(), "What is 3 times 7?")
 	if err != nil {

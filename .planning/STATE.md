@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Phase 3 planning ready; next execution wave is native tool calling
+**Current focus:** Phase 4 planning ready; next execution wave is embeddings + RAG regression
 
 ## Current Position
 
-Phase: 3 of 7 (Native tool calling on all 3 providers + agent refactor) — planning ready 2026-05-11
-Previous phase: 2 — Streaming on all 3 providers + StreamEvent validation — ✓ COMPLETE 2026-05-11
-Plan: 4 of 5 in Phase 3
-Status: Phase 3 is in final stretch. Shared tool-calling conformance is complete; only the core agent capability refactor remains.
-Last activity: 2026-05-11 — completed `03-04` in `llm-agent-providers`: shared `internal/contract` now validates native tool calling across all three providers.
+Phase: 4 of 7 (Embeddings on OpenAI + Ollama; Anthropic gap documented) — planning ready 2026-05-11
+Previous phase: 3 — Native tool calling on all 3 providers + agent refactor — ✓ COMPLETE 2026-05-11
+Plan: 0 of 5 in Phase 4
+Status: Phase 3 is complete and the Phase 4 planning bundle is now in place. Next execution wave is OpenAI/Ollama embeddings plus Anthropic documented-gap handling.
+Last activity: 2026-05-11 — completed `03-05` in `llm-agent` and created the Phase 4 planning bundle for embeddings, conformance, and RAG regression.
 
-Progress: [███▒░░░░░░] 37% (3 of 8 phases complete)
+Progress: [████░░░░░░] 50% (4 of 8 phases complete)
 
 ## Performance Metrics
 
@@ -32,8 +32,8 @@ Progress: [███▒░░░░░░] 37% (3 of 8 phases complete)
 | 2 | 4 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 02-04, 03-01, 03-02, 03-03, 03-04 completed
-- Trend: provider/tool contract work is closed; final Phase 3 work is the core agent refactor
+- Last 5 plans: 03-01, 03-02, 03-03, 03-04, 03-05 completed
+- Trend: tool-calling work is closed; embeddings are queued with a clean two-wave plan
 
 *Updated after each plan completion*
 
@@ -57,6 +57,8 @@ Recent decisions affecting current work:
 - Phase 3 plan 02 close: Anthropic stays on the low-level Messages API rather than SDK `BetaToolRunner`; this preserves our adapter contract and concurrent-safety expectations.
 - Phase 3 plan 03 close: Ollama tool support is now driven by a per-model strategy table; unsupported models fail honestly instead of silently degrading to free-text.
 - Phase 3 plan 04 close: shared conformance now enforces calculator tool calls, parallel/multi-block behavior, capability-degrade, and dedupe-key invariants across providers.
+- Phase 3 plan 05 close: core agents now bind to `llm.ChatModel`; `ReAct` selects native tools only when `ToolCaller` and `Capabilities.Tools` both hold, while `FunctionCallAgent` is native-only and rejects chat-only models at construction.
+- Phase 4 planning open: embeddings will land on OpenAI and Ollama in parallel, Anthropic's gap stays explicit, then shared embedding conformance and RAG regression close the gate.
 
 ### Pending Todos
 
@@ -69,7 +71,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Next logical work is landing `03-05` core agent capability refactor.
+No current blocker. Next logical work is executing `04-01`, `04-02`, and `04-03` in parallel.
 
 ## Deferred Items
 
@@ -82,5 +84,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-11
-Stopped at: `03-04` complete; core agent refactor is next.
-Resume file: .planning/phases/03-native-tool-calling-agent-refactor/03-05-PLAN.md
+Stopped at: Phase 4 planning ready; Wave 1 embeddings work is next.
+Resume file: .planning/phases/04-embeddings-rag-regression/04-01-PLAN.md
