@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-05-10)
 
 Phase: 6 of 7 (reference customer-support service) — execution opened 2026-05-11
 Previous phase: 5 — OTel adapter — ✓ COMPLETE 2026-05-11
-Plan: 1 of 8 in Phase 6
-Status: Phase 6 plan `06-01` is complete in `llm-agent-customer-support`. The repo now has config loading, provider-aware model bootstrap, OTel tracer-provider wiring, wrapped-agent construction, a minimal HTTP server entrypoint, graceful shutdown, and updated bootstrap documentation.
-Last activity: 2026-05-11 — completed Phase 6 plan `06-01` in `llm-agent-customer-support` and recorded verification evidence.
+Plan: 2 of 8 in Phase 6
+Status: Phase 6 plans `06-01` and `06-02` are complete in `llm-agent-customer-support`. The repo now has config loading, provider-aware model bootstrap, OTel tracer-provider wiring, wrapped-agent construction, graceful shutdown, and the first real HTTP transport surface (`/chat`, `/chat/stream`, `/healthz`, `/readyz`, `X-Trace-Id`).
+Last activity: 2026-05-11 — completed Phase 6 plan `06-02` in `llm-agent-customer-support` and recorded verification evidence.
 
 Progress: [█████░░░░░] 62% (5 of 8 phases complete)
 
@@ -66,6 +66,7 @@ Recent decisions affecting current work:
 - Phase 5 plan 04 close: `otelslog.NewHandler(...)` now decorates any `slog.Handler` with `trace_id` / `span_id` correlation while preserving existing structured fields, including `gen_ai.*` keys.
 - Phase 5 plan 05 close: OTLP exporter wiring now defaults to HTTP on `:4318`, a compose demo using `grafana/otel-lgtm` exists, and the README documents wrapper usage, opt-in semantics, defaults, and demo verification.
 - Phase 6 plan 01 close: the reference service repo now has a thin but runnable bootstrap layer. Config loading, provider-aware model construction, OTel wrappers, signal-aware startup, and graceful shutdown are in place before the HTTP API layer lands.
+- Phase 6 plan 02 close: the first transport surface is now wired. JSON chat, SSE chat streaming, health/readiness probes, and `X-Trace-Id` response propagation all share the same wrapped runtime.
 
 ### Pending Todos
 
@@ -78,7 +79,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Immediate work is `06-02` in `llm-agent-customer-support`: `/chat`, `/chat/stream`, `/healthz`, `/readyz`, and `X-Trace-Id` transport wiring.
+No current blocker. Immediate work is `06-03` in `llm-agent-customer-support`: split chat-provider and embedding-provider selection so Anthropic chat + OpenAI/Ollama embeddings becomes a truthful supported combo.
 
 ## Deferred Items
 
@@ -91,5 +92,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-11
-Stopped at: Phase 6 plan `06-01` complete.
-Resume file: .planning/phases/06-reference-customer-support/06-02-PLAN.md
+Stopped at: Phase 6 plan `06-02` complete.
+Resume file: .planning/phases/06-reference-customer-support/06-03-PLAN.md
