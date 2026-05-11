@@ -5,22 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Phase 2 planning - streaming on all 3 providers
+**Current focus:** Transition from Phase 2 closeout into Phase 3 planning
 
 ## Current Position
 
-Phase: 2 of 7 (Streaming on all 3 providers + StreamEvent validation) — PLANNING READY
+Phase: 2 of 7 (Streaming on all 3 providers + StreamEvent validation) — ✓ COMPLETE 2026-05-11
 Previous phase: 1 — Three-provider walking skeleton — Generate sync only — ✓ COMPLETE 2026-05-10
-Plan: 3 of 4 in Phase 2
-Status: OpenAI, Anthropic, and Ollama streaming landed. Wave 1 is complete; next is shared streaming conformance.
-Last activity: 2026-05-10 — completed `02-03` in `llm-agent-providers`: Ollama `Stream()` now bridges callback responses into `StreamReader` and returns `context.Canceled` promptly on cancel.
+Plan: 4 of 4 in Phase 2
+Status: Phase 2 closed. All three providers implement `Stream()`, and shared streaming conformance now covers happy path, cancellation, and partial-error behavior.
+Last activity: 2026-05-11 — completed `02-04` in `llm-agent-providers`: shared `internal/contract` harness now validates streaming across OpenAI, Anthropic, and Ollama.
 
-Progress: [██▒░░░░░░░] 25% (2 of 8 phases complete)
+Progress: [███▒░░░░░░] 37% (3 of 8 phases complete)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: -
 - Total execution time: -
 
@@ -29,11 +29,11 @@ Progress: [██▒░░░░░░░] 25% (2 of 8 phases complete)
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1 | 7 | - | - |
-| 2 | 3 | - | - |
+| 2 | 4 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-06, 01-07, 02-01, 02-02, 02-03 completed
-- Trend: Phase 2 Wave 1 complete; next useful work is `02-04` shared streaming conformance
+- Last 5 plans: 01-07, 02-01, 02-02, 02-03, 02-04 completed
+- Trend: Phase 2 execution closed; next useful work is Phase 3 planning
 
 *Updated after each plan completion*
 
@@ -51,6 +51,7 @@ Recent decisions affecting current work:
 - Phase 7 is calendar-gated, not effort-gated — depends on a complete v0.3.0 cycle and one minor cycle of deprecation window.
 - Phase 1 close: live Ollama verification is nightly-only by design; PR CI remains fixture-driven and Docker-free.
 - Phase 1 close: `PROVIDER_AUTHORING.md` is now the canonical Generate-only third-party adapter contract.
+- Phase 2 close: shared streaming conformance is now the contract gate before Phase 3 native tool-calling work.
 
 ### Pending Todos
 
@@ -63,7 +64,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Next logical work is executing `02-04` shared streaming conformance in the sister repo.
+No current blocker. Next logical work is opening Phase 3 planning for native tool calling on all three providers plus the core agent refactor.
 
 ## Deferred Items
 
@@ -76,5 +77,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-10
-Stopped at: Phase 2 `02-03` complete; Ollama streaming shipped.
-Resume file: .planning/phases/02-streaming-stream-event-validation/02-03-SUMMARY.md
+Stopped at: Phase 2 complete; shared streaming conformance shipped.
+Resume file: .planning/phases/02-streaming-stream-event-validation/02-04-SUMMARY.md
