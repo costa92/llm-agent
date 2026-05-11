@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Phase 6 implementation is now complete in the reference service repo; next work depends on whether to run a final cold-stack smoke test before milestone close or advance toward release prep
+**Current focus:** v0.3 release-readiness closeout: milestone audit, missing verification artifacts, and one final Phase 6 compose smoke test rather than new feature work
 
 ## Current Position
 
-Phase: 6 of 7 (reference customer-support service) — execution opened 2026-05-11
-Previous phase: 5 — OTel adapter — ✓ COMPLETE 2026-05-11
-Plan: 8 of 8 in Phase 6
-Status: Phase 6 plans `06-01` through `06-08` are complete in `llm-agent-customer-support`. The repo now has config loading, provider-aware model bootstrap, independent embedding-provider selection, OTel tracer-provider wiring, a typed support flow with RAG + `StateGraph` + native tools, durable SQLite/Postgres-backed session storage, config-driven runtime guardrails, layered prompt-injection defenses, graceful shutdown, the first real HTTP transport surface (`/chat`, `/chat/stream`, `/healthz`, `/readyz`, `X-Trace-Id`, `X-Session-Id`), and a documented demo compose stack with collector + Grafana assets.
-Last activity: 2026-05-11 — completed Phase 6 plan `06-08`, added demo-stack packaging assets, and recorded repo-level verification plus compose cold-start notes.
+Phase: milestone closeout after Phase 6 — audit opened 2026-05-11
+Previous phase: 6 — reference customer-support service — implementation complete 2026-05-11
+Plan: release-readiness follow-up
+Status: Phases 0 through 6 are implemented and summarized. Phase 6 also received a post-closeout correction so the collector now matches `decision_wait=30s` and blocked prompt-injection requests emit `prompt_injection_attempt=true` on traces. The remaining work is verification depth: formal Phase 6 verification, a warm-cache compose smoke test, and milestone-close evidence rather than additional product scope.
+Last activity: 2026-05-11 — committed Phase 6 roadmap-alignment fixes, updated planning records, and wrote the first v0.3 milestone audit.
 
-Progress: [██████░░░░] 75% (6 of 8 phases complete)
+Progress: [█████████░] 88% (7 of 8 roadmap phases complete; Phase 7 remains calendar-gated)
 
 ## Performance Metrics
 
@@ -73,19 +73,20 @@ Recent decisions affecting current work:
 - Phase 6 plan 06 close: K7 guardrails now fail closed in the running service. Request caps are config-driven, panic-switch checks are live per request, and HTTP transports now surface `429`/`503` guard outcomes directly.
 - Phase 6 plan 07 close: prompt-injection defense is now layered in the support flow. Suspicious inputs fail closed to a safe fallback, tool arguments no longer trust model-supplied identity, and RAG content is explicitly marked untrusted in the system prompt path.
 - Phase 6 plan 08 close: the reference service now ships a local demo compose stack with app + Ollama + collector + Grafana assets, a pre-provisioned dashboard, tail-sampling config, and README startup / caveat guidance. Cold-stack runtime verification remains sensitive to first-run Docker and model download time.
+- Phase 6 closeout follow-up: the compose collector asset now matches the roadmap's `decision_wait=30s` contract, blocked injection attempts set `prompt_injection_attempt=true` on the active trace, and v0.3 closeout should proceed through verification/audit rather than Phase 7 implementation.
 
 ### Pending Todos
 
 [From .planning/todos/pending/ — ideas captured during sessions]
 
-- **PROJECT.md cleanup**: move "Optional Kubernetes manifests / Helm chart variant" from `### Active` to `### Out of Scope` at next `/gsd-transition` (per Conflict D resolution).
 - ~~**Out-of-band Phase 0 close**: `git tag v0.3.0-pre.1 && git push --tags`~~ — ✓ done 2026-05-10.
 - **Manual GitHub UI**: enable branch protection on `main` for the 3 sister repos (Settings → Branches → require status checks).
 - **Post-merge workflow smoke test**: trigger `nightly-ollama-live` via `workflow_dispatch` after merge to validate GitHub-hosted Docker + cache behavior on the first real run.
+- **Phase 6 warm-cache smoke test**: finish `docker compose up` verification through `readyz`, `/chat`, trace lookup, and collector-sampling evidence so `REFSVC-10..12` can be closed formally.
 
 ### Blockers/Concerns
 
-No code blocker. Immediate next choice is whether to run a dedicated cold-stack smoke test / milestone audit, or transition toward Phase 7's release-prep prerequisites while respecting the calendar gate on deprecation removal.
+No implementation blocker. The active blocker is audit evidence: the Phase 6 demo stack has not yet completed a fully observed first-run or warm-cache runtime proof, and later phases still lack standalone verification artifacts.
 
 ## Deferred Items
 
@@ -98,5 +99,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-11
-Stopped at: Phase 6 implementation complete through `06-08`.
-Resume file: .planning/phases/06-reference-customer-support/06-08-SUMMARY.md
+Stopped at: v0.3 milestone audit opened after Phase 6 closeout corrections.
+Resume file: .planning/v0.3-MILESTONE-AUDIT.md

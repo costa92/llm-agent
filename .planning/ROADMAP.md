@@ -279,16 +279,22 @@ Wave structure: Wave 0 = {01-01}; Wave 1 = {01-02, 01-03, 01-04} (parallel — d
 **Execution Order:**
 Phases execute in numeric order: 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7. Within each phase, plans on different repos / different providers run in parallel where noted; plans on the same package or with sequential dependencies run in order.
 
+**Current reality (2026-05-11):**
+Phases 0 through 6 have been implemented and summarized. Phase 7 remains
+correctly blocked by its calendar gate and is not part of the immediate
+closeout work. The remaining v0.3 effort is release-readiness verification,
+not new feature implementation.
+
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 0. Multi-repo infra + `llm/v2` | 0/6 | Not started | - |
-| 1. Walking skeleton — Generate | 0/TBD | Not started | - |
-| 2. Streaming + cost record + retry SM | 0/TBD | Not started | - |
-| 3. Tool calling + agent refactor | 0/TBD | Not started | - |
-| 4. Embeddings + provider walking-skeleton complete | 0/TBD | Not started | - |
-| 5. OTel adapter | 0/TBD | Not started | - |
-| 6. Reference customer-support service | 0/TBD | Not started | - |
-| 7. Deprecation removal & v0.4 cut | 0/TBD | Not started | - |
+| 0. Multi-repo infra + `llm/v2` | 6/6 | Complete | 2026-05-10 |
+| 1. Walking skeleton — Generate | 7/7 | Complete | 2026-05-10 |
+| 2. Streaming + cost record + retry SM | 4/4 | Complete | 2026-05-10 |
+| 3. Tool calling + agent refactor | 5/5 | Complete | 2026-05-11 |
+| 4. Embeddings + provider walking-skeleton complete | 5/5 | Complete | 2026-05-11 |
+| 5. OTel adapter | 5/5 | Complete | 2026-05-11 |
+| 6. Reference customer-support service | 8/8 | Complete with verification follow-up | 2026-05-11 |
+| 7. Deprecation removal & v0.4 cut | 0/3 | Calendar-gated | - |
 
 ## Coverage
 
@@ -308,10 +314,6 @@ These are encoded in multiple phases by design. They are not duplicates — each
 - **`RESEARCH_LOG.md`:** updated at every phase open; not a separate requirement (Pitfall 21 process artifact).
 - **Provider Author Guide:** v0.1 in Phase 1 (Generate contract), v0.2 in Phase 2 (Stream contract), v0.3 in Phase 4 (full capability surface). Owned by CORE-11; refined incrementally rather than written once.
 - **Architectural drift check:** baseline `go doc ./...` snapshot at Phase 0 exit; diff reviewed at every `/gsd-transition` (Pitfall 22).
-
-## PROJECT.md Cleanup Flag
-
-Per Conflict D: `PROJECT.md` `### Active` list still includes "Optional Kubernetes manifests / Helm chart variant" under the Reference service block. This contradicts the resolved-out-of-scope status in REQUIREMENTS.md and this roadmap. **Flag for `/gsd-transition` cleanup at the next phase boundary:** move this bullet to PROJECT.md's `### Out of Scope` section with the rationale "PITFALLS Pitfall 16 — half-shipped K8s is worse than no K8s; defer to v0.4 with its own kind/k3d CI from the start."
 
 ---
 *Roadmap defined: 2026-05-10 by gsd-roadmapper*
