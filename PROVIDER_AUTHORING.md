@@ -199,12 +199,34 @@ The pattern is:
 3. Reuse `LoadFixture(...)` and `AssertGenerate(...)`.
 4. Keep provider mapping logic in small `map.go` or `errors.go` helpers so the
    fixture matrix stays readable.
+5. If the provider implements `llm.Embedder`, extend the same shared harness
+   with embedding fixtures rather than creating a second test framework.
 
 For local-only providers such as Ollama, Phase 1 also permits a build-tagged
 live test. The nightly workflow runs it outside PR CI so real-container drift
 does not block normal development.
 
-## 7. Phase 1 Boundary
+## 7. Embedder Guidance
+
+Phase 4 adds the `llm.Embedder` contract for providers that support embeddings.
+
+The required behavior is:
+
+- `Embed(ctx, []string)` preserves input order in the returned vectors.
+- `EmbedDimensions()` reports the bound model's vector width when it is known.
+- `llm.Usage` is filled through the same shared usage type used by chat.
+- `Info().Capabilities.Embeddings` is truthful for the bound model.
+
+For providers that do NOT support embeddings:
+
+- do not fake a degraded implementation
+- return `Capabilities.Embeddings=false`
+- expose the gap via `llm.ErrCapabilityNotSupported` semantics when a wrapper
+  or higher-level helper chooses to surface an embedding call path
+
+Anthropic in v0.3 is the canonical documented-gap example.
+
+## 8. Phase 1 Boundary
 
 This guide is intentionally narrow. A provider can claim v0.1 conformance only
 for Generate-only behavior.
@@ -214,7 +236,6 @@ Not done yet:
 - no streaming contract guidance
 - no `StreamEvent` validation rules
 - no native `ToolCaller` guidance
-- no `Embedder` guidance
 - no structured-output guidance
 - no estimated token accounting
 - no retry state machine
@@ -223,7 +244,7 @@ Not done yet:
 Do not pre-invent these behaviors in a Phase 1 adapter. Match the current
 contract first, then extend in the milestone phase that defines the behavior.
 
-## 8. Cross-References
+## 9. Cross-References
 
 Core repo:
 
@@ -244,5 +265,5 @@ Canonical sister-repo examples:
 Versioning note:
 
 - v0.1 of this guide corresponds to Phase 1 of the v0.3 roadmap.
-- v0.2 will add streaming guidance after Phase 2 lands.
-- v0.3 will add tools and embeddings guidance after Phases 3 and 4 land.
+- v0.2 added streaming guidance after Phase 2 landed.
+- v0.3 adds tools and embeddings guidance after Phases 3 and 4 land.
