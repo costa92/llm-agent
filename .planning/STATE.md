@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-05-10)
 
 Phase: 3 of 7 (Native tool calling on all 3 providers + agent refactor) — planning ready 2026-05-11
 Previous phase: 2 — Streaming on all 3 providers + StreamEvent validation — ✓ COMPLETE 2026-05-11
-Plan: 3 of 5 in Phase 3
-Status: Phase 3 Wave 1 is complete. All three providers now implement native tool calling; shared conformance and core agent refactor remain.
-Last activity: 2026-05-11 — completed `03-03` in `llm-agent-providers`: Ollama now implements strategy-table native tool calling plus capability-degrade handling.
+Plan: 4 of 5 in Phase 3
+Status: Phase 3 is in final stretch. Shared tool-calling conformance is complete; only the core agent capability refactor remains.
+Last activity: 2026-05-11 — completed `03-04` in `llm-agent-providers`: shared `internal/contract` now validates native tool calling across all three providers.
 
 Progress: [███▒░░░░░░] 37% (3 of 8 phases complete)
 
@@ -32,8 +32,8 @@ Progress: [███▒░░░░░░] 37% (3 of 8 phases complete)
 | 2 | 4 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 02-03, 02-04, 03-01, 03-02, 03-03 completed
-- Trend: Phase 3 Wave 1 is closed; next work is shared conformance, then the core agent refactor
+- Last 5 plans: 02-04, 03-01, 03-02, 03-03, 03-04 completed
+- Trend: provider/tool contract work is closed; final Phase 3 work is the core agent refactor
 
 *Updated after each plan completion*
 
@@ -56,6 +56,7 @@ Recent decisions affecting current work:
 - Phase 3 plan 01 close: OpenAI tool support is modeled as a truthful capability on the bound provider/model, while actual tool attachment remains immutable per `WithTools(...)`.
 - Phase 3 plan 02 close: Anthropic stays on the low-level Messages API rather than SDK `BetaToolRunner`; this preserves our adapter contract and concurrent-safety expectations.
 - Phase 3 plan 03 close: Ollama tool support is now driven by a per-model strategy table; unsupported models fail honestly instead of silently degrading to free-text.
+- Phase 3 plan 04 close: shared conformance now enforces calculator tool calls, parallel/multi-block behavior, capability-degrade, and dedupe-key invariants across providers.
 
 ### Pending Todos
 
@@ -68,7 +69,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Next logical work is landing `03-04` shared tool-calling conformance, then `03-05` core agent refactor.
+No current blocker. Next logical work is landing `03-05` core agent capability refactor.
 
 ## Deferred Items
 
@@ -81,5 +82,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-11
-Stopped at: `03-03` complete; shared conformance is next.
-Resume file: .planning/phases/03-native-tool-calling-agent-refactor/03-04-PLAN.md
+Stopped at: `03-04` complete; core agent refactor is next.
+Resume file: .planning/phases/03-native-tool-calling-agent-refactor/03-05-PLAN.md
