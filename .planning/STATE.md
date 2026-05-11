@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-05-10)
 
 Phase: 6 of 7 (reference customer-support service) — execution opened 2026-05-11
 Previous phase: 5 — OTel adapter — ✓ COMPLETE 2026-05-11
-Plan: 4 of 8 in Phase 6
-Status: Phase 6 plans `06-01` through `06-04` are complete in `llm-agent-customer-support`. The repo now has config loading, provider-aware model bootstrap, independent embedding-provider selection, OTel tracer-provider wiring, a typed support flow with RAG + `StateGraph` + native tools, graceful shutdown, and the first real HTTP transport surface (`/chat`, `/chat/stream`, `/healthz`, `/readyz`, `X-Trace-Id`).
-Last activity: 2026-05-11 — completed Phase 6 plan `06-04`, rewired the app to the real support flow, and recorded verification evidence.
+Plan: 5 of 8 in Phase 6
+Status: Phase 6 plans `06-01` through `06-05` are complete in `llm-agent-customer-support`. The repo now has config loading, provider-aware model bootstrap, independent embedding-provider selection, OTel tracer-provider wiring, a typed support flow with RAG + `StateGraph` + native tools, durable SQLite/Postgres-backed session storage, graceful shutdown, and the first real HTTP transport surface (`/chat`, `/chat/stream`, `/healthz`, `/readyz`, `X-Trace-Id`, `X-Session-Id`).
+Last activity: 2026-05-11 — completed Phase 6 plan `06-05`, added durable session storage, and recorded verification evidence.
 
 Progress: [█████░░░░░] 62% (5 of 8 phases complete)
 
@@ -69,6 +69,7 @@ Recent decisions affecting current work:
 - Phase 6 plan 02 close: the first transport surface is now wired. JSON chat, SSE chat streaming, health/readiness probes, and `X-Trace-Id` response propagation all share the same wrapped runtime.
 - Phase 6 plan 03 close: chat and embedding provider selection are now independent. Anthropic chat plus OpenAI/Ollama embeddings is an explicit supported bootstrap combination, and provider selection logic is centralized in `internal/providers`.
 - Phase 6 plan 04 close: the reference service now runs a real support flow. Explicit triage lives in `StateGraph`, refund knowledge lookup is tool-backed through RAG, and the HTTP transport now drives that flow instead of a `SimpleAgent`.
+- Phase 6 plan 05 close: conversation state now lives outside agent instances. A shared session-store contract backs both SQLite and Postgres, the HTTP layer propagates/mints session IDs, and supportflow reloads prior transcript context across calls.
 
 ### Pending Todos
 
@@ -81,7 +82,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Immediate work is `06-05` in `llm-agent-customer-support`.
+No current blocker. Immediate work is `06-06` in `llm-agent-customer-support`.
 
 ## Deferred Items
 
@@ -94,5 +95,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-11
-Stopped at: Phase 6 plan `06-04` complete.
-Resume file: .planning/phases/06-reference-customer-support/06-05-PLAN.md
+Stopped at: Phase 6 plan `06-05` complete.
+Resume file: .planning/phases/06-reference-customer-support/06-06-PLAN.md
