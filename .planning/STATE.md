@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-05-10)
 
 Phase: 6 of 7 (reference customer-support service) — execution opened 2026-05-11
 Previous phase: 5 — OTel adapter — ✓ COMPLETE 2026-05-11
-Plan: 6 of 8 in Phase 6
-Status: Phase 6 plans `06-01` through `06-06` are complete in `llm-agent-customer-support`. The repo now has config loading, provider-aware model bootstrap, independent embedding-provider selection, OTel tracer-provider wiring, a typed support flow with RAG + `StateGraph` + native tools, durable SQLite/Postgres-backed session storage, config-driven runtime guardrails, graceful shutdown, and the first real HTTP transport surface (`/chat`, `/chat/stream`, `/healthz`, `/readyz`, `X-Trace-Id`, `X-Session-Id`).
-Last activity: 2026-05-11 — completed Phase 6 plan `06-06`, wired hard caps and the panic switch, and recorded verification evidence.
+Plan: 7 of 8 in Phase 6
+Status: Phase 6 plans `06-01` through `06-07` are complete in `llm-agent-customer-support`. The repo now has config loading, provider-aware model bootstrap, independent embedding-provider selection, OTel tracer-provider wiring, a typed support flow with RAG + `StateGraph` + native tools, durable SQLite/Postgres-backed session storage, config-driven runtime guardrails, layered prompt-injection defenses, graceful shutdown, and the first real HTTP transport surface (`/chat`, `/chat/stream`, `/healthz`, `/readyz`, `X-Trace-Id`, `X-Session-Id`).
+Last activity: 2026-05-11 — completed Phase 6 plan `06-07`, added day-one prompt-injection defenses, and recorded verification evidence.
 
 Progress: [█████░░░░░] 62% (5 of 8 phases complete)
 
@@ -71,6 +71,7 @@ Recent decisions affecting current work:
 - Phase 6 plan 04 close: the reference service now runs a real support flow. Explicit triage lives in `StateGraph`, refund knowledge lookup is tool-backed through RAG, and the HTTP transport now drives that flow instead of a `SimpleAgent`.
 - Phase 6 plan 05 close: conversation state now lives outside agent instances. A shared session-store contract backs both SQLite and Postgres, the HTTP layer propagates/mints session IDs, and supportflow reloads prior transcript context across calls.
 - Phase 6 plan 06 close: K7 guardrails now fail closed in the running service. Request caps are config-driven, panic-switch checks are live per request, and HTTP transports now surface `429`/`503` guard outcomes directly.
+- Phase 6 plan 07 close: prompt-injection defense is now layered in the support flow. Suspicious inputs fail closed to a safe fallback, tool arguments no longer trust model-supplied identity, and RAG content is explicitly marked untrusted in the system prompt path.
 
 ### Pending Todos
 
@@ -83,7 +84,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Immediate work is `06-07` in `llm-agent-customer-support`.
+No current blocker. Immediate work is `06-08` in `llm-agent-customer-support`.
 
 ## Deferred Items
 
@@ -96,5 +97,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-11
-Stopped at: Phase 6 plan `06-06` complete.
-Resume file: .planning/phases/06-reference-customer-support/06-07-PLAN.md
+Stopped at: Phase 6 plan `06-07` complete.
+Resume file: .planning/phases/06-reference-customer-support/06-08-PLAN.md
