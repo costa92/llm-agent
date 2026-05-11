@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Phase 5 complete; next milestone work is the reference service phase that composes the now-finished OTel adapter
+**Current focus:** Phase 6 has opened; bootstrap work is underway in the reference service repo that composes the now-finished OTel adapter
 
 ## Current Position
 
-Phase: 5 of 7 (OTel adapter) — execution in progress 2026-05-11
-Previous phase: 4 — Embeddings on OpenAI + Ollama; Anthropic gap documented — ✓ COMPLETE 2026-05-11
-Plan: 5 of 5 in Phase 5
-Status: Phase 5 is complete in `llm-agent-otel`. Wrappers, semconv gates, metric/content guardrails, slog correlation, exporter wiring, compose demo assets, and README operator guidance are all in place.
-Last activity: 2026-05-11 — completed Phase 5 plan `05-05` in `llm-agent-otel` and recorded verification evidence.
+Phase: 6 of 7 (reference customer-support service) — execution opened 2026-05-11
+Previous phase: 5 — OTel adapter — ✓ COMPLETE 2026-05-11
+Plan: 1 of 8 in Phase 6
+Status: Phase 6 plan `06-01` is complete in `llm-agent-customer-support`. The repo now has config loading, provider-aware model bootstrap, OTel tracer-provider wiring, wrapped-agent construction, a minimal HTTP server entrypoint, graceful shutdown, and updated bootstrap documentation.
+Last activity: 2026-05-11 — completed Phase 6 plan `06-01` in `llm-agent-customer-support` and recorded verification evidence.
 
 Progress: [█████░░░░░] 62% (5 of 8 phases complete)
 
@@ -33,7 +33,7 @@ Progress: [█████░░░░░] 62% (5 of 8 phases complete)
 
 **Recent Trend:**
 - Last 5 plans: 05-01, 05-02, 05-03, 05-04, 05-05 completed
-- Trend: provider capability work is closed; Phase 5 observability work is now fully landed in the sister repo and ready for reference-service composition
+- Trend: provider and observability substrate work is closed; focus has moved to service integration and guardrails in the reference service repo
 
 *Updated after each plan completion*
 
@@ -65,6 +65,7 @@ Recent decisions affecting current work:
 - Phase 5 plan 03 close: `gen_ai.*` constants and opt-in gates now live in one root file, metrics are emitted through a strict allowlist that excludes `user.id` / `session.id`, and content capture stays off by default with redaction support when enabled.
 - Phase 5 plan 04 close: `otelslog.NewHandler(...)` now decorates any `slog.Handler` with `trace_id` / `span_id` correlation while preserving existing structured fields, including `gen_ai.*` keys.
 - Phase 5 plan 05 close: OTLP exporter wiring now defaults to HTTP on `:4318`, a compose demo using `grafana/otel-lgtm` exists, and the README documents wrapper usage, opt-in semantics, defaults, and demo verification.
+- Phase 6 plan 01 close: the reference service repo now has a thin but runnable bootstrap layer. Config loading, provider-aware model construction, OTel wrappers, signal-aware startup, and graceful shutdown are in place before the HTTP API layer lands.
 
 ### Pending Todos
 
@@ -77,7 +78,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Next logical work is moving into the next milestone phase that composes this completed OTel adapter into the reference customer-support service.
+No current blocker. Immediate work is `06-02` in `llm-agent-customer-support`: `/chat`, `/chat/stream`, `/healthz`, `/readyz`, and `X-Trace-Id` transport wiring.
 
 ## Deferred Items
 
@@ -90,5 +91,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-11
-Stopped at: Phase 5 complete.
-Resume file: .planning/ROADMAP.md
+Stopped at: Phase 6 plan `06-01` complete.
+Resume file: .planning/phases/06-reference-customer-support/06-02-PLAN.md
