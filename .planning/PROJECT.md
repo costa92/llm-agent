@@ -52,7 +52,6 @@
 - [ ] Multi-agent customer-support service — RAG-backed knowledge lookup + StateGraph triage routing + tool use
 - [ ] Single-command bring-up — `docker compose up` brings up the service + Ollama + OTel collector + Grafana
 - [ ] Provider switch via env — same service runs against OpenAI / Anthropic / Ollama with one variable
-- [ ] Optional Kubernetes manifests / Helm chart variant
 - [ ] HTTP API surface (chat endpoint), demonstrating real request handling, not just `go run .`
 
 **Multi-repo infrastructure (umbrella concern)**
@@ -70,6 +69,7 @@
 - **Production-grade distributed a2a/anp** — `comm/a2a` + `comm/anp` stay at toy/demo level. *Why:* "production distributed multi-agent" is a separate milestone needing service discovery, rate limiting, retry/circuit-breaking, and security review.
 - **v1.0 stability commitment** — this milestone targets v0.3 (incremental, BC may break per existing 0.x policy). *Why:* "real-world feedback" gating v1.0 hasn't accumulated yet; ship v0.3, learn from real users running real workloads, then promote.
 - **Single-repo monolith with build tags or hard provider deps** — providers/telemetry/refsvc do NOT live in this repo. *Why:* core's stdlib-only contract is the differentiating value (per Core Value).
+- **Kubernetes manifests / Helm for the reference service** — defer to v0.4+ with kind/k3d CI from day one. *Why:* half-shipped K8s is worse than no K8s; v0.3 only promises the local compose demo stack.
 
 ## Context
 
@@ -138,4 +138,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-10 after initialization*
+*Last updated: 2026-05-11 after Phase 6 closeout cleanup*

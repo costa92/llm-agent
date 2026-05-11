@@ -26,6 +26,13 @@ observability, tail-sampling, and an explicit demo-only boundary.
 - Added an asset-level regression test in `compose/assets_test.go` so the repo
   now verifies the demo stack files, collector policies, dashboard panel names,
   and README operator instructions.
+- Followed up after the initial package commit to align two roadmap promises
+  exactly:
+  - `compose/otel-collector.yaml` now uses `decision_wait: 30s`, matching
+    `REFSVC-12` and the Phase 6 tail-sampling contract.
+  - blocked prompt-injection requests now mark the active trace with
+    `prompt_injection_attempt=true`, making the `REFSVC-09` observability claim
+    true in code rather than only in prose.
 - Updated `README.md` with:
   - the exact `docker compose -f compose/compose.yaml up --build` startup path
   - `readyz` and `/chat` verification commands
@@ -66,6 +73,8 @@ Result:
 - `go test ./compose -count=1`: pass
 - `go test ./... -count=1`: pass
 - `docker compose -f compose/compose.yaml config`: pass
+- targeted follow-up tests for the `decision_wait` collector asset and the
+  prompt-injection trace attribute: pass
 - `docker compose -f compose/compose.yaml up --build`: started successfully but
   did not reach final `readyz` / `/chat` assertions within this session because
   the first cold boot spent the full verification window pulling large Docker
