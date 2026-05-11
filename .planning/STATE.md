@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Transition from Phase 2 closeout into Phase 3 planning
+**Current focus:** Phase 3 planning ready; next execution wave is native tool calling
 
 ## Current Position
 
-Phase: 2 of 7 (Streaming on all 3 providers + StreamEvent validation) — ✓ COMPLETE 2026-05-11
-Previous phase: 1 — Three-provider walking skeleton — Generate sync only — ✓ COMPLETE 2026-05-10
-Plan: 4 of 4 in Phase 2
-Status: Phase 2 closed. All three providers implement `Stream()`, and shared streaming conformance now covers happy path, cancellation, and partial-error behavior.
-Last activity: 2026-05-11 — completed `02-04` in `llm-agent-providers`: shared `internal/contract` harness now validates streaming across OpenAI, Anthropic, and Ollama.
+Phase: 3 of 7 (Native tool calling on all 3 providers + agent refactor) — planning ready 2026-05-11
+Previous phase: 2 — Streaming on all 3 providers + StreamEvent validation — ✓ COMPLETE 2026-05-11
+Plan: 1 of 5 in Phase 3
+Status: Phase 3 is executing. OpenAI native tool calling is complete; Anthropic and Ollama remain in Wave 1.
+Last activity: 2026-05-11 — completed `03-01` in `llm-agent-providers`: OpenAI now implements immutable `WithTools(...)` plus sync/stream tool-call mapping.
 
 Progress: [███▒░░░░░░] 37% (3 of 8 phases complete)
 
@@ -32,8 +32,8 @@ Progress: [███▒░░░░░░] 37% (3 of 8 phases complete)
 | 2 | 4 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 01-07, 02-01, 02-02, 02-03, 02-04 completed
-- Trend: Phase 2 execution closed; next useful work is Phase 3 planning
+- Last 5 plans: 02-01, 02-02, 02-03, 02-04, 03-01 completed
+- Trend: Phase 3 Wave 1 is underway; OpenAI is done, Anthropic/Ollama are next
 
 *Updated after each plan completion*
 
@@ -52,6 +52,8 @@ Recent decisions affecting current work:
 - Phase 1 close: live Ollama verification is nightly-only by design; PR CI remains fixture-driven and Docker-free.
 - Phase 1 close: `PROVIDER_AUTHORING.md` is now the canonical Generate-only third-party adapter contract.
 - Phase 2 close: shared streaming conformance is now the contract gate before Phase 3 native tool-calling work.
+- Phase 3 open: provider-native tools land before any core agent refactor; agent constructors consume capability interfaces, not provider names.
+- Phase 3 plan 01 close: OpenAI tool support is modeled as a truthful capability on the bound provider/model, while actual tool attachment remains immutable per `WithTools(...)`.
 
 ### Pending Todos
 
@@ -64,7 +66,7 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No current blocker. Next logical work is opening Phase 3 planning for native tool calling on all three providers plus the core agent refactor.
+No current blocker. Next logical work is executing `03-02` and `03-03`, then landing `03-04` and `03-05`.
 
 ## Deferred Items
 
@@ -76,6 +78,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-10
-Stopped at: Phase 2 complete; shared streaming conformance shipped.
-Resume file: .planning/phases/02-streaming-stream-event-validation/02-04-SUMMARY.md
+Last session: 2026-05-11
+Stopped at: `03-01` complete; Anthropic and Ollama Wave 1 still open.
+Resume file: .planning/phases/03-native-tool-calling-agent-refactor/03-02-PLAN.md
