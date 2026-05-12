@@ -119,15 +119,19 @@ Observed runtime evidence from the 2026-05-12 retry:
 1. Optionally replace the host-run app workaround with a full compose-native
    app container proof after the environment/GitHub build constraints are
    removed.
-2. As of 2026-05-12, that compose-native proof also depends on release
-   publication state, not just Docker timing:
+2. As of the 2026-05-12 rerun, that compose-native proof depends on module
+   fetchability from inside the unauthenticated container build, not just
+   Docker timing:
    - `compose/Dockerfile` drops the local sibling `replace` directives before
      `go mod download`
    - the container build therefore requires remotely fetchable module releases
      for `llm-agent-otel v0.1.0` and `llm-agent-providers v0.1.0`
    - later on 2026-05-12, both sister repos were tagged and pushed at `v0.1.0`
      (`llm-agent-otel`, `llm-agent-providers`)
-   - a follow-up `git ls-remote` verification attempt failed only because this
-     sandbox lost DNS resolution to `github.com` after the successful pushes
-   - the next compose-native rerun should therefore treat release publication
-     as satisfied and focus on the container build/runtime path itself
+   - however, `docker compose ... build app` still failed at
+     `go mod download` with:
+     `github.com/costa92/llm-agent-otel@v0.1.0 ... invalid version:
+     unknown revision v0.1.0`
+   - the stronger compose-native proof therefore remains blocked until those
+     sister modules are fetchable from the container build context, either via
+     public module visibility or an authenticated private-module path

@@ -95,9 +95,14 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-No implementation blocker. The current constraint is planning discipline: do
-not resume implementation without either opening the Phase 7 gate or defining a
-fresh milestone.
+No implementation blocker inside `llm-agent` itself. The current constraints
+are:
+
+- planning discipline: do not resume implementation without either opening the
+  Phase 7 gate or defining a fresh milestone
+- the optional refsvc compose-native proof still cannot be closed because the
+  app container build drops local `replace` directives and fails
+  unauthenticated module resolution for `llm-agent-otel v0.1.0`
 
 ## Deferred Items
 

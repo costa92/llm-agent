@@ -33,8 +33,19 @@ Additional blocking detail confirmed on 2026-05-12:
   preceding `git push origin main` + `git push origin v0.1.0` commands for both
   repos had already succeeded
 
-So the remaining compose-native app proof blocker is no longer sister-repo tag
-publication; it is the container build/runtime environment itself.
+Rerun evidence captured later on 2026-05-12 narrowed the blocker further:
+
+- `docker compose -f compose/compose.yaml build app` now fails quickly instead
+  of stalling
+- failure point: `RUN go mod download`
+- exact error:
+  `github.com/costa92/llm-agent-otel@v0.1.0 ... invalid version: unknown revision v0.1.0`
+- local sibling repos do contain the `v0.1.0` tags, so the remaining gap is
+  not local release hygiene; it is container-side fetchability of those modules
+  through the public Go module path / checksum path being used in the image
+
+So the remaining compose-native app proof blocker is module accessibility from
+inside the container build, then the container runtime path itself.
 
 ## Solution
 
@@ -47,10 +58,14 @@ capture:
 - `X-Trace-Id` correlation
 - tail-sampling behavior or equivalent observability confirmation
 
-The release publication prerequisite is now satisfied. The next rerun should
-focus on:
+The release publication prerequisite is now satisfied. The next meaningful
+attempt should focus on:
 
-- containerized `go mod download` / build behavior inside the app image
+- making `llm-agent-otel v0.1.0` and `llm-agent-providers v0.1.0` fetchable to
+  the app image build, either by public visibility or private-module auth /
+  `GOPRIVATE`-style wiring inside the build
+- then re-running containerized `go mod download` / build behavior inside the
+  app image
 - full app-container startup
 - `readyz`, `/chat`, `X-Trace-Id`, and observability proof capture
 
