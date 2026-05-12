@@ -2,25 +2,25 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-10)
+See: .planning/PROJECT.md (updated 2026-05-12)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** v0.3 closeout is complete through Phase 6; remaining work is archival hygiene and future-gated Phase 7 only
+**Current focus:** v0.3 is shipped and archived; only future-gated Phase 7 or a fresh milestone definition remain
 
 ## Current Position
 
-Phase: milestone closeout after Phase 6 — audit opened 2026-05-11
+Phase: no active implementation phase
 Previous phase: 6 — reference customer-support service — implementation complete 2026-05-11
-Plan: release-readiness follow-up
-Status: Phases 0 through 6 are implemented, summarized, and runtime-verified. Phase 6 now also has live collector tail-sampling proof: after fixing collector OTLP listener reachability and explicit error span statuses, a direct OTLP probe sent 30 fast traces, 1 error trace, and 1 six-second trace through the live collector; after the 30s decision window, Tempo retained 2/30 fast traces plus both special-case traces.
-Last activity: 2026-05-12 — closed REFSVC-12 by verifying live tail-sampling retention against Tempo and recording the observability-path fixes that made the policy measurable.
+Plan: wait for Phase 7 calendar gate or define a fresh milestone
+Status: `v0.3` is archived. Phases 0 through 6 are implemented, summarized, and runtime-verified enough to close the milestone. Phase 7 remains intentionally out of scope until the deprecation window opens.
+Last activity: 2026-05-12 — archived the `v0.3` roadmap and requirements, reset active planning files to post-milestone state, and preserved the milestone audit as the release-close record.
 
-Progress: [██████████] 100% of v0.3 in-scope roadmap phases complete (Phase 7 remains intentionally calendar-gated post-v0.3 work)
+Progress: [██████████] 100% of `v0.3` shipped and archived
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 11
+- Total plans completed: 40
 - Average duration: -
 - Total execution time: -
 
@@ -28,12 +28,17 @@ Progress: [██████████] 100% of v0.3 in-scope roadmap phases 
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
+| 0 | 6 | - | - |
 | 1 | 7 | - | - |
 | 2 | 4 | - | - |
+| 3 | 5 | - | - |
+| 4 | 5 | - | - |
+| 5 | 5 | - | - |
+| 6 | 8 | - | - |
 
 **Recent Trend:**
-- Last 5 plans: 05-01, 05-02, 05-03, 05-04, 05-05 completed
-- Trend: provider and observability substrate work is closed; focus has moved to service integration and guardrails in the reference service repo
+- Last 5 plans: 06-04, 06-05, 06-06, 06-07, 06-08 completed
+- Trend: implementation work is complete; focus has moved from service integration to milestone archival and future-gated planning
 
 *Updated after each plan completion*
 
@@ -76,6 +81,7 @@ Recent decisions affecting current work:
 - Phase 6 closeout follow-up: the compose collector asset now matches the roadmap's `decision_wait=30s` contract, blocked injection attempts set `prompt_injection_attempt=true` on the active trace, and v0.3 closeout should proceed through verification/audit rather than Phase 7 implementation.
 - Phase 6 runtime verification: on 2026-05-12, a locally built server running against the live local dependency stack returned `200` from `/readyz` and `/chat`, emitted real `X-Trace-Id` headers, and confirmed that Grafana had provisioned the `Customer Support Observability` dashboard.
 - Phase 6 observability closeout: on 2026-05-12, live verification exposed two real gaps in the demo observability path — the collector OTLP receiver was bound to loopback inside the container, and error spans recorded exceptions without setting `STATUS_CODE_ERROR`. After fixing both, a direct OTLP probe confirmed the configured tail-sampling branches: fast baseline retained 2/30 traces, while error and >5s traces were both retained 1/1.
+- Milestone close decision: archive `v0.3` now, carry forward only the calendar-gated deprecation cycle plus archive-quality tech debt, and do not start Phase 7 early.
 
 ### Pending Todos
 
@@ -86,7 +92,9 @@ Recent decisions affecting current work:
 - **Post-merge workflow smoke test**: trigger `nightly-ollama-live` via `workflow_dispatch` after merge to validate GitHub-hosted Docker + cache behavior on the first real run.
 ### Blockers/Concerns
 
-No implementation blocker. Remaining debt is archival/documentation quality, not roadmap execution.
+No implementation blocker. The current constraint is planning discipline: do
+not resume implementation without either opening the Phase 7 gate or defining a
+fresh milestone.
 
 ## Deferred Items
 
@@ -98,6 +106,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-11
-Stopped at: v0.3 milestone audit opened after Phase 6 closeout corrections.
-Resume file: .planning/v0.3-MILESTONE-AUDIT.md
+Last session: 2026-05-12
+Stopped at: `v0.3` archived; active planning surface reset for post-milestone state.
+Resume file: .planning/ROADMAP.md
