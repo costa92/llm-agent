@@ -88,9 +88,9 @@ Recent decisions affecting current work:
 [From .planning/todos/pending/ — ideas captured during sessions]
 
 - ~~**Out-of-band Phase 0 close**: `git tag v0.3.0-pre.1 && git push --tags`~~ — ✓ done 2026-05-10.
-- **Enable sister repo branch protection** — `.planning/todos/pending/2026-05-12-enable-sister-repo-branch-protection.md`
+- ~~**Enable sister repo branch protection** — `.planning/todos/pending/2026-05-12-enable-sister-repo-branch-protection.md`~~ — ✓ done 2026-05-12 (`llm-agent-providers`, `llm-agent-otel`, `llm-agent-customer-support` `main` now require PR review + `test / go`)
 - ~~**Publish sister repo release tags** — `.planning/todos/pending/2026-05-12-publish-sister-repo-release-tags.md`~~ — ✓ done 2026-05-12 (`llm-agent-otel v0.1.0`, `llm-agent-providers v0.1.0`)
-- **Trigger nightly Ollama live smoke** — `.planning/todos/pending/2026-05-12-trigger-nightly-ollama-live-smoke.md`
+- ~~**Trigger nightly Ollama live smoke** — `.planning/todos/pending/2026-05-12-trigger-nightly-ollama-live-smoke.md`~~ — ✓ done 2026-05-12 (`nightly-ollama-live` run `25717795596` succeeded in GitHub Actions)
 - **Rerun refsvc compose native proof** — `.planning/todos/pending/2026-05-12-rerun-refsvc-compose-native-proof.md`
 
 ### Blockers/Concerns
