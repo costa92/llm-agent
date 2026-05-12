@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** v0.3 release-readiness closeout: milestone audit, missing verification artifacts, and a still-unfinished Phase 6 compose smoke test rather than new feature work
+**Current focus:** v0.3 release-readiness closeout: one last observability proof pass for the collector tail-sampling contract, after service runtime and dashboard verification succeeded
 
 ## Current Position
 
 Phase: milestone closeout after Phase 6 — audit opened 2026-05-11
 Previous phase: 6 — reference customer-support service — implementation complete 2026-05-11
 Plan: release-readiness follow-up
-Status: Phases 0 through 6 are implemented and summarized. Phase 6 also received a post-closeout correction so the collector now matches `decision_wait=30s` and blocked prompt-injection requests emit `prompt_injection_attempt=true` on traces. The remaining work is verification depth: formal Phase 6 verification, a warm-cache compose smoke test, and milestone-close evidence rather than additional product scope.
-Last activity: 2026-05-12 — re-ran the Phase 6 compose smoke test with Docker access, confirmed the retry still stalls in large image pulls before container creation, and refreshed the milestone audit evidence.
+Status: Phases 0 through 6 are implemented and summarized. Phase 6 now also has live runtime proof: a locally built server returned `200` from `/readyz` and `/chat` against the live local dependency stack, emitted real `X-Trace-Id` headers, and the Grafana API exposed the provisioned `Customer Support Observability` dashboard. The only remaining roadmap-close evidence gap is collector tail-sampling behavior.
+Last activity: 2026-05-12 — verified `/readyz`, `/chat`, `X-Trace-Id`, and dashboard provisioning against the live Phase 6 dependency stack, then reduced the open audit gap to REFSVC-12 tail-sampling proof.
 
-Progress: [█████████░] 88% (7 of 8 roadmap phases complete; Phase 7 remains calendar-gated)
+Progress: [█████████░] 88% (7 of 8 roadmap phases complete; Phase 7 remains calendar-gated, and Phase 6 is down to observability-proof closeout)
 
 ## Performance Metrics
 
@@ -74,6 +74,7 @@ Recent decisions affecting current work:
 - Phase 6 plan 07 close: prompt-injection defense is now layered in the support flow. Suspicious inputs fail closed to a safe fallback, tool arguments no longer trust model-supplied identity, and RAG content is explicitly marked untrusted in the system prompt path.
 - Phase 6 plan 08 close: the reference service now ships a local demo compose stack with app + Ollama + collector + Grafana assets, a pre-provisioned dashboard, tail-sampling config, and README startup / caveat guidance. Cold-stack runtime verification remains sensitive to first-run Docker and model download time.
 - Phase 6 closeout follow-up: the compose collector asset now matches the roadmap's `decision_wait=30s` contract, blocked injection attempts set `prompt_injection_attempt=true` on the active trace, and v0.3 closeout should proceed through verification/audit rather than Phase 7 implementation.
+- Phase 6 runtime verification: on 2026-05-12, a locally built server running against the live local dependency stack returned `200` from `/readyz` and `/chat`, emitted real `X-Trace-Id` headers, and confirmed that Grafana had provisioned the `Customer Support Observability` dashboard.
 
 ### Pending Todos
 
@@ -82,11 +83,11 @@ Recent decisions affecting current work:
 - ~~**Out-of-band Phase 0 close**: `git tag v0.3.0-pre.1 && git push --tags`~~ — ✓ done 2026-05-10.
 - **Manual GitHub UI**: enable branch protection on `main` for the 3 sister repos (Settings → Branches → require status checks).
 - **Post-merge workflow smoke test**: trigger `nightly-ollama-live` via `workflow_dispatch` after merge to validate GitHub-hosted Docker + cache behavior on the first real run.
-- **Phase 6 warm-cache smoke test**: finish `docker compose up` verification through `readyz`, `/chat`, trace lookup, dashboard population, and collector-sampling evidence so `REFSVC-10..12` can be closed formally.
+- **Phase 6 collector proof**: drive fast / slow / error requests through the live stack and capture collector metrics that prove the tail-sampling policy for `REFSVC-12`.
 
 ### Blockers/Concerns
 
-No implementation blocker. The active blocker is audit evidence: as of 2026-05-12, the Phase 6 demo stack retry still had not progressed past image pulls into container creation, and later phases still lack standalone verification artifacts.
+No implementation blocker. The active blocker is now narrow audit evidence: `REFSVC-12` still needs explicit collector metrics proving the configured tail-sampling branches.
 
 ## Deferred Items
 

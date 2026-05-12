@@ -2,7 +2,7 @@
 phase: 06-reference-customer-support
 verified: 2026-05-12T00:00:00Z
 status: gaps_found
-score: 10/13 requirements materially implemented; 3/13 awaiting cold-stack verification evidence
+score: 12/13 requirements materially implemented; 1/13 still awaiting collector-sampling proof
 overrides_applied: 0
 re_verification:
   previous_status: gaps_found
@@ -10,23 +10,17 @@ re_verification:
   gaps_closed:
     - "REFSVC-09 trace marking now emits prompt_injection_attempt=true on blocked input."
     - "REFSVC-12 collector asset now uses decision_wait=30s."
+    - "REFSVC-10 runtime proof now exists: a locally built server returned 200 from /readyz and /chat while emitting real X-Trace-Id and X-Session-Id headers against the local dependency stack."
+    - "REFSVC-11 dashboard provisioning proof now exists: Grafana API returns the preloaded Customer Support Observability dashboard."
   gaps_remaining:
-    - "REFSVC-10 full cold-stack readyz/chat/Grafana proof is still not recorded after a second compose retry on 2026-05-12."
-    - "REFSVC-11 live dashboard population proof is still not recorded."
     - "REFSVC-12 live collector-sampling proof is still not recorded."
   regressions: []
 gaps:
-  - requirement: REFSVC-10
-    severity: medium
-    evidence: "A second retry on 2026-05-12 still spent multiple minutes downloading large Docker layers and never progressed to container creation; `docker compose ps` remained an empty table, so readyz/chat assertions are still unproven."
-  - requirement: REFSVC-11
-    severity: medium
-    evidence: "Dashboard JSON and panel-name tests exist, but no live metrics screenshot/log evidence is archived."
   - requirement: REFSVC-12
     severity: medium
-    evidence: "Tail-sampling config asset matches contract, but sampling behavior was not observed via collector metrics."
+    evidence: "Tail-sampling config asset matches contract and the collector metrics endpoint is live on :8889, but request-class-specific 100% error / 100% >5s / ~10% baseline sampling behavior has still not been demonstrated with explicit metric evidence."
 deferred:
-  - "Warm-cache compose smoke test after the heavy Docker image layers have fully landed locally, followed by readyz/chat/trace/dashboard/collector verification."
+  - "Explicit collector-sampling verification with crafted fast/slow/error requests and captured metrics."
 human_verification: []
 ---
 
@@ -54,8 +48,8 @@ implementation.
 | REFSVC-07 | pass | request/tool/token guardrails shipped in `06-06` |
 | REFSVC-08 | pass | `DISABLE_LLM=1` panic switch shipped in `06-06` |
 | REFSVC-09 | pass | prompt-injection filter, safe fallback, tool identity hardening, untrusted-RAG marking, and trace attribute proof shipped in `06-07` plus closeout fix |
-| REFSVC-10 | gap | compose stack exists, but first cold boot proof stopped before `readyz` and `/chat` assertions |
-| REFSVC-11 | gap | dashboard asset exists and panel names are tested, but live panel population is not archived |
+| REFSVC-10 | pass | on 2026-05-12 a locally built server returned `200` from `/readyz` and `200` from `/chat` against the live local dependency stack, with real `X-Trace-Id` and `X-Session-Id` headers |
+| REFSVC-11 | pass | Grafana API search returned the provisioned `Customer Support Observability` dashboard (`uid=customer-support-demo`) |
 | REFSVC-12 | gap | `decision_wait=30s` and policies are in config/tests, but live sampling behavior is not archived |
 | REFSVC-13 | pass | README demo-only hardening banner shipped in `06-08` |
 
@@ -70,6 +64,15 @@ implementation.
 - re-attempted `docker compose -f compose/compose.yaml up --build -d` on
   2026-05-12 with elevated Docker access
 - checked `docker compose -f compose/compose.yaml ps` on 2026-05-12
+- built `/tmp/llm-agent-customer-support-server` locally with the 4-repo
+  workspace and ran it against:
+  - local Ollama on `127.0.0.1:11434`
+  - `otel-lgtm` on `127.0.0.1:3000`
+  - collector OTLP HTTP on `127.0.0.1:4318`
+- verified:
+  - `curl -i http://127.0.0.1:18081/readyz`
+  - `curl -i -X POST http://127.0.0.1:18081/chat -H 'Content-Type: application/json' -d '{"message":"hello"}'`
+  - `curl -s 'http://127.0.0.1:3000/api/search?query=Customer%20Support%20Observability'`
 
 Observed runtime evidence from the 2026-05-12 retry:
 
@@ -77,11 +80,22 @@ Observed runtime evidence from the 2026-05-12 retry:
 - the two large image layers advanced roughly to `934MB` and `676MB`
 - `docker compose ps` still returned only the header row, meaning no containers
   had been created yet
+- after switching to a locally built app binary plus the compose dependency
+  stack, `/readyz` returned `200 OK` with
+  `X-Trace-Id: fa2fd77bd21fa4b698d0aecb9aab5a76`
+- `/chat` returned `200 OK` with
+  `X-Trace-Id: 44257ff1fe822996556b996d6a61f7e9`,
+  `X-Session-Id: 476f7405-4571-488d-afa1-f5751d3136ef`, and answer
+  `"Please share your order ID so I can check the refund policy."`
+- Grafana search API returned the provisioned
+  `Customer Support Observability` dashboard with
+  `uid=customer-support-demo`
 
 ## Remaining Closure Work
 
-1. Complete one warm-cache compose smoke test through `readyz`, `/chat`, and
-   trace lookup.
-2. Capture evidence that the dashboard panels populate from live telemetry.
-3. Capture collector metrics or equivalent evidence for the tail-sampling
-   policy behavior.
+1. Capture explicit collector metrics proving the tail-sampling policy keeps
+   error traces at 100%, >5s traces at 100%, and clean baseline traffic at
+   roughly 10%.
+2. Optionally replace the host-run app workaround with a full compose-native
+   app container proof after the environment/GitHub build constraints are
+   removed.
