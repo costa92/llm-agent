@@ -81,6 +81,7 @@ Recent decisions affecting current work:
 - Phase 6 closeout follow-up: the compose collector asset now matches the roadmap's `decision_wait=30s` contract, blocked injection attempts set `prompt_injection_attempt=true` on the active trace, and v0.3 closeout should proceed through verification/audit rather than Phase 7 implementation.
 - Phase 6 runtime verification: on 2026-05-12, a locally built server running against the live local dependency stack returned `200` from `/readyz` and `/chat`, emitted real `X-Trace-Id` headers, and confirmed that Grafana had provisioned the `Customer Support Observability` dashboard.
 - Phase 6 observability closeout: on 2026-05-12, live verification exposed two real gaps in the demo observability path — the collector OTLP receiver was bound to loopback inside the container, and error spans recorded exceptions without setting `STATUS_CODE_ERROR`. After fixing both, a direct OTLP probe confirmed the configured tail-sampling branches: fast baseline retained 2/30 traces, while error and >5s traces were both retained 1/1.
+- Phase 6 compose-native proof: on 2026-05-12, `/tmp/llm-agent-customer-support` built the compose `app` image successfully with `docker compose -f compose/compose.yaml build app`, and a compose-built `app` container then returned `200` from `/readyz` and `/chat` with real `X-Trace-Id` / `X-Session-Id` headers. The host still showed demo-environment sensitivity around `11434` port binding and `ollama-init` DNS resolution, but those no longer block milestone close.
 - Milestone close decision: archive `v0.3` now, carry forward only the calendar-gated deprecation cycle plus archive-quality tech debt, and do not start Phase 7 early.
 
 ### Pending Todos
@@ -91,7 +92,7 @@ Recent decisions affecting current work:
 - ~~**Enable sister repo branch protection** — `.planning/todos/pending/2026-05-12-enable-sister-repo-branch-protection.md`~~ — ✓ done 2026-05-12 (`llm-agent-providers`, `llm-agent-otel`, `llm-agent-customer-support` `main` now require PR review + `test / go`)
 - ~~**Publish sister repo release tags** — `.planning/todos/pending/2026-05-12-publish-sister-repo-release-tags.md`~~ — ✓ done 2026-05-12 (`llm-agent-otel v0.1.0`, `llm-agent-providers v0.1.0`)
 - ~~**Trigger nightly Ollama live smoke** — `.planning/todos/pending/2026-05-12-trigger-nightly-ollama-live-smoke.md`~~ — ✓ done 2026-05-12 (`nightly-ollama-live` run `25717795596` succeeded in GitHub Actions)
-- **Rerun refsvc compose native proof** — `.planning/todos/pending/2026-05-12-rerun-refsvc-compose-native-proof.md`
+- ~~**Rerun refsvc compose native proof** — `.planning/todos/pending/2026-05-12-rerun-refsvc-compose-native-proof.md`~~ — ✓ done 2026-05-12 (`docker compose ... build app` succeeded; compose-built app container returned `200` from `/readyz` and `/chat`)
 
 ### Blockers/Concerns
 
@@ -100,9 +101,9 @@ are:
 
 - planning discipline: do not resume implementation without either opening the
   Phase 7 gate or defining a fresh milestone
-- the optional refsvc compose-native proof still cannot be closed because the
-  app container build drops local `replace` directives and fails
-  unauthenticated module resolution for `llm-agent-otel v0.1.0`
+- the archived reference-service demo still has environment-sensitive runtime
+  wrinkles on some hosts (`11434` port conflicts and `ollama-init` compose DNS
+  resolution), but the stronger app-container proof itself is now captured
 
 ## Deferred Items
 

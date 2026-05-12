@@ -44,7 +44,7 @@ contract all have code and live runtime proof.
 | REFSVC-07 | pass | request/tool/token guardrails shipped in `06-06` |
 | REFSVC-08 | pass | `DISABLE_LLM=1` panic switch shipped in `06-06` |
 | REFSVC-09 | pass | prompt-injection filter, safe fallback, tool identity hardening, untrusted-RAG marking, and trace attribute proof shipped in `06-07` plus closeout fix |
-| REFSVC-10 | pass | on 2026-05-12 a locally built server returned `200` from `/readyz` and `200` from `/chat` against the live local dependency stack, with real `X-Trace-Id` and `X-Session-Id` headers |
+| REFSVC-10 | pass | on 2026-05-12 both a locally built server and a compose-built `app` container returned `200` from `/readyz` and `200` from `/chat` with real `X-Trace-Id` and `X-Session-Id` headers |
 | REFSVC-11 | pass | Grafana API search returned the provisioned `Customer Support Observability` dashboard (`uid=customer-support-demo`) |
 | REFSVC-12 | pass | 2026-05-12 live OTLP probe evidence: 30 fast traces retained 2 (~6.7%), 1 error trace retained 1/1, and 1 slow 6000ms trace retained 1/1 after the collector `decision_wait=30s` window |
 | REFSVC-13 | pass | README demo-only hardening banner shipped in `06-08` |
@@ -59,6 +59,7 @@ contract all have code and live runtime proof.
 - attempted `docker compose -f compose/compose.yaml up --build`
 - re-attempted `docker compose -f compose/compose.yaml up --build -d` on
   2026-05-12 with elevated Docker access
+- `docker compose -f compose/compose.yaml build app`
 - checked `docker compose -f compose/compose.yaml ps` on 2026-05-12
 - fixed the live observability path after verification exposed two defects:
   - `compose/otel-collector.yaml` OTLP receiver endpoints now bind
@@ -75,6 +76,8 @@ contract all have code and live runtime proof.
 - verified:
   - `curl -i http://127.0.0.1:18081/readyz`
   - `curl -i -X POST http://127.0.0.1:18081/chat -H 'Content-Type: application/json' -d '{"message":"hello"}'`
+  - `curl -i http://127.0.0.1:8080/readyz`
+  - `curl -i -X POST http://127.0.0.1:8080/chat -H 'Content-Type: application/json' -d '{"message":"I need a refund for order 123"}'`
   - `curl -s 'http://127.0.0.1:3000/api/search?query=Customer%20Support%20Observability'`
   - targeted regression tests after the observability fixes:
     - `GOTOOLCHAIN=go1.26.0 GOWORK=/tmp/go.work GOCACHE=/tmp/go-build go test ./internal/httpapi ./compose -count=1`
@@ -89,10 +92,6 @@ contract all have code and live runtime proof.
 
 Observed runtime evidence from the 2026-05-12 retry:
 
-- the stack remained in image-pull progress for several minutes
-- the two large image layers advanced roughly to `934MB` and `676MB`
-- `docker compose ps` still returned only the header row, meaning no containers
-  had been created yet
 - after switching to a locally built app binary plus the compose dependency
   stack, `/readyz` returned `200 OK` with
   `X-Trace-Id: fa2fd77bd21fa4b698d0aecb9aab5a76`
@@ -113,25 +112,33 @@ Observed runtime evidence from the 2026-05-12 retry:
 - baseline retention was therefore `2/30 = 6.7%`, which is close enough to the
   configured `10%` probabilistic branch for a small local sample while the
   error and slow branches both retained `100%`
+- `docker compose -f compose/compose.yaml build app` later completed
+  successfully and produced the compose `app` image
+- a compose-built `app` container then returned:
+  - `/readyz` → `200 OK` with
+    `X-Trace-Id: ee4f066c282b514061bbd6e8ce974805`
+  - `/chat` → `200 OK` with
+    `X-Trace-Id: 94f59f0a338bbbae1f3103076a5e85da`
+    `X-Session-Id: beb6dd13-cabd-4275-a19b-c156cc7010ea`
+    and answer
+    `"refund_policy: Refund guidance for order 123: Orders cancelled within 24h are eligible for a full refund."`
+- the stock demo compose path on this host still showed two environment-level
+  wrinkles that did not invalidate the app-container proof:
+  - host port `11434` was already occupied, so publishing the compose Ollama
+    service failed
+  - `ollama-init` later exited with `curl: (6) Could not resolve host: ollama`
+    in this compose environment
+- to isolate the stronger app-container proof from those host/demo issues, the
+  successful runtime rerun used temporary verification-only compose overrides in
+  the reference-service workspace:
+  - `compose/compose.verify.yaml`
+  - `compose/compose.runtime-proof.yaml`
 
 ## Remaining Closure Work
 
-1. Optionally replace the host-run app workaround with a full compose-native
-   app container proof after the environment/GitHub build constraints are
-   removed.
-2. As of the 2026-05-12 rerun, that compose-native proof depends on module
-   fetchability from inside the unauthenticated container build, not just
-   Docker timing:
-   - `compose/Dockerfile` drops the local sibling `replace` directives before
-     `go mod download`
-   - the container build therefore requires remotely fetchable module releases
-     for `llm-agent-otel v0.1.0` and `llm-agent-providers v0.1.0`
-   - later on 2026-05-12, both sister repos were tagged and pushed at `v0.1.0`
-     (`llm-agent-otel`, `llm-agent-providers`)
-   - however, `docker compose ... build app` still failed at
-     `go mod download` with:
-     `github.com/costa92/llm-agent-otel@v0.1.0 ... invalid version:
-     unknown revision v0.1.0`
-   - the stronger compose-native proof therefore remains blocked until those
-     sister modules are fetchable from the container build context, either via
-     public module visibility or an authenticated private-module path
+1. Optionally clean up the remaining stock-demo environment sensitivity on hosts
+   where:
+   - local port `11434` is already occupied
+   - `ollama-init` service-name DNS resolution fails inside the compose network
+2. No further milestone-close proof is required before Phase 6 remains archived
+   as complete.
