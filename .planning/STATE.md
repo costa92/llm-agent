@@ -88,8 +88,11 @@ Recent decisions affecting current work:
 [From .planning/todos/pending/ — ideas captured during sessions]
 
 - ~~**Out-of-band Phase 0 close**: `git tag v0.3.0-pre.1 && git push --tags`~~ — ✓ done 2026-05-10.
-- **Manual GitHub UI**: enable branch protection on `main` for the 3 sister repos (Settings → Branches → require status checks).
-- **Post-merge workflow smoke test**: trigger `nightly-ollama-live` via `workflow_dispatch` after merge to validate GitHub-hosted Docker + cache behavior on the first real run.
+- **Enable sister repo branch protection** — `.planning/todos/pending/2026-05-12-enable-sister-repo-branch-protection.md`
+- **Trigger nightly Ollama live smoke** — `.planning/todos/pending/2026-05-12-trigger-nightly-ollama-live-smoke.md`
+- **Backfill phase validation artifacts** — `.planning/todos/pending/2026-05-12-backfill-phase-validation-artifacts.md`
+- **Rerun refsvc compose native proof** — `.planning/todos/pending/2026-05-12-rerun-refsvc-compose-native-proof.md`
+
 ### Blockers/Concerns
 
 No implementation blocker. The current constraint is planning discipline: do
