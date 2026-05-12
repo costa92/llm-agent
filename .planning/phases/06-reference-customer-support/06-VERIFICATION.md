@@ -1,24 +1,24 @@
 ---
 phase: 06-reference-customer-support
-verified: 2026-05-11T00:00:00Z
+verified: 2026-05-12T00:00:00Z
 status: gaps_found
 score: 10/13 requirements materially implemented; 3/13 awaiting cold-stack verification evidence
 overrides_applied: 0
 re_verification:
-  previous_status: none
-  previous_score: n/a
+  previous_status: gaps_found
+  previous_score: 10/13 requirements materially implemented; 3/13 awaiting cold-stack verification evidence
   gaps_closed:
     - "REFSVC-09 trace marking now emits prompt_injection_attempt=true on blocked input."
     - "REFSVC-12 collector asset now uses decision_wait=30s."
   gaps_remaining:
-    - "REFSVC-10 full cold-stack readyz/chat/Grafana proof not yet recorded."
-    - "REFSVC-11 live dashboard population proof not yet recorded."
-    - "REFSVC-12 live collector-sampling proof not yet recorded."
+    - "REFSVC-10 full cold-stack readyz/chat/Grafana proof is still not recorded after a second compose retry on 2026-05-12."
+    - "REFSVC-11 live dashboard population proof is still not recorded."
+    - "REFSVC-12 live collector-sampling proof is still not recorded."
   regressions: []
 gaps:
   - requirement: REFSVC-10
     severity: medium
-    evidence: "06-08 summary records docker compose up --build starting successfully but timing out during large image/model pulls before readyz/chat assertions."
+    evidence: "A second retry on 2026-05-12 still spent multiple minutes downloading large Docker layers and never progressed to container creation; `docker compose ps` remained an empty table, so readyz/chat assertions are still unproven."
   - requirement: REFSVC-11
     severity: medium
     evidence: "Dashboard JSON and panel-name tests exist, but no live metrics screenshot/log evidence is archived."
@@ -26,7 +26,7 @@ gaps:
     severity: medium
     evidence: "Tail-sampling config asset matches contract, but sampling behavior was not observed via collector metrics."
 deferred:
-  - "Cold-machine compose smoke test after heavy Docker and Ollama layers are cached or enough wall-clock is available."
+  - "Warm-cache compose smoke test after the heavy Docker image layers have fully landed locally, followed by readyz/chat/trace/dashboard/collector verification."
 human_verification: []
 ---
 
@@ -67,6 +67,16 @@ implementation.
   - `go test ./internal/supportflow -run TestFlow_FlaggedInputMarksTraceAttribute -count=1`
 - `docker compose -f compose/compose.yaml config`
 - attempted `docker compose -f compose/compose.yaml up --build`
+- re-attempted `docker compose -f compose/compose.yaml up --build -d` on
+  2026-05-12 with elevated Docker access
+- checked `docker compose -f compose/compose.yaml ps` on 2026-05-12
+
+Observed runtime evidence from the 2026-05-12 retry:
+
+- the stack remained in image-pull progress for several minutes
+- the two large image layers advanced roughly to `934MB` and `676MB`
+- `docker compose ps` still returned only the header row, meaning no containers
+  had been created yet
 
 ## Remaining Closure Work
 

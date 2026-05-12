@@ -5,7 +5,7 @@
 See: .planning/PROJECT.md (updated 2026-05-10)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** v0.3 release-readiness closeout: milestone audit, missing verification artifacts, and one final Phase 6 compose smoke test rather than new feature work
+**Current focus:** v0.3 release-readiness closeout: milestone audit, missing verification artifacts, and a still-unfinished Phase 6 compose smoke test rather than new feature work
 
 ## Current Position
 
@@ -13,7 +13,7 @@ Phase: milestone closeout after Phase 6 — audit opened 2026-05-11
 Previous phase: 6 — reference customer-support service — implementation complete 2026-05-11
 Plan: release-readiness follow-up
 Status: Phases 0 through 6 are implemented and summarized. Phase 6 also received a post-closeout correction so the collector now matches `decision_wait=30s` and blocked prompt-injection requests emit `prompt_injection_attempt=true` on traces. The remaining work is verification depth: formal Phase 6 verification, a warm-cache compose smoke test, and milestone-close evidence rather than additional product scope.
-Last activity: 2026-05-11 — committed Phase 6 roadmap-alignment fixes, updated planning records, and wrote the first v0.3 milestone audit.
+Last activity: 2026-05-12 — re-ran the Phase 6 compose smoke test with Docker access, confirmed the retry still stalls in large image pulls before container creation, and refreshed the milestone audit evidence.
 
 Progress: [█████████░] 88% (7 of 8 roadmap phases complete; Phase 7 remains calendar-gated)
 
@@ -82,11 +82,11 @@ Recent decisions affecting current work:
 - ~~**Out-of-band Phase 0 close**: `git tag v0.3.0-pre.1 && git push --tags`~~ — ✓ done 2026-05-10.
 - **Manual GitHub UI**: enable branch protection on `main` for the 3 sister repos (Settings → Branches → require status checks).
 - **Post-merge workflow smoke test**: trigger `nightly-ollama-live` via `workflow_dispatch` after merge to validate GitHub-hosted Docker + cache behavior on the first real run.
-- **Phase 6 warm-cache smoke test**: finish `docker compose up` verification through `readyz`, `/chat`, trace lookup, and collector-sampling evidence so `REFSVC-10..12` can be closed formally.
+- **Phase 6 warm-cache smoke test**: finish `docker compose up` verification through `readyz`, `/chat`, trace lookup, dashboard population, and collector-sampling evidence so `REFSVC-10..12` can be closed formally.
 
 ### Blockers/Concerns
 
-No implementation blocker. The active blocker is audit evidence: the Phase 6 demo stack has not yet completed a fully observed first-run or warm-cache runtime proof, and later phases still lack standalone verification artifacts.
+No implementation blocker. The active blocker is audit evidence: as of 2026-05-12, the Phase 6 demo stack retry still had not progressed past image pulls into container creation, and later phases still lack standalone verification artifacts.
 
 ## Deferred Items
 
