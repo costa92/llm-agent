@@ -119,3 +119,14 @@ Observed runtime evidence from the 2026-05-12 retry:
 1. Optionally replace the host-run app workaround with a full compose-native
    app container proof after the environment/GitHub build constraints are
    removed.
+2. As of 2026-05-12, that compose-native proof also depends on release
+   publication state, not just Docker timing:
+   - `compose/Dockerfile` drops the local sibling `replace` directives before
+     `go mod download`
+   - the container build therefore requires remotely fetchable module releases
+     for `llm-agent-otel v0.1.0` and `llm-agent-providers v0.1.0`
+   - in the closeout environment, `llm-agent v0.3.0-pre.2` was tag-resolvable
+     but the sister repos did not provide corresponding local release tags or
+     independently verified remote `v0.1.0` evidence
+   - until those release prerequisites are true, a compose-native app build is
+     blocked before any HTTP or trace-level runtime assertion can occur
