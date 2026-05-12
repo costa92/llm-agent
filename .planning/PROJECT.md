@@ -60,13 +60,12 @@ module stays readable, portable, and cheap to adopt.
 - Honor the `llm.Client` deprecation window before starting Phase 7.
 - Decide whether the next planned work is the gated deprecation-removal cycle
   or a distinct feature milestone.
-- Raise archive quality by adding formal verification/Nyquist coverage where
-  the `v0.3` closeout still relied on summary artifacts.
+- Raise archive quality by strengthening milestone-close verification quality
+  beyond the newly backfilled validation artifacts.
 
 ## Known Tech Debt
 
 - Formal `*-VERIFICATION.md` coverage is uneven after Phase 0.
-- Nyquist validation artifacts are missing for Phases 2-6.
 - The refsvc observability demo is intentionally demo-grade rather than
   production-billing-grade.
 

@@ -58,6 +58,5 @@ opened.
 ## Known Carry-forward Debt
 
 - Formal verification artifacts are still uneven after Phase 0.
-- Nyquist validation artifacts are still missing for Phases 2-6.
 - The refsvc demo remains intentionally demo-grade in observability fidelity
   and packaging.
