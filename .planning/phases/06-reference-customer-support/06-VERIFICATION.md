@@ -125,8 +125,9 @@ Observed runtime evidence from the 2026-05-12 retry:
      `go mod download`
    - the container build therefore requires remotely fetchable module releases
      for `llm-agent-otel v0.1.0` and `llm-agent-providers v0.1.0`
-   - in the closeout environment, `llm-agent v0.3.0-pre.2` was tag-resolvable
-     but the sister repos did not provide corresponding local release tags or
-     independently verified remote `v0.1.0` evidence
-   - until those release prerequisites are true, a compose-native app build is
-     blocked before any HTTP or trace-level runtime assertion can occur
+   - later on 2026-05-12, both sister repos were tagged and pushed at `v0.1.0`
+     (`llm-agent-otel`, `llm-agent-providers`)
+   - a follow-up `git ls-remote` verification attempt failed only because this
+     sandbox lost DNS resolution to `github.com` after the successful pushes
+   - the next compose-native rerun should therefore treat release publication
+     as satisfied and focus on the container build/runtime path itself

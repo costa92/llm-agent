@@ -23,12 +23,18 @@ Additional blocking detail confirmed on 2026-05-12:
   - `github.com/costa92/llm-agent v0.3.0-pre.2`
   - `github.com/costa92/llm-agent-otel v0.1.0`
   - `github.com/costa92/llm-agent-providers v0.1.0`
-- `llm-agent v0.3.0-pre.2` is tag-resolvable, but `llm-agent-otel` and
-  `llm-agent-providers` currently have no local release tags and no verified
-  remote `v0.1.0` release evidence in this session
+- `llm-agent v0.3.0-pre.2` is tag-resolvable
+- the missing sister-repo release publication prerequisite was closed later on
+  2026-05-12 by publishing:
+  - `llm-agent-otel v0.1.0`
+  - `llm-agent-providers v0.1.0`
+- post-push remote tag re-check via `git ls-remote` could not be repeated from
+  this sandbox because DNS resolution to `github.com` later failed, but the
+  preceding `git push origin main` + `git push origin v0.1.0` commands for both
+  repos had already succeeded
 
-So the compose-native app proof is blocked not only by Docker cold-start cost,
-but by missing sister-repo release publication prerequisites.
+So the remaining compose-native app proof blocker is no longer sister-repo tag
+publication; it is the container build/runtime environment itself.
 
 ## Solution
 
@@ -41,9 +47,11 @@ capture:
 - `X-Trace-Id` correlation
 - tail-sampling behavior or equivalent observability confirmation
 
-Before rerunning, ensure the compose build prerequisites are true:
+The release publication prerequisite is now satisfied. The next rerun should
+focus on:
 
-- `llm-agent-otel v0.1.0` is tagged and fetchable remotely
-- `llm-agent-providers v0.1.0` is tagged and fetchable remotely
+- containerized `go mod download` / build behavior inside the app image
+- full app-container startup
+- `readyz`, `/chat`, `X-Trace-Id`, and observability proof capture
 
 If successful, append the stronger proof to Phase 6 verification artifacts.
