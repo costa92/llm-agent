@@ -1,26 +1,23 @@
 ---
 phase: 06-reference-customer-support
 verified: 2026-05-12T00:00:00Z
-status: gaps_found
-score: 12/13 requirements materially implemented; 1/13 still awaiting collector-sampling proof
+status: pass
+score: 13/13 requirements materially implemented and runtime-verified
 overrides_applied: 0
 re_verification:
   previous_status: gaps_found
-  previous_score: 10/13 requirements materially implemented; 3/13 awaiting cold-stack verification evidence
+  previous_score: 12/13 requirements materially implemented; 1/13 still awaiting collector-sampling proof
   gaps_closed:
     - "REFSVC-09 trace marking now emits prompt_injection_attempt=true on blocked input."
     - "REFSVC-12 collector asset now uses decision_wait=30s."
     - "REFSVC-10 runtime proof now exists: a locally built server returned 200 from /readyz and /chat while emitting real X-Trace-Id and X-Session-Id headers against the local dependency stack."
     - "REFSVC-11 dashboard provisioning proof now exists: Grafana API returns the preloaded Customer Support Observability dashboard."
-  gaps_remaining:
-    - "REFSVC-12 live collector-sampling proof is still not recorded."
+    - "REFSVC-12 live collector-sampling proof now exists: a direct OTLP probe sent 30 fast traces, 1 error trace, and 1 six-second trace through the live collector, and Tempo retained 2/30 fast traces plus both special-case traces after the 30s tail-sampling decision window."
+    - "Phase 6 observability wiring now fails closed in the right places: the collector OTLP receiver binds to 0.0.0.0 for compose-network reachability, and HTTP/model/agent spans mark error status explicitly so the collector's status_code policy can match real failures."
+  gaps_remaining: []
   regressions: []
-gaps:
-  - requirement: REFSVC-12
-    severity: medium
-    evidence: "Tail-sampling config asset matches contract and the collector metrics endpoint is live on :8889, but request-class-specific 100% error / 100% >5s / ~10% baseline sampling behavior has still not been demonstrated with explicit metric evidence."
-deferred:
-  - "Explicit collector-sampling verification with crafted fast/slow/error requests and captured metrics."
+gaps: []
+deferred: []
 human_verification: []
 ---
 
@@ -28,12 +25,11 @@ human_verification: []
 
 ## Verdict
 
-# GAPS FOUND
+# PASS
 
-Phase 6 is implemented and test-green, but it is not fully audit-closed. The
-core service, guardrails, session storage, provider split, and demo packaging
-all exist in code. The remaining gap is **runtime proof**, not missing
-implementation.
+Phase 6 is implemented, test-green, and now audit-closed. The service,
+guardrails, session storage, provider split, demo packaging, and tail-sampling
+contract all have code and live runtime proof.
 
 ## Requirements Check
 
@@ -50,7 +46,7 @@ implementation.
 | REFSVC-09 | pass | prompt-injection filter, safe fallback, tool identity hardening, untrusted-RAG marking, and trace attribute proof shipped in `06-07` plus closeout fix |
 | REFSVC-10 | pass | on 2026-05-12 a locally built server returned `200` from `/readyz` and `200` from `/chat` against the live local dependency stack, with real `X-Trace-Id` and `X-Session-Id` headers |
 | REFSVC-11 | pass | Grafana API search returned the provisioned `Customer Support Observability` dashboard (`uid=customer-support-demo`) |
-| REFSVC-12 | gap | `decision_wait=30s` and policies are in config/tests, but live sampling behavior is not archived |
+| REFSVC-12 | pass | 2026-05-12 live OTLP probe evidence: 30 fast traces retained 2 (~6.7%), 1 error trace retained 1/1, and 1 slow 6000ms trace retained 1/1 after the collector `decision_wait=30s` window |
 | REFSVC-13 | pass | README demo-only hardening banner shipped in `06-08` |
 
 ## Verification Executed
@@ -64,6 +60,13 @@ implementation.
 - re-attempted `docker compose -f compose/compose.yaml up --build -d` on
   2026-05-12 with elevated Docker access
 - checked `docker compose -f compose/compose.yaml ps` on 2026-05-12
+- fixed the live observability path after verification exposed two defects:
+  - `compose/otel-collector.yaml` OTLP receiver endpoints now bind
+    `0.0.0.0:4317` and `0.0.0.0:4318` so the app can reach the collector over
+    the compose network instead of only inside the collector container
+  - HTTP root spans and OTel wrapper spans now set explicit OTel
+    `STATUS_CODE_ERROR` on error paths so the collector `status_code` policy
+    sees real failures instead of only recorded exceptions
 - built `/tmp/llm-agent-customer-support-server` locally with the 4-repo
   workspace and ran it against:
   - local Ollama on `127.0.0.1:11434`
@@ -73,6 +76,16 @@ implementation.
   - `curl -i http://127.0.0.1:18081/readyz`
   - `curl -i -X POST http://127.0.0.1:18081/chat -H 'Content-Type: application/json' -d '{"message":"hello"}'`
   - `curl -s 'http://127.0.0.1:3000/api/search?query=Customer%20Support%20Observability'`
+  - targeted regression tests after the observability fixes:
+    - `GOTOOLCHAIN=go1.26.0 GOWORK=/tmp/go.work GOCACHE=/tmp/go-build go test ./internal/httpapi ./compose -count=1`
+    - `GOTOOLCHAIN=go1.26.0 GOWORK=/tmp/go.work GOCACHE=/tmp/go-build go test ./otelagent ./otelmodel -count=1`
+  - direct collector-tail probe:
+    - built `/tmp/tailprobe` from `/tmp/llm-agent-otel/cmd/tailprobe`
+    - emitted `30` fast traces to collector `172.18.0.3:4318`
+    - emitted `1` error trace to collector `172.18.0.3:4318`
+    - emitted `1` slow trace with `durationMs=6000` to collector `172.18.0.3:4318`
+    - waited `35s` to exceed `decision_wait=30s`
+    - queried Tempo inside `compose-otel-lgtm-1` for all emitted trace IDs
 
 Observed runtime evidence from the 2026-05-12 retry:
 
@@ -90,12 +103,19 @@ Observed runtime evidence from the 2026-05-12 retry:
 - Grafana search API returned the provisioned
   `Customer Support Observability` dashboard with
   `uid=customer-support-demo`
+- the recreated collector logged OTLP listeners on `[::]:4317` and `[::]:4318`
+- Tempo retained these special-case probe traces:
+  - error trace `3e282e12b600415c2b78223156d96cb6`
+  - slow trace `db7b42dd3ff8df3db805121db224503b` with `durationMs: 6000`
+- Tempo retained only `2` of the `30` fast probe traces:
+  - `52005932e298742c19d431a56281a618`
+  - `d52fe51443c465f0e92dee9adce85a88`
+- baseline retention was therefore `2/30 = 6.7%`, which is close enough to the
+  configured `10%` probabilistic branch for a small local sample while the
+  error and slow branches both retained `100%`
 
 ## Remaining Closure Work
 
-1. Capture explicit collector metrics proving the tail-sampling policy keeps
-   error traces at 100%, >5s traces at 100%, and clean baseline traffic at
-   roughly 10%.
-2. Optionally replace the host-run app workaround with a full compose-native
+1. Optionally replace the host-run app workaround with a full compose-native
    app container proof after the environment/GitHub build constraints are
    removed.
