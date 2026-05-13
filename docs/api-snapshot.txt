@@ -1856,7 +1856,7 @@ type Message struct {
     Message is a single turn in a conversation.
 
 type ProviderInfo struct {
-	Provider     string       `json:"provider"` // "openai", "anthropic", "ollama"
+	Provider     string       `json:"provider"` // "openai", "anthropic", "ollama", "deepseek", "minimax"
 	Model        string       `json:"model"`    // "gpt-4o-mini", "claude-3-5-haiku", "llama3.1:8b"
 	Capabilities Capabilities `json:"capabilities"`
 }
@@ -3447,5 +3447,4 @@ func (UnsupportedTrainer) LoadModel(_ string) (llm.ChatModel, error)
 
 func (UnsupportedTrainer) Train(_ context.Context, _ TrainConfig) (TrainResult, error)
     Train always returns ErrTrainingNotSupported.
-
 

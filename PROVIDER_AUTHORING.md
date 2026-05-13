@@ -18,9 +18,12 @@ Canonical Phase 1 examples live in the sister repo:
 - `github.com/costa92/llm-agent-providers/openai`
 - `github.com/costa92/llm-agent-providers/anthropic`
 - `github.com/costa92/llm-agent-providers/ollama`
+- `github.com/costa92/llm-agent-providers/deepseek`
+- `github.com/costa92/llm-agent-providers/minimax`
 
-All three are Generate-only adapters in Phase 1. New adapters should
-structurally mirror them.
+The original Phase 1 examples were Generate-only. The current provider repo
+also includes later-phase stream/tool coverage in `deepseek` and `minimax`.
+New adapters should structurally mirror the closest protocol family.
 
 Phase 1 scope:
 
@@ -147,8 +150,9 @@ func New(opts ...Option) (*OpenAI, error) {
 }
 ```
 
-This is the same construction pattern used by the Phase 1 OpenAI,
-Anthropic, and Ollama adapters.
+This is the same construction pattern used by the provider adapters in the
+sister repo. Provider-specific options such as `WithRegion(...)` may extend the
+base pattern when the transport surface needs them.
 
 ## 5. Error Taxonomy
 
@@ -260,6 +264,8 @@ Canonical sister-repo examples:
 - `github.com/costa92/llm-agent-providers/openai`
 - `github.com/costa92/llm-agent-providers/anthropic`
 - `github.com/costa92/llm-agent-providers/ollama`
+- `github.com/costa92/llm-agent-providers/deepseek`
+- `github.com/costa92/llm-agent-providers/minimax`
 - `github.com/costa92/llm-agent-providers/internal/contract`
 
 Versioning note:
