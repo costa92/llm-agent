@@ -64,7 +64,11 @@ func ragToolHandler(r *RAGSystem) agents.ExecuteFunc {
 			if p.Text == "" {
 				return "", errors.New("rag: text required for add_text")
 			}
-			ids, err := r.AddText(ctx, p.Text, p.Metadata)
+			md := copyMeta(p.Metadata)
+			if p.Namespace != "" {
+				md[namespaceMetadataKey] = p.Namespace
+			}
+			ids, err := r.AddText(ctx, p.Text, md)
 			if err != nil {
 				return "", err
 			}
@@ -74,7 +78,7 @@ func ragToolHandler(r *RAGSystem) agents.ExecuteFunc {
 			if p.Query == "" {
 				return "", ErrEmptyQuery
 			}
-			hits, err := r.Search(ctx, p.Query, p.TopK, SearchOptions{
+			hits, err := r.searchWithNamespace(ctx, p.Query, p.TopK, p.Namespace, SearchOptions{
 				EnableMQE:  p.EnableMQE,
 				EnableHyDE: p.EnableHyDE,
 				MQECount:   p.MQECount,
@@ -88,7 +92,7 @@ func ragToolHandler(r *RAGSystem) agents.ExecuteFunc {
 			if p.Question == "" {
 				return "", errors.New("rag: question required for ask")
 			}
-			ans, err := r.Ask(ctx, p.Question, SearchOptions{
+			ans, err := r.askWithNamespace(ctx, p.Question, p.Namespace, SearchOptions{
 				EnableMQE:  p.EnableMQE,
 				EnableHyDE: p.EnableHyDE,
 				MQECount:   p.MQECount,

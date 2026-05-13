@@ -86,6 +86,32 @@ func TestRAGTool_Stats(t *testing.T) {
 	}
 }
 
+func TestRAGTool_NamespaceIsolation(t *testing.T) {
+	r := New(Options{})
+	tool := AsTool(r)
+	ctx := context.Background()
+
+	_, err := tool.Execute(ctx, []byte(`{"action":"add_text","text":"go modules belong to alpha","namespace":"alpha"}`))
+	if err != nil {
+		t.Fatalf("add_text alpha: %v", err)
+	}
+	_, err = tool.Execute(ctx, []byte(`{"action":"add_text","text":"rust cargo belongs to beta","namespace":"beta"}`))
+	if err != nil {
+		t.Fatalf("add_text beta: %v", err)
+	}
+
+	out, err := tool.Execute(ctx, []byte(`{"action":"search","query":"go modules","namespace":"alpha","top_k":5}`))
+	if err != nil {
+		t.Fatalf("search alpha: %v", err)
+	}
+	if !strings.Contains(out, "alpha") {
+		t.Fatalf("alpha search missing alpha content: %s", out)
+	}
+	if strings.Contains(out, "beta") {
+		t.Fatalf("alpha search leaked beta content: %s", out)
+	}
+}
+
 func TestRAGTool_BadActions(t *testing.T) {
 	tool := AsTool(New(Options{}))
 	if _, err := tool.Execute(context.Background(), []byte(`{"action":"explode"}`)); err == nil {

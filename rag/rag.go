@@ -49,6 +49,8 @@ type SearchOptions struct {
 	CandidatePoolMultiplier int
 }
 
+const namespaceMetadataKey = "__rag_namespace"
+
 // New constructs a RAGSystem with sensible defaults.
 func New(opts Options) *RAGSystem {
 	embedder := opts.Embedder
@@ -89,11 +91,15 @@ func New(opts Options) *RAGSystem {
 // AddText chunks text → embeds each chunk → upserts. Returns the new chunk IDs.
 func (r *RAGSystem) AddText(ctx context.Context, text string, meta map[string]any) ([]string, error) {
 	docID := r.nextDocID()
+	namespace := namespaceFromMetadata(meta)
 	res, err := r.core.Import(ctx, []ragingest.Document{{
 		ID:       docID,
 		Content:  text,
 		Metadata: meta,
-	}}, ragingest.ImportOptions{MaxChars: r.maxChunk})
+	}}, ragingest.ImportOptions{
+		Namespace: namespace,
+		MaxChars:  r.maxChunk,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -102,6 +108,10 @@ func (r *RAGSystem) AddText(ctx context.Context, text string, meta map[string]an
 
 // Search runs the configured retrieval pipeline.
 func (r *RAGSystem) Search(ctx context.Context, query string, topK int, opts SearchOptions) ([]SearchHit, error) {
+	return r.searchWithNamespace(ctx, query, topK, "", opts)
+}
+
+func (r *RAGSystem) searchWithNamespace(ctx context.Context, query string, topK int, namespace string, opts SearchOptions) ([]SearchHit, error) {
 	if strings.TrimSpace(query) == "" {
 		return nil, ErrEmptyQuery
 	}
@@ -141,7 +151,10 @@ func (r *RAGSystem) Search(ctx context.Context, query string, topK int, opts Sea
 
 	merged := make(map[string]SearchHit, pool)
 	for _, q := range queries {
-		hits, err := r.core.Retrieve(ctx, q, ragcore.SearchOptions{TopK: pool})
+		hits, err := r.core.Retrieve(ctx, q, ragcore.SearchOptions{
+			TopK:      pool,
+			Namespace: namespace,
+		})
 		if err != nil {
 			return nil, fmt.Errorf("rag: store search: %w", err)
 		}
@@ -166,10 +179,14 @@ func (r *RAGSystem) Search(ctx context.Context, query string, topK int, opts Sea
 
 // Ask runs Search and sends the composed prompt to the configured LLM.
 func (r *RAGSystem) Ask(ctx context.Context, question string, opts SearchOptions) (string, error) {
+	return r.askWithNamespace(ctx, question, "", opts)
+}
+
+func (r *RAGSystem) askWithNamespace(ctx context.Context, question string, namespace string, opts SearchOptions) (string, error) {
 	if r.llm == nil {
 		return "", ErrLLMRequired
 	}
-	hits, err := r.Search(ctx, question, 5, opts)
+	hits, err := r.searchWithNamespace(ctx, question, 5, namespace, opts)
 	if err != nil {
 		return "", err
 	}
@@ -263,11 +280,15 @@ type storeAdapter struct {
 
 func (a storeAdapter) Upsert(ctx context.Context, chunks []ragstore.StoredChunk) error {
 	for _, chunk := range chunks {
+		md := copyMeta(chunk.Metadata)
+		if chunk.Namespace != "" {
+			md[namespaceMetadataKey] = chunk.Namespace
+		}
 		if err := a.inner.Upsert(ctx, Document{
 			ID:       chunk.ID,
 			Content:  chunk.Content,
 			Vector:   chunk.Vector,
-			Metadata: chunk.Metadata,
+			Metadata: md,
 		}); err != nil {
 			return err
 		}
@@ -276,21 +297,42 @@ func (a storeAdapter) Upsert(ctx context.Context, chunks []ragstore.StoredChunk)
 }
 
 func (a storeAdapter) Search(ctx context.Context, q ragstore.Query) ([]ragstore.Hit, error) {
-	hits, err := a.inner.Search(ctx, q.Vector, q.TopK)
+	topK := q.TopK
+	if topK <= 0 {
+		topK = 5
+	}
+	pool := topK
+	if q.Namespace != "" || len(q.Filters) > 0 {
+		pool = a.inner.Stats().Count
+		if pool == 0 {
+			return nil, nil
+		}
+	}
+	hits, err := a.inner.Search(ctx, q.Vector, pool)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]ragstore.Hit, 0, len(hits))
 	for _, hit := range hits {
+		if q.Namespace != "" && namespaceFromMetadata(hit.Doc.Metadata) != q.Namespace {
+			continue
+		}
+		if !metadataMatchesFilters(hit.Doc.Metadata, q.Filters) {
+			continue
+		}
 		out = append(out, ragstore.Hit{
 			Chunk: ragstore.StoredChunk{
 				ID:       hit.Doc.ID,
+				Namespace: namespaceFromMetadata(hit.Doc.Metadata),
 				Content:  hit.Doc.Content,
 				Vector:   hit.Doc.Vector,
 				Metadata: hit.Doc.Metadata,
 			},
 			Score: hit.Score,
 		})
+	}
+	if len(out) > topK {
+		out = out[:topK]
 	}
 	return out, nil
 }
@@ -302,6 +344,7 @@ func (a storeAdapter) Get(ctx context.Context, id string) (ragstore.StoredChunk,
 	}
 	return ragstore.StoredChunk{
 		ID:       doc.ID,
+		Namespace: namespaceFromMetadata(doc.Metadata),
 		Content:  doc.Content,
 		Vector:   doc.Vector,
 		Metadata: doc.Metadata,
@@ -353,6 +396,31 @@ func fromStoreHit(hit ragstore.Hit) SearchHit {
 		},
 		Score: hit.Score,
 	}
+}
+
+func namespaceFromMetadata(meta map[string]any) string {
+	if meta == nil {
+		return ""
+	}
+	raw, ok := meta[namespaceMetadataKey]
+	if !ok {
+		return ""
+	}
+	s, _ := raw.(string)
+	return s
+}
+
+func metadataMatchesFilters(meta map[string]any, filters map[string]any) bool {
+	if len(filters) == 0 {
+		return true
+	}
+	for k, want := range filters {
+		got, ok := meta[k]
+		if !ok || got != want {
+			return false
+		}
+	}
+	return true
 }
 
 func copyMeta(in map[string]any) map[string]any {
