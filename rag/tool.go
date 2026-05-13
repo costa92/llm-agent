@@ -9,10 +9,7 @@ import (
 	"github.com/costa92/llm-agent"
 )
 
-// AsTool wraps a RAGSystem as an agents.Tool with 5 actions:
-// add_text / search / ask / remove / stats.
-//
-// Output is JSON-encoded; shape varies per action.
+// AsTool wraps a compatibility RAGSystem as an agents.Tool.
 func AsTool(r *RAGSystem) agents.Tool {
 	return agents.NewFuncTool(
 		"rag",
@@ -32,6 +29,7 @@ func ragToolSchema() json.RawMessage {
 			"question":    {"type": "string"},
 			"id":          {"type": "string"},
 			"top_k":       {"type": "integer"},
+			"namespace":   {"type": "string"},
 			"enable_mqe":  {"type": "boolean"},
 			"enable_hyde": {"type": "boolean"},
 			"mqe_count":   {"type": "integer"},
@@ -48,6 +46,7 @@ type ragToolArgs struct {
 	Question   string         `json:"question"`
 	ID         string         `json:"id"`
 	TopK       int            `json:"top_k"`
+	Namespace  string         `json:"namespace"`
 	EnableMQE  bool           `json:"enable_mqe"`
 	EnableHyDE bool           `json:"enable_hyde"`
 	MQECount   int            `json:"mqe_count"`
