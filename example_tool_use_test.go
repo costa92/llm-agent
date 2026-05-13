@@ -10,13 +10,14 @@ import (
 	"github.com/costa92/llm-agent/llm"
 )
 
-// toolCallResp builds a GenerateResponse that instructs the agent to call the
+// toolCallResp builds an llm.Response that instructs the agent to call the
 // named tool with the given JSON arguments. Used only in example_tool_use_test.go
 // to keep Output deterministic without a real LLM.
-func toolCallResp(toolName string, argsJSON string) llm.GenerateResponse {
-	return llm.GenerateResponse{
+func toolCallResp(toolName string, argsJSON string) llm.Response {
+	return llm.Response{
 		FinishReason: llm.FinishReasonToolCalls,
 		Provider:     "scripted",
+		Usage:        llm.Usage{Source: llm.UsageReported},
 		ToolCalls: []llm.ToolCall{
 			{Name: toolName, Arguments: json.RawMessage(argsJSON)},
 		},

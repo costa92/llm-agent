@@ -8,7 +8,7 @@ import (
 	"github.com/costa92/llm-agent/llm"
 )
 
-// scriptedLLM is a test helper that returns pre-set GenerateResponse
+// scriptedLLM is a test helper that returns pre-set llm.Response
 // values in order on each Generate call. After the script is exhausted
 // it returns errScriptExhausted. Concurrent-safe via mu.
 //
@@ -22,14 +22,14 @@ import (
 type scriptedLLM struct {
 	mu    sync.Mutex
 	calls int
-	resps []llm.GenerateResponse
+	resps []llm.Response
 }
 
 // errScriptExhausted aliases llm.ErrScriptExhausted so existing tests
 // matching with errors.Is(err, errScriptExhausted) continue to work.
 var errScriptExhausted = llm.ErrScriptExhausted
 
-func newScriptedLLM(resps ...llm.GenerateResponse) *scriptedLLM {
+func newScriptedLLM(resps ...llm.Response) *scriptedLLM {
 	return &scriptedLLM{resps: resps}
 }
 
@@ -44,17 +44,7 @@ func (s *scriptedLLM) Generate(_ context.Context, _ llm.Request) (llm.Response, 
 	}
 	r := s.resps[s.calls]
 	s.calls++
-	return llm.Response{
-		Text:         r.Text,
-		FinishReason: r.FinishReason,
-		Provider:     r.Provider,
-		Model:        r.Model,
-		Usage: llm.Usage{
-			TotalTokens: r.UsageToken,
-			Source:      llm.UsageReported,
-		},
-		ToolCalls: r.ToolCalls,
-	}, nil
+	return r, nil
 }
 
 func (s *scriptedLLM) Stream(ctx context.Context, req llm.Request) (llm.StreamReader, error) {
@@ -83,12 +73,13 @@ func (s *scriptedLLM) callCount() int {
 	return s.calls
 }
 
-// textResp builds a single text-only GenerateResponse (v0.2 shape).
-func textResp(text string) llm.GenerateResponse {
-	return llm.GenerateResponse{
+// textResp builds a single text-only llm.Response.
+func textResp(text string) llm.Response {
+	return llm.Response{
 		Text:         text,
 		FinishReason: llm.FinishReasonStop,
 		Provider:     "scripted",
+		Usage:        llm.Usage{Source: llm.UsageReported},
 	}
 }
 

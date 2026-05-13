@@ -1,9 +1,8 @@
 # Roadmap: llm-agent
 
-**Last updated:** 2026-05-12
-**Current state:** `v0.3` shipped and archived
-**Active scope:** no active implementation milestone; only future gated work
-remains
+**Last updated:** 2026-05-13
+**Current state:** `v0.3` shipped and archived; Phase 7 manually opened
+**Active scope:** Phase 7 deprecation-removal cycle (`v0.4` cut)
 
 ## Archived Milestones
 
@@ -18,7 +17,7 @@ remains
 
 ### Phase 7: Deprecation removal & `v0.4` cut
 
-**Status**: calendar-gated, not started
+**Status**: active by explicit early gate override on 2026-05-12
 
 **Goal**: Honor the deprecation window promised in `v0.3` by removing the old
 `llm.Client` surface only after a full minor cycle has elapsed.
@@ -38,22 +37,22 @@ remains
 **Planned work**:
 
 - `07-01` Audit zero remaining internal `llm.Client` usage
-- `07-02` Remove deprecated v0.2 client/types and document the breaking change
-- `07-03` Bump sister repos to `llm-agent v0.4.x` and coordinate tags
+- `07-02` Migrate runtime packages off the deprecated surface
+- `07-03` Delete the compatibility layer and rewrite core docs/examples
+- `07-04` Verify sister repos against the removed-compatibility core API
+- `07-05` Bump sister repos to the final `llm-agent v0.4.x` tag and coordinate release tags
 
 **Gate**:
 
-Do not start this phase just because implementation capacity is available.
-This work begins only after the post-`v0.3` deprecation window is intentionally
-opened.
+The original calendar gate was explicitly overridden on 2026-05-12 by operator
+instruction. Phase 7 is now active, but its scope remains constrained to
+`DEPRC-01..04` only.
 
 ## Next Milestone Setup
 
-- `v0.4` requirements have not been defined yet.
-- When the gate opens, start with a fresh `.planning/REQUIREMENTS.md` and
-  expand the roadmap from there.
-- Any non-gated new feature work should be introduced as a new milestone,
-  not smuggled into Phase 7.
+- `v0.4` is now the active deprecation-removal cycle.
+- Any non-deprecation feature work should still be introduced as a separate
+  milestone, not smuggled into Phase 7.
 
 ## Known Carry-forward Debt
 

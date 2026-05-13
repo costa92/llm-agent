@@ -183,16 +183,18 @@ type fakeLLM struct {
 	err  error
 }
 
-func (f *fakeLLM) Generate(_ stdctx.Context, _ llm.GenerateRequest) (llm.GenerateResponse, error) {
+func (f *fakeLLM) Generate(_ stdctx.Context, _ llm.Request) (llm.Response, error) {
 	if f.err != nil {
-		return llm.GenerateResponse{}, f.err
+		return llm.Response{}, f.err
 	}
-	return llm.GenerateResponse{Text: f.resp}, nil
+	return llm.Response{Text: f.resp}, nil
 }
 
-func (f *fakeLLM) GenerateStream(_ stdctx.Context, _ llm.GenerateRequest) (<-chan llm.StreamChunk, error) {
+func (f *fakeLLM) Stream(_ stdctx.Context, _ llm.Request) (llm.StreamReader, error) {
 	return nil, errors.New("nope")
 }
+
+func (f *fakeLLM) Info() llm.ProviderInfo { return llm.ProviderInfo{} }
 
 func TestCompress_NoOpUnderBudget(t *testing.T) {
 	cfg := Config{MaxTokens: 100, EnableCompress: true}.applyDefaults()

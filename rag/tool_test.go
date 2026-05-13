@@ -37,7 +37,7 @@ func TestRAGTool_AddTextAndSearch(t *testing.T) {
 }
 
 func TestRAGTool_Ask(t *testing.T) {
-	r := New(Options{LLM: newScripted(llm.GenerateResponse{Text: "Modules manage Go dependencies."})})
+	r := New(Options{LLM: newScripted(llm.Response{Text: "Modules manage Go dependencies."})})
 	tool := AsTool(r)
 	ctx := context.Background()
 	_, _ = tool.Execute(ctx, []byte(`{"action":"add_text","text":"go modules ship with go.mod"}`))

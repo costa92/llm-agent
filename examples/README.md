@@ -2,7 +2,7 @@
 
 Each subdirectory is a standalone `package main` you can `go run` without
 an API key — every demo plugs a deterministic `scriptedllm` client so the
-output is reproducible offline. Replace it with a real `llm.Client`
+output is reproducible offline. Replace it with a real `llm.ChatModel`
 (OpenAI-compatible / Ollama / Anthropic / …) and the same demo code keeps
 working in production.
 
@@ -15,7 +15,7 @@ working in production.
 | [`05-fanout/`](./05-fanout) | `pkg/fanout.Run` | Bounded-parallelism task runner with order-preserving `Result[T].Index` |
 
 Shared helper: [`scriptedllm/`](./scriptedllm) — a ~60-line deterministic
-mock `llm.Client`. Used by demos 01-03; demos 04-05 don't touch the LLM at
+mock `llm.ChatModel`. Used by demos 01-03; demos 04-05 don't touch the LLM at
 all (StateGraph runs pure node funcs; fanout is provider-agnostic).
 
 ## Run

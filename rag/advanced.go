@@ -17,7 +17,9 @@ Each alternative on its own line, no numbering, no commentary.
 
 Query: %s`, n, query)
 
-	resp, err := r.llm.Generate(ctx, llm.GenerateRequest{Prompt: prompt})
+	resp, err := r.llm.Generate(ctx, llm.Request{
+		Messages: []llm.Message{{Role: "user", Content: prompt}},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +54,9 @@ func (r *RAGSystem) hydeGenerate(ctx context.Context, query string) (string, err
 
 Question: %s`, query)
 
-	resp, err := r.llm.Generate(ctx, llm.GenerateRequest{Prompt: prompt})
+	resp, err := r.llm.Generate(ctx, llm.Request{
+		Messages: []llm.Message{{Role: "user", Content: prompt}},
+	})
 	if err != nil {
 		return "", err
 	}

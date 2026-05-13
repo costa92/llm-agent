@@ -14,26 +14,27 @@ import (
 type scriptedLLM struct {
 	mu    sync.Mutex
 	calls int
-	resps []llm.GenerateResponse
+	resps []llm.Response
 }
 
-func newScripted(rs ...llm.GenerateResponse) *scriptedLLM {
+func newScripted(rs ...llm.Response) *scriptedLLM {
 	return &scriptedLLM{resps: rs}
 }
-func (s *scriptedLLM) Generate(_ context.Context, _ llm.GenerateRequest) (llm.GenerateResponse, error) {
+func (s *scriptedLLM) Generate(_ context.Context, _ llm.Request) (llm.Response, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.calls >= len(s.resps) {
 		s.calls++
-		return llm.GenerateResponse{}, errors.New("scripted exhausted")
+		return llm.Response{}, errors.New("scripted exhausted")
 	}
 	r := s.resps[s.calls]
 	s.calls++
 	return r, nil
 }
-func (s *scriptedLLM) GenerateStream(_ context.Context, _ llm.GenerateRequest) (<-chan llm.StreamChunk, error) {
+func (s *scriptedLLM) Stream(_ context.Context, _ llm.Request) (llm.StreamReader, error) {
 	return nil, errors.New("nope")
 }
+func (s *scriptedLLM) Info() llm.ProviderInfo { return llm.ProviderInfo{} }
 
 func TestRAGSystem_AddAndSearch(t *testing.T) {
 	r := New(Options{})
@@ -85,7 +86,7 @@ func TestRAGSystem_AskRequiresLLM(t *testing.T) {
 }
 
 func TestRAGSystem_AskHappyPath(t *testing.T) {
-	r := New(Options{LLM: newScripted(llm.GenerateResponse{Text: "Modules manage deps."})})
+	r := New(Options{LLM: newScripted(llm.Response{Text: "Modules manage deps."})})
 	ctx := context.Background()
 	_, _ = r.AddText(ctx, "go modules manage dependencies via go.mod files", nil)
 	out, err := r.Ask(ctx, "what are go modules?", SearchOptions{})
@@ -107,7 +108,7 @@ func TestRAGSystem_MQERequiresLLM(t *testing.T) {
 
 func TestRAGSystem_MQEExpandsAndDedupes(t *testing.T) {
 	r := New(Options{
-		LLM: newScripted(llm.GenerateResponse{Text: "go modules\nGo modules\ngo dependency mgmt\ngolang module system"}),
+		LLM: newScripted(llm.Response{Text: "go modules\nGo modules\ngo dependency mgmt\ngolang module system"}),
 	})
 	expansions, err := r.mqeExpand(context.Background(), "go modules", 3)
 	if err != nil {
@@ -125,7 +126,7 @@ func TestRAGSystem_MQEExpandsAndDedupes(t *testing.T) {
 
 func TestRAGSystem_HyDEGeneratesContext(t *testing.T) {
 	r := New(Options{
-		LLM: newScripted(llm.GenerateResponse{Text: "Go modules manage Go dependencies via go.mod."}),
+		LLM: newScripted(llm.Response{Text: "Go modules manage Go dependencies via go.mod."}),
 	})
 	hypo, err := r.hydeGenerate(context.Background(), "what are go modules?")
 	if err != nil {
@@ -138,7 +139,7 @@ func TestRAGSystem_HyDEGeneratesContext(t *testing.T) {
 
 func TestRAGSystem_SearchWithMQEMergesResults(t *testing.T) {
 	r := New(Options{
-		LLM: newScripted(llm.GenerateResponse{Text: "go dependency\nmodule system"}),
+		LLM: newScripted(llm.Response{Text: "go dependency\nmodule system"}),
 	})
 	ctx := context.Background()
 	_, _ = r.AddText(ctx, "go modules manage dependencies", nil)

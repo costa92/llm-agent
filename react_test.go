@@ -121,7 +121,7 @@ func TestReActAgent_MaxStepsExceeded(t *testing.T) {
 	tool := &recordingTool{name: "loop"}
 	reg := NewRegistry(tool)
 	// Always return Action — never Final → expect ErrMaxStepsExceeded
-	resps := make([]llm.GenerateResponse, 10)
+	resps := make([]llm.Response, 10)
 	for i := range resps {
 		resps[i] = textResp("Thought: keep going\nAction: loop\nArgs: {}")
 	}

@@ -11,10 +11,40 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
-Phase 0 of the v0.3 milestone — multi-repo infra + capability-aware `llm/` interfaces.
-The new `llm/` types coexist with the v0.2 `llm.Client` surface (now renamed to
-`llm.LegacyClient` with a `type Client = LegacyClient` alias for source compatibility).
-Existing callers continue to compile unchanged.
+Phase 7 of the `v0.4` cut — the deprecated compatibility surface has been
+removed from the core repo.
+
+### Breaking
+
+- Removed the deprecated v0.2 compatibility symbols from `llm/`:
+  - `llm.Client`
+  - `llm.LegacyClient`
+  - `llm.GenerateRequest`
+  - `llm.GenerateResponse`
+  - `llm.StreamChunk`
+  - `llm.StreamUsage`
+- Any downstream still compiling against the removed surface must migrate to:
+  - `llm.ChatModel`
+  - `llm.Request`
+  - `llm.Response`
+  - `llm.StreamReader`
+  - `llm.StreamEvent`
+
+### Changed
+
+- Core runtime packages now depend only on `llm.ChatModel`:
+  - `rag`
+  - `context`
+  - `bench`
+  - `rl`
+- Repository examples, test helpers, and quick-start docs now show only the
+  current `ChatModel` API.
+
+### Removed
+
+- Deleted `llm/legacy.go`.
+- Removed alias-only tests that existed to prove `Client`/`LegacyClient`
+  round-tripping.
 
 ### Added
 

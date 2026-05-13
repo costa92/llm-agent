@@ -10,20 +10,6 @@ import (
 	"testing"
 )
 
-// ----- Compile-time alias roundtrip tests (TestLegacyClientAlias) -----
-// These assertions live at file scope so they are checked at every build.
-var (
-	_ Client       = (LegacyClient)(nil)
-	_ LegacyClient = (Client)(nil)
-)
-
-func TestLegacyClientAlias(t *testing.T) {
-	t.Helper()
-	// File-scope assertions above are the actual proof. This test
-	// exists so the symbol shows up in `go test -v` output.
-	t.Log("Client and LegacyClient are aliases — compile-time satisfied")
-}
-
 // ----- ChatOnlyMock negative capability assertions -----
 func TestChatOnlyMockExcludesCapabilities(t *testing.T) {
 	var m ChatModel = &ChatOnlyMock{Provider: "test", Model: "m"}

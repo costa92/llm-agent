@@ -7,7 +7,7 @@ import (
 	"github.com/costa92/llm-agent/llm"
 )
 
-// SimpleAgent forwards user input to an llm.Client in a single call.
+// SimpleAgent forwards user input to an llm.ChatModel in a single call.
 // No tools, no loop — the simplest possible Agent.
 type SimpleAgent struct {
 	model llm.ChatModel

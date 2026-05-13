@@ -18,7 +18,7 @@ import (
 //  3. Construct via your bridge instead of UnsupportedTrainer.
 type TrainerProxy interface {
 	Train(ctx context.Context, cfg TrainConfig) (TrainResult, error)
-	LoadModel(path string) (llm.Client, error)
+	LoadModel(path string) (llm.ChatModel, error)
 }
 
 // TrainConfig captures everything needed by a backend to train.
@@ -57,6 +57,6 @@ func (UnsupportedTrainer) Train(_ context.Context, _ TrainConfig) (TrainResult, 
 }
 
 // LoadModel always returns ErrTrainingNotSupported.
-func (UnsupportedTrainer) LoadModel(_ string) (llm.Client, error) {
+func (UnsupportedTrainer) LoadModel(_ string) (llm.ChatModel, error) {
 	return nil, ErrTrainingNotSupported
 }

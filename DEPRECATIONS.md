@@ -11,19 +11,22 @@ each row whose `Removed In` matches the in-flight tag.
 
 ## Active deprecations
 
-| Symbol | Deprecated In | Removed In | Migration |
-|---|---|---|---|
-| `llm.Client` (interface) | v0.3.0 | v0.4.0 | Use `llm.ChatModel`. See [migration guide](docs/migration-v0.2-to-v0.3.md). The `type Client = LegacyClient` alias preserves source compatibility through v0.3.x. |
-| `llm.LegacyClient` (interface) | v0.3.0 | v0.4.0 | Use `llm.ChatModel`. See [migration guide](docs/migration-v0.2-to-v0.3.md). |
-| `llm.GenerateRequest` (struct) | v0.3.0 | v0.4.0 | Use `llm.Request`. See [migration guide](docs/migration-v0.2-to-v0.3.md). |
-| `llm.GenerateResponse` (struct) | v0.3.0 | v0.4.0 | Use `llm.Response`. See [migration guide](docs/migration-v0.2-to-v0.3.md). |
-| `llm.StreamChunk` (struct) | v0.3.0 | v0.4.0 | Use `llm.StreamEvent` (typed union with `Kind` enum). See [migration guide](docs/migration-v0.2-to-v0.3.md). |
-| `llm.StreamUsage` (struct) | v0.3.0 | v0.4.0 | Use `llm.Usage` (now includes `Source` field for K4 cost record). See [migration guide](docs/migration-v0.2-to-v0.3.md). |
-| `agents.scriptedLLM` (root-package test helper) | v0.3.0 | Phase 3 (~v0.3.3) | Use `llm.NewScriptedLLM(...)` directly. The test-helper shim in `scriptedllm_test.go` exists only because agent paradigms still consume the v0.2 `llm.Client` contract; Phase 3 (CORE-10) migrates them to `llm.ChatModel` and the shim goes away. |
+*(none)*
 
 ## Removed (historical)
 
-*(none yet — first removal scheduled for v0.4.0)*
+- `llm.Client` (interface) — deprecated in `v0.3.0`, removed in the Phase 7
+  `v0.4` cut; use `llm.ChatModel`.
+- `llm.LegacyClient` (interface) — deprecated in `v0.3.0`, removed in the
+  Phase 7 `v0.4` cut; use `llm.ChatModel`.
+- `llm.GenerateRequest` (struct) — deprecated in `v0.3.0`, removed in the
+  Phase 7 `v0.4` cut; use `llm.Request`.
+- `llm.GenerateResponse` (struct) — deprecated in `v0.3.0`, removed in the
+  Phase 7 `v0.4` cut; use `llm.Response`.
+- `llm.StreamChunk` (struct) — deprecated in `v0.3.0`, removed in the Phase 7
+  `v0.4` cut; use `llm.StreamEvent`.
+- `llm.StreamUsage` (struct) — deprecated in `v0.3.0`, removed in the Phase 7
+  `v0.4` cut; use `llm.Usage`.
 
 ## Adding new deprecations
 

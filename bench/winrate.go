@@ -44,14 +44,14 @@ type WinRateOptions struct {
 
 // WinRateEvaluator runs LLM-judged head-to-head comparisons.
 type WinRateEvaluator struct {
-	llm  llm.Client
+	llm  llm.ChatModel
 	opts WinRateOptions
 }
 
 // NewWinRateEvaluator constructs a WinRateEvaluator. SwapEval defaults
 // to true (anti-position-bias: each pair evaluated A-vs-B and B-vs-A,
 // final verdict majority-vote).
-func NewWinRateEvaluator(judge llm.Client, opts WinRateOptions) *WinRateEvaluator {
+func NewWinRateEvaluator(judge llm.ChatModel, opts WinRateOptions) *WinRateEvaluator {
 	if opts.Concurrency <= 0 {
 		opts.Concurrency = 1
 	}
@@ -66,7 +66,7 @@ func NewWinRateEvaluator(judge llm.Client, opts WinRateOptions) *WinRateEvaluato
 }
 
 // ErrWinRateNoLLM is returned by Compare when the judge LLM is nil.
-var ErrWinRateNoLLM = stderrors.New("bench: WinRateEvaluator requires non-nil judge llm.Client")
+var ErrWinRateNoLLM = stderrors.New("bench: WinRateEvaluator requires non-nil judge llm.ChatModel")
 
 // Compare runs the comparison set under bounded concurrency.
 func (w *WinRateEvaluator) Compare(ctx context.Context, items []Comparison) ([]ComparisonResult, error) {
@@ -136,7 +136,9 @@ Output ONE word followed by an explanation:
 
 Format: <verdict>: <one-sentence reason>`, q, a, b)
 
-	resp, err := w.llm.Generate(runCtx, llm.GenerateRequest{Prompt: prompt})
+	resp, err := w.llm.Generate(runCtx, llm.Request{
+		Messages: []llm.Message{{Role: "user", Content: prompt}},
+	})
 	if err != nil {
 		return VerdictTie, "judge llm error: " + err.Error()
 	}

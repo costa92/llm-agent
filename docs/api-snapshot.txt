@@ -1,6 +1,6 @@
-# API snapshot — github.com/costa92/llm-agent (Phase 0 baseline)
-# Generated: 2026-05-10T05:02:23Z
-# Pitfall 22 baseline — diff at every /gsd-transition
+# API snapshot — github.com/costa92/llm-agent (Phase 7 v0.4 baseline)
+# Generated: 2026-05-12T13:52:50Z
+# Regenerated after removing the deprecated llm v0.2 compatibility surface
 
 ===================================================================
 PACKAGE: github.com/costa92/llm-agent
@@ -27,8 +27,8 @@ agents is a stdlib-only Go module. Constraints:
 
 # Quick start
 
-    client, _ := llm.NewClient(llm.Config{Provider: "mock"})
-    agent := agents.NewSimpleAgent(client, agents.SimpleOptions{})
+    model := llm.NewScriptedLLM(llm.WithResponses(llm.TextResponse("Hello")))
+    agent := agents.NewSimpleAgent(model, agents.SimpleOptions{})
     res, err := agent.Run(ctx, "Hello")
 
 See example_simple_test.go / example_tool_use_test.go /
@@ -86,8 +86,8 @@ var (
 FUNCTIONS
 
 func AsLLMTool(t Tool) llm.Tool
-    AsLLMTool translates an agents.Tool into pkg/llm.Tool so it can be passed to
-    llm.Client via GenerateRequest.Tools (native function-calling).
+    AsLLMTool translates an agents.Tool into llm.Tool so it can be passed to a
+    tool-capable llm.ChatModel.
 
 
 TYPES
@@ -162,7 +162,7 @@ type FunctionCallAgent struct {
     function-calling. Multi-turn would require a pkg/llm enhancement (out of
     scope for this phase).
 
-func NewFunctionCallAgent(client llm.Client, opts FunctionCallOptions) *FunctionCallAgent
+func NewFunctionCallAgent(model llm.ChatModel, opts FunctionCallOptions) (*FunctionCallAgent, error)
     NewFunctionCallAgent constructs a FunctionCallAgent.
 
 func (a *FunctionCallAgent) Name() string
@@ -189,7 +189,7 @@ type PlanAndSolveAgent struct {
     PlanAndSolveAgent: plan once (LLM emits N steps), then execute each step in
     a single LLM call, finally synthesize a final answer.
 
-func NewPlanAndSolveAgent(client llm.Client, opts PlanAndSolveOptions) *PlanAndSolveAgent
+func NewPlanAndSolveAgent(model llm.ChatModel, opts PlanAndSolveOptions) *PlanAndSolveAgent
     NewPlanAndSolveAgent constructs a PlanAndSolveAgent.
 
 func (a *PlanAndSolveAgent) Name() string
@@ -226,7 +226,7 @@ type ReActAgent struct {
         Thought: <reasoning>
         Final: <answer>
 
-func NewReActAgent(client llm.Client, opts ReActOptions) *ReActAgent
+func NewReActAgent(model llm.ChatModel, opts ReActOptions) *ReActAgent
     NewReActAgent constructs a ReActAgent.
 
 func (a *ReActAgent) Name() string
@@ -253,7 +253,7 @@ type ReflectionAgent struct {
     ReflectionAgent: generate → critique → revise → ... up to MaxRounds.
     If the critique contains "APPROVED" (case-insensitive), stops early.
 
-func NewReflectionAgent(client llm.Client, opts ReflectionOptions) *ReflectionAgent
+func NewReflectionAgent(model llm.ChatModel, opts ReflectionOptions) *ReflectionAgent
     NewReflectionAgent constructs a ReflectionAgent.
 
 func (a *ReflectionAgent) Name() string
@@ -287,7 +287,7 @@ func NewRegistry(tools ...Tool) *Registry
     prefer panic over silent shadowing).
 
 func (r *Registry) AsLLMTools() []llm.Tool
-    AsLLMTools returns all tools formatted for llm.GenerateRequest.Tools.
+    AsLLMTools returns all tools formatted for llm.ToolCaller bindings.
 
 func (r *Registry) Get(name string) (Tool, bool)
     Get returns the tool registered under name.
@@ -323,10 +323,10 @@ type Result struct {
 type SimpleAgent struct {
 	// Has unexported fields.
 }
-    SimpleAgent forwards user input to an llm.Client in a single call. No tools,
-    no loop — the simplest possible Agent.
+    SimpleAgent forwards user input to an llm.ChatModel in a single call.
+    No tools, no loop — the simplest possible Agent.
 
-func NewSimpleAgent(client llm.Client, opts SimpleOptions) *SimpleAgent
+func NewSimpleAgent(model llm.ChatModel, opts SimpleOptions) *SimpleAgent
     NewSimpleAgent constructs a SimpleAgent.
 
 func (a *SimpleAgent) Name() string
@@ -467,10 +467,10 @@ VARIABLES
 var ErrBFCLLoaderNotImplemented = stderrors.New("bench: real BFCL loader is out of scope for Phase 7; build your own LineParser via rl.NewJSONLDataset")
     ErrBFCLLoaderNotImplemented is returned by LoadBFCLFromJSONL.
 
-var ErrJudgeNoLLM = stderrors.New("bench: judge requires non-nil llm.Client")
+var ErrJudgeNoLLM = stderrors.New("bench: judge requires non-nil llm.ChatModel")
     ErrJudgeNoLLM is returned by Evaluate when the Judge has no LLM.
 
-var ErrWinRateNoLLM = stderrors.New("bench: WinRateEvaluator requires non-nil judge llm.Client")
+var ErrWinRateNoLLM = stderrors.New("bench: WinRateEvaluator requires non-nil judge llm.ChatModel")
     ErrWinRateNoLLM is returned by Compare when the judge LLM is nil.
 
 
@@ -617,7 +617,7 @@ type Judge struct {
 }
     Judge wraps an LLM client into a multi-rubric evaluator.
 
-func NewJudge(client llm.Client, rubrics []JudgeRubric, opts JudgeOptions) *Judge
+func NewJudge(client llm.ChatModel, rubrics []JudgeRubric, opts JudgeOptions) *Judge
     NewJudge constructs a Judge.
 
 func (j *Judge) Evaluate(ctx context.Context, items []JudgeItem) ([]JudgeScore, error)
@@ -710,7 +710,7 @@ type WinRateEvaluator struct {
 }
     WinRateEvaluator runs LLM-judged head-to-head comparisons.
 
-func NewWinRateEvaluator(judge llm.Client, opts WinRateOptions) *WinRateEvaluator
+func NewWinRateEvaluator(judge llm.ChatModel, opts WinRateOptions) *WinRateEvaluator
     NewWinRateEvaluator constructs a WinRateEvaluator. SwapEval defaults to true
     (anti-position-bias: each pair evaluated A-vs-B and B-vs-A, final verdict
     majority-vote).
@@ -1596,7 +1596,7 @@ func WithEmbedder(e rag.Embedder) Option
     WithEmbedder swaps Jaccard relevance for embedding cosine similarity during
     Select. The query is embedded once per Build call.
 
-func WithLLM(c llm.Client) Option
+func WithLLM(c llm.ChatModel) Option
     WithLLM enables the Compress phase's optional LLM-backed summarization.
 
 func WithTokenCounter(c TokenCounter) Option
@@ -1689,10 +1689,7 @@ implementation needs to call a model:
   - Message single conversation turn
   - Request / Response chat-layer request/response (NEW in v0.3)
   - Vector / Usage / UsageSource embeddings + token accounting
-  - FinishReason + 6 const OpenAI-compatible stop reasons (shared between
-    LegacyClient and ChatModel surfaces)
-  - LegacyClient v0.2 contract retained for source compatibility; Deprecated,
-    removal target v0.4.0
+  - FinishReason + 6 const OpenAI-compatible stop reasons
   - ScriptedLLM full-capability deterministic mock (NEW in v0.3)
   - ChatOnlyMock ChatModel-only mock (capability-degradation tests)
 
@@ -1718,14 +1715,6 @@ StreamReader is iterator-style (Next/Close) rather than channel- based.
 Consumers MUST defer sr.Close() to prevent goroutine leaks. AccumulateStream is
 a convenience for consumers that want a flat Response from a stream.
 
-# Deprecation
-
-LegacyClient (the v0.2 Client interface, renamed) and its companion types
-(GenerateRequest, GenerateResponse, StreamChunk, StreamUsage) remain callable
-through the v0.3.x cycle and will be removed in v0.4.0. New code MUST use
-ChatModel and the new Request/Response/ StreamReader/StreamEvent types.
-See docs/migration-v0.2-to-v0.3.md.
-
 VARIABLES
 
 var (
@@ -1748,6 +1737,24 @@ var (
 
 
 TYPES
+
+type AuthError struct {
+	Provider string
+	Wrapped  error
+}
+    AuthError is returned by adapters when the provider rejects credentials.
+
+    The original SDK error is preserved in Wrapped - call errors.Unwrap to
+    retrieve it, or errors.As(err, &openaiErr) for provider-specific detail.
+
+    Canonical detection:
+
+        var e *llm.AuthError
+        if errors.As(err, &e) { /* handle 401/403 */ }
+
+func (e *AuthError) Error() string
+
+func (e *AuthError) Unwrap() error
 
 type Capabilities struct {
 	Tools             bool `json:"tools"`              // Native function-calling supported by the bound model
@@ -1802,12 +1809,6 @@ func (m *ChatOnlyMock) Info() ProviderInfo
 
 func (m *ChatOnlyMock) Stream(_ context.Context, _ Request) (StreamReader, error)
 
-type Client = LegacyClient
-    Client is an alias for LegacyClient retained for v0.2 source compatibility.
-
-    Deprecated: Use llm.ChatModel instead. Client will be removed in v0.4.0.
-    See docs/migration-v0.2-to-v0.3.md.
-
 type Embedder interface {
 	Embed(ctx context.Context, texts []string) (vectors []Vector, usage Usage, err error)
 	EmbedDimensions() int
@@ -1822,12 +1823,8 @@ type Embedder interface {
     adapter (e.g., a future voyageai adapter) might implement Embedder without
     ChatModel — orthogonality preserves that option.
 
-type FinishReason = legacyFinishReason
-    FinishReason is an alias for the underlying legacyFinishReason string type
-    defined in legacy.go. The alias means LegacyClient and ChatModel callers
-    see the same FinishReason name and the same constant set (FinishReasonStop,
-    FinishReasonLength, etc.) — type identity is preserved across the v0.2 /
-    v0.3 surfaces.
+type FinishReason string
+    FinishReason mirrors common provider stop reasons.
 
 const (
 	FinishReasonStop          FinishReason = "stop"
@@ -1838,61 +1835,25 @@ const (
 	FinishReasonUnknown       FinishReason = "unknown"
 )
     FinishReason constants mirror the OpenAI /v1/chat/completions stop_reason
-    field so that providers that surface this can pass it through without
-    conversion.
+    field so providers can pass them through unchanged.
 
-type GenerateRequest struct {
-	Prompt  string         `json:"prompt"`
-	Context map[string]any `json:"context,omitempty"`
-	// Tools enables function calling — providers that don't support
-	// tools simply ignore the field.
-	Tools []Tool `json:"tools,omitempty"`
-	// History threads prior turns into the messages array so
-	// multi-turn dialog is possible without forcing the caller to
-	// hand-craft a single mega-prompt.
-	History []Message `json:"history,omitempty"`
+type InvalidRequestError struct {
+	Provider string
+	Wrapped  error
 }
-    GenerateRequest is the v0.2 request type passed to LegacyClient.Generate.
+    InvalidRequestError indicates the request was malformed, the model name was
+    wrong, the model wasn't pulled (Ollama), or any other 4xx-other condition
+    that operator action - not a retry - must resolve.
 
-    Deprecated: Use llm.Request instead. GenerateRequest will be removed in
-    v0.4.0. See docs/migration-v0.2-to-v0.3.md.
+func (e *InvalidRequestError) Error() string
 
-type GenerateResponse struct {
-	Text         string         `json:"text"`
-	FinishReason FinishReason   `json:"finish_reason,omitempty"`
-	Provider     string         `json:"provider"`
-	Model        string         `json:"model,omitempty"`
-	UsageToken   int            `json:"usage_token,omitempty"`
-	Metadata     map[string]any `json:"metadata,omitempty"`
-	// ToolCalls are populated when the model decides to invoke one or
-	// more registered Tools. Callers route them to executors and feed
-	// results back via History on the next turn.
-	ToolCalls []ToolCall `json:"tool_calls,omitempty"`
-}
-    GenerateResponse is the v0.2 response type returned by
-    LegacyClient.Generate.
-
-    Deprecated: Use llm.Response instead. GenerateResponse will be removed in
-    v0.4.0. See docs/migration-v0.2-to-v0.3.md.
-
-type LegacyClient interface {
-	Generate(ctx context.Context, req GenerateRequest) (GenerateResponse, error)
-	GenerateStream(ctx context.Context, req GenerateRequest) (<-chan StreamChunk, error)
-}
-    LegacyClient is the v0.2 LLM contract — superseded by ChatModel.
-
-    Deprecated: Use llm.ChatModel instead. LegacyClient will be removed in
-    v0.4.0. See docs/migration-v0.2-to-v0.3.md.
+func (e *InvalidRequestError) Unwrap() error
 
 type Message struct {
 	Role    string `json:"role"` // "user", "assistant", "tool", "system"
 	Content string `json:"content"`
 }
-    Message is a single turn in a conversation. Reused unchanged from the
-    v0.2 surface — same Role/Content shape. System messages are lifted to
-    Request.SystemPrompt before sending to providers; the "system" role string
-    remains valid for callers that prefer embedding it in Messages (LegacyClient
-    flow).
+    Message is a single turn in a conversation.
 
 type ProviderInfo struct {
 	Provider     string       `json:"provider"` // "openai", "anthropic", "ollama"
@@ -1905,6 +1866,24 @@ type ProviderInfo struct {
     construction time — `openai.New(openai.WithModel("gpt-4o"))` — so Info() is
     constant for the lifetime of the value.
 
+type RateLimitError struct {
+	Provider   string
+	RetryAfter string
+	Reason     string
+	Wrapped    error
+}
+    RateLimitError indicates the provider is rate-limiting the caller.
+
+    RetryAfter is the raw value of any Retry-After header (provider-specific
+    format - RFC 7231 HTTP-date or a number of seconds). Consumers parse.
+
+    Reason is an optional discriminator for provider-specific quota states
+    (e.g., "quota_exhausted" for OpenAI insufficient_quota; "" by default).
+
+func (e *RateLimitError) Error() string
+
+func (e *RateLimitError) Unwrap() error
+
 type Request struct {
 	Messages        []Message      `json:"messages"`                    // multi-turn dialog (preferred over Prompt)
 	SystemPrompt    string         `json:"system_prompt,omitempty"`     // lifted out of Messages for Anthropic top-level system
@@ -1912,14 +1891,11 @@ type Request struct {
 	Temperature     *float32       `json:"temperature,omitempty"`       // pointer: nil = use provider default
 	Metadata        map[string]any `json:"metadata,omitempty"`          // provider-specific extras (rare; prefer typed)
 }
-    Request is the new-surface request type. Replaces GenerateRequest at
-    the new-interface (ChatModel) layer. LegacyClient continues to use
-    GenerateRequest (defined in legacy.go).
+    Request is the chat-layer request type.
 
-    Why a separate type: the v0.2 GenerateRequest used Prompt+History; the
-    v0.3 surface is messages-only with SystemPrompt lifted out so Anthropic's
-    top-level system parameter has a clean home and OpenAI's system-role message
-    can be derived from it.
+    It is messages-first, with SystemPrompt lifted out so providers that support
+    a top-level system field can map cleanly without inventing a fake message
+    turn.
 
 type Response struct {
 	Text         string       `json:"text"`
@@ -1929,8 +1905,7 @@ type Response struct {
 	Usage        Usage        `json:"usage"`
 	ToolCalls    []ToolCall   `json:"tool_calls,omitempty"`
 }
-    Response is the new-surface response type. Replaces GenerateResponse at the
-    ChatModel layer.
+    Response is the chat-layer response type.
 
 func AccumulateStream(sr StreamReader) (Response, error)
     AccumulateStream is a convenience for consumers that don't care about
@@ -2020,20 +1995,6 @@ func WithProvider(p string) ScriptedOption
 func WithResponses(rs ...Response) ScriptedOption
     WithResponses appends scripted Responses; Generate/Stream consume in order.
 
-type StreamChunk struct {
-	Text  string       `json:"text"`
-	Done  bool         `json:"done"`
-	Usage *StreamUsage `json:"usage,omitempty"`
-	// ToolCall is set on stream chunks when the model emits a function
-	// call delta. Done==true with ToolCall set marks the end of a tool
-	// invocation; subsequent calls are a new chunk sequence.
-	ToolCall *ToolCall `json:"tool_call,omitempty"`
-}
-    StreamChunk is a v0.2 streaming primitive returned over <-chan StreamChunk.
-
-    Deprecated: Use llm.StreamEvent instead. StreamChunk will be removed in
-    v0.4.0. See docs/migration-v0.2-to-v0.3.md.
-
 type StreamEvent struct {
 	Kind         StreamEventKind
 	Text         string         // EventTextDelta, EventThinkingDelta
@@ -2079,16 +2040,6 @@ type StreamReader interface {
     producer-goroutine leaks when consumers break out early, and composability
     with the K4 retry state machine (Phase 2).
 
-type StreamUsage struct {
-	PromptTokens     int `json:"prompt_tokens,omitempty"`
-	CompletionTokens int `json:"completion_tokens,omitempty"`
-	TotalTokens      int `json:"total_tokens,omitempty"`
-}
-    StreamUsage carries token counts for a streaming response.
-
-    Deprecated: Use llm.Usage instead. StreamUsage will be removed in v0.4.0.
-    See docs/migration-v0.2-to-v0.3.md.
-
 type StructuredOutputs interface {
 	ChatModel
 	WithSchema(schema []byte) (ChatModel, error)
@@ -2110,24 +2061,16 @@ type Tool struct {
     document — this package doesn't validate it (the upstream provider does) so
     callers can use whatever schema dialect their provider expects.
 
-    Shape unchanged from v0.2; shared between LegacyClient and ChatModel
-    surfaces deliberately (the field names haven't needed to evolve in 6 months
-    of v0.2; sharing avoids two parallel type systems).
+    Shape is intentionally simple and provider-agnostic.
 
 type ToolCall struct {
-	ID        string          `json:"id,omitempty"` // provider-assigned; NEW vs v0.2
+	ID        string          `json:"id,omitempty"` // provider-assigned
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments"`
 }
     ToolCall is what the model returns when it decides to invoke a Tool. The ID
-    field is NEW vs. v0.2's ToolCall — it's the provider-assigned identifier
-    (OpenAI tool_call_id, Anthropic content_block.id) that the agent dedupe
-    layer (Phase 3) uses as one half of the (message_id, tool_use_id) dedupe key
-    (Pitfall 4).
-
-    v0.2 callers that READ ToolCalls keep working because the model is the only
-    producer of ToolCall values — v0.2 did not construct ToolCalls explicitly,
-    so adding an ID field is back-compat.
+    field is provider-assigned and is used by the agent dedupe layer as one half
+    of the (message_id, tool_use_id) key.
 
 type ToolCallDelta struct {
 	Index     int    // stable across chunks for a single tool call
@@ -2164,6 +2107,19 @@ type ToolCaller interface {
 
     Implementations MUST satisfy ChatModel — a tool-bound model is still a
     ChatModel that can Generate / Stream.
+
+type TransientError struct {
+	Provider string
+	Wrapped  error
+}
+    TransientError indicates a 5xx, network failure, or context.DeadlineExceeded
+    - the caller MAY retry per the K4 retry state machine (Phase 2).
+
+    Phase 1 adapters return this; the retry loop itself lands in Phase 2.
+
+func (e *TransientError) Error() string
+
+func (e *TransientError) Unwrap() error
 
 type Usage struct {
 	InputTokens  int         `json:"input_tokens"`
@@ -3054,7 +3010,7 @@ var ErrDimMismatch = errors.New("rag: vector dimension mismatch")
 var ErrEmptyQuery = errors.New("rag: query is required")
     ErrEmptyQuery is returned by Search when query is whitespace-only.
 
-var ErrLLMRequired = errors.New("rag: llm.Client required for this operation")
+var ErrLLMRequired = errors.New("rag: llm.ChatModel required for this operation")
     ErrLLMRequired is returned by Ask / MQE / HyDE paths when no LLM client was
     configured.
 
@@ -3165,7 +3121,7 @@ type Options struct {
 	Chunker       Chunker
 	Embedder      Embedder
 	Store         VectorStore
-	LLM           llm.Client
+	LLM           llm.ChatModel
 	MaxChunkChars int
 }
     Options configures a RAGSystem. All zero-values get safe defaults.
@@ -3456,7 +3412,7 @@ type TrainResult struct {
 
 type TrainerProxy interface {
 	Train(ctx context.Context, cfg TrainConfig) (TrainResult, error)
-	LoadModel(path string) (llm.Client, error)
+	LoadModel(path string) (llm.ChatModel, error)
 }
     TrainerProxy is the interface a Python-bridged trainer would implement. The
     default implementation (UnsupportedTrainer) returns ErrTrainingNotSupported
@@ -3486,7 +3442,7 @@ type UnsupportedTrainer struct{}
 func NewUnsupportedTrainer() *UnsupportedTrainer
     NewUnsupportedTrainer returns the no-op trainer.
 
-func (UnsupportedTrainer) LoadModel(_ string) (llm.Client, error)
+func (UnsupportedTrainer) LoadModel(_ string) (llm.ChatModel, error)
     LoadModel always returns ErrTrainingNotSupported.
 
 func (UnsupportedTrainer) Train(_ context.Context, _ TrainConfig) (TrainResult, error)

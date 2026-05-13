@@ -20,8 +20,8 @@ type Tool interface {
 	Execute(ctx context.Context, args json.RawMessage) (string, error)
 }
 
-// AsLLMTool translates an agents.Tool into pkg/llm.Tool so it can be passed
-// to llm.Client via GenerateRequest.Tools (native function-calling).
+// AsLLMTool translates an agents.Tool into llm.Tool so it can be passed
+// to a tool-capable llm.ChatModel.
 func AsLLMTool(t Tool) llm.Tool {
 	return llm.Tool{
 		Name:        t.Name(),

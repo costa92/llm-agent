@@ -206,18 +206,19 @@ type fakeLLM struct {
 	err     error
 }
 
-func (f *fakeLLM) Generate(_ context.Context, _ llm.GenerateRequest) (llm.GenerateResponse, error) {
+func (f *fakeLLM) Generate(_ context.Context, _ llm.Request) (llm.Response, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls++
 	if f.err != nil {
-		return llm.GenerateResponse{}, f.err
+		return llm.Response{}, f.err
 	}
-	return llm.GenerateResponse{Text: f.respond(f.calls)}, nil
+	return llm.Response{Text: f.respond(f.calls)}, nil
 }
-func (f *fakeLLM) GenerateStream(_ context.Context, _ llm.GenerateRequest) (<-chan llm.StreamChunk, error) {
+func (f *fakeLLM) Stream(_ context.Context, _ llm.Request) (llm.StreamReader, error) {
 	return nil, errors.New("nope")
 }
+func (f *fakeLLM) Info() llm.ProviderInfo { return llm.ProviderInfo{} }
 
 func TestJudge_RequiresLLM(t *testing.T) {
 	j := NewJudge(nil, []JudgeRubric{{Name: "x", Scale: 5}}, JudgeOptions{})
@@ -395,17 +396,18 @@ func TestRenderBFCLReport(t *testing.T) {
 // 用来测试 Judge.Evaluate / WinRateEvaluator.Compare 在 outer ctx cancel 时的行为。
 type ctxAwareFakeLLM struct{}
 
-func (f *ctxAwareFakeLLM) Generate(ctx context.Context, _ llm.GenerateRequest) (llm.GenerateResponse, error) {
+func (f *ctxAwareFakeLLM) Generate(ctx context.Context, _ llm.Request) (llm.Response, error) {
 	select {
 	case <-ctx.Done():
-		return llm.GenerateResponse{}, ctx.Err()
+		return llm.Response{}, ctx.Err()
 	default:
 	}
-	return llm.GenerateResponse{Text: `{"scores":{"x":1},"reasoning":"ok"}`}, nil
+	return llm.Response{Text: `{"scores":{"x":1},"reasoning":"ok"}`}, nil
 }
-func (f *ctxAwareFakeLLM) GenerateStream(_ context.Context, _ llm.GenerateRequest) (<-chan llm.StreamChunk, error) {
+func (f *ctxAwareFakeLLM) Stream(_ context.Context, _ llm.Request) (llm.StreamReader, error) {
 	return nil, errors.New("ctxAwareFakeLLM: stream not implemented")
 }
+func (f *ctxAwareFakeLLM) Info() llm.ProviderInfo { return llm.ProviderInfo{} }
 
 func TestJudgeEvaluate_OuterCtxCancelReturnsErr(t *testing.T) {
 	stub := &ctxAwareFakeLLM{}

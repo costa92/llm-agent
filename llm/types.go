@@ -2,14 +2,11 @@ package llm
 
 import "encoding/json"
 
-// Request is the new-surface request type. Replaces GenerateRequest at
-// the new-interface (ChatModel) layer. LegacyClient continues to use
-// GenerateRequest (defined in legacy.go).
+// Request is the chat-layer request type.
 //
-// Why a separate type: the v0.2 GenerateRequest used Prompt+History;
-// the v0.3 surface is messages-only with SystemPrompt lifted out so
-// Anthropic's top-level system parameter has a clean home and OpenAI's
-// system-role message can be derived from it.
+// It is messages-first, with SystemPrompt lifted out so providers that
+// support a top-level system field can map cleanly without inventing a
+// fake message turn.
 type Request struct {
 	Messages        []Message      `json:"messages"`                    // multi-turn dialog (preferred over Prompt)
 	SystemPrompt    string         `json:"system_prompt,omitempty"`     // lifted out of Messages for Anthropic top-level system
@@ -18,8 +15,7 @@ type Request struct {
 	Metadata        map[string]any `json:"metadata,omitempty"`          // provider-specific extras (rare; prefer typed)
 }
 
-// Response is the new-surface response type. Replaces GenerateResponse
-// at the ChatModel layer.
+// Response is the chat-layer response type.
 type Response struct {
 	Text         string       `json:"text"`
 	FinishReason FinishReason `json:"finish_reason,omitempty"`
@@ -29,11 +25,7 @@ type Response struct {
 	ToolCalls    []ToolCall   `json:"tool_calls,omitempty"`
 }
 
-// Message is a single turn in a conversation. Reused unchanged from
-// the v0.2 surface — same Role/Content shape. System messages are
-// lifted to Request.SystemPrompt before sending to providers; the
-// "system" role string remains valid for callers that prefer
-// embedding it in Messages (LegacyClient flow).
+// Message is a single turn in a conversation.
 type Message struct {
 	Role    string `json:"role"`    // "user", "assistant", "tool", "system"
 	Content string `json:"content"`
@@ -44,9 +36,7 @@ type Message struct {
 // upstream provider does) so callers can use whatever schema dialect
 // their provider expects.
 //
-// Shape unchanged from v0.2; shared between LegacyClient and ChatModel
-// surfaces deliberately (the field names haven't needed to evolve in
-// 6 months of v0.2; sharing avoids two parallel type systems).
+// Shape is intentionally simple and provider-agnostic.
 type Tool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
@@ -54,16 +44,10 @@ type Tool struct {
 }
 
 // ToolCall is what the model returns when it decides to invoke a Tool.
-// The ID field is NEW vs. v0.2's ToolCall — it's the provider-assigned
-// identifier (OpenAI tool_call_id, Anthropic content_block.id) that
-// the agent dedupe layer (Phase 3) uses as one half of the
-// (message_id, tool_use_id) dedupe key (Pitfall 4).
-//
-// v0.2 callers that READ ToolCalls keep working because the model is
-// the only producer of ToolCall values — v0.2 did not construct
-// ToolCalls explicitly, so adding an ID field is back-compat.
+// The ID field is provider-assigned and is used by the agent dedupe
+// layer as one half of the (message_id, tool_use_id) key.
 type ToolCall struct {
-	ID        string          `json:"id,omitempty"` // provider-assigned; NEW vs v0.2
+	ID        string          `json:"id,omitempty"` // provider-assigned
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments"`
 }
@@ -97,9 +81,16 @@ const (
 	UsageUnknown   UsageSource = "unknown"
 )
 
-// FinishReason is an alias for the underlying legacyFinishReason
-// string type defined in legacy.go. The alias means LegacyClient and
-// ChatModel callers see the same FinishReason name and the same
-// constant set (FinishReasonStop, FinishReasonLength, etc.) — type
-// identity is preserved across the v0.2 / v0.3 surfaces.
-type FinishReason = legacyFinishReason
+// FinishReason mirrors common provider stop reasons.
+type FinishReason string
+
+// FinishReason constants mirror the OpenAI /v1/chat/completions
+// stop_reason field so providers can pass them through unchanged.
+const (
+	FinishReasonStop          FinishReason = "stop"
+	FinishReasonLength        FinishReason = "length"
+	FinishReasonContentFilter FinishReason = "content_filter"
+	FinishReasonToolCalls     FinishReason = "tool_calls"
+	FinishReasonFunctionCall  FinishReason = "function_call"
+	FinishReasonUnknown       FinishReason = "unknown"
+)

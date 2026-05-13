@@ -21,10 +21,7 @@
 //   - Message            single conversation turn
 //   - Request / Response chat-layer request/response (NEW in v0.3)
 //   - Vector / Usage / UsageSource embeddings + token accounting
-//   - FinishReason + 6 const  OpenAI-compatible stop reasons (shared
-//     between LegacyClient and ChatModel surfaces)
-//   - LegacyClient       v0.2 contract retained for source compatibility;
-//     Deprecated, removal target v0.4.0
+//   - FinishReason + 6 const  OpenAI-compatible stop reasons
 //   - ScriptedLLM        full-capability deterministic mock (NEW in v0.3)
 //   - ChatOnlyMock       ChatModel-only mock (capability-degradation tests)
 //
@@ -52,11 +49,4 @@
 // AccumulateStream is a convenience for consumers that want a flat
 // Response from a stream.
 //
-// # Deprecation
-//
-// LegacyClient (the v0.2 Client interface, renamed) and its companion
-// types (GenerateRequest, GenerateResponse, StreamChunk, StreamUsage)
-// remain callable through the v0.3.x cycle and will be removed in
-// v0.4.0. New code MUST use ChatModel and the new Request/Response/
-// StreamReader/StreamEvent types. See docs/migration-v0.2-to-v0.3.md.
 package llm

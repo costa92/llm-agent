@@ -12,8 +12,8 @@
 //
 // # Quick start
 //
-//	client, _ := llm.NewClient(llm.Config{Provider: "mock"})
-//	agent := agents.NewSimpleAgent(client, agents.SimpleOptions{})
+//	model := llm.NewScriptedLLM(llm.WithResponses(llm.TextResponse("Hello")))
+//	agent := agents.NewSimpleAgent(model, agents.SimpleOptions{})
 //	res, err := agent.Run(ctx, "Hello")
 //
 // See example_simple_test.go / example_tool_use_test.go /

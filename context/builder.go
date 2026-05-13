@@ -12,7 +12,7 @@ import (
 type Builder struct {
 	cfg      Config
 	counter  TokenCounter
-	llm      llm.Client
+	llm      llm.ChatModel
 	embedder rag.Embedder
 }
 
@@ -26,7 +26,7 @@ func WithTokenCounter(c TokenCounter) Option {
 }
 
 // WithLLM enables the Compress phase's optional LLM-backed summarization.
-func WithLLM(c llm.Client) Option {
+func WithLLM(c llm.ChatModel) Option {
 	return func(b *Builder) { b.llm = c }
 }
 

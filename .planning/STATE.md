@@ -2,18 +2,18 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-12)
+See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** v0.3 is shipped and archived; only future-gated Phase 7 or a fresh milestone definition remain
+**Current focus:** Phase 7 deprecation removal (`v0.4` cut) after explicit early gate override
 
 ## Current Position
 
-Phase: no active implementation phase
+Phase: 7 — deprecation removal & `v0.4` cut
 Previous phase: 6 — reference customer-support service — implementation complete 2026-05-11
-Plan: wait for Phase 7 calendar gate or define a fresh milestone
-Status: `v0.3` is archived. Phases 0 through 6 are implemented, summarized, and runtime-verified enough to close the milestone. Phase 7 remains intentionally out of scope until the deprecation window opens.
-Last activity: 2026-05-12 — archived the `v0.3` roadmap and requirements, reset active planning files to post-milestone state, and preserved the milestone audit as the release-close record.
+Plan: compatibility verified across the local 4-repo workspace; blocked only on publishing the final core `v0.4.0` tag before sister-repo version bumps
+Status: `v0.3` is archived. Phase 7 was originally calendar-gated, but the gate was explicitly opened early on 2026-05-12 by operator instruction. Core-repo deprecation removal is complete, sister-repo code compatibility is verified, and the only remaining blocker is that the final `llm-agent v0.4.0` tag is not published yet.
+Last activity: 2026-05-13 — attempted sister-repo `go.mod` bumps to `v0.4.0`, confirmed `unknown revision v0.4.0`, then rolled the bumps back to keep local repos buildable.
 
 Progress: [██████████] 100% of `v0.3` shipped and archived
 
@@ -38,7 +38,7 @@ Progress: [██████████] 100% of `v0.3` shipped and archived
 
 **Recent Trend:**
 - Last 5 plans: 06-04, 06-05, 06-06, 06-07, 06-08 completed
-- Trend: implementation work is complete; focus has moved from service integration to milestone archival and future-gated planning
+- Trend: milestone closeout is complete; focus has shifted to bounded deprecation-removal execution and final cross-repo release coordination
 
 *Updated after each plan completion*
 
@@ -53,7 +53,15 @@ Recent decisions affecting current work:
 - Phase 0 (planned): `ProviderInfo` per-(provider × model) via construction-time model binding RATIFIED (Conflict B; locks CORE-06 + K2).
 - Phase 0 (planned): `replace` directives = README escape hatch (INFRA-06) AND CI release-gate (INFRA-04). No conflict — both ship.
 - Phase 6 (planned): K8s OUT of v0.3 scope (Conflict D resolved). PROJECT.md Active list flagged for cleanup at next `/gsd-transition`.
-- Phase 7 is calendar-gated, not effort-gated — depends on a complete v0.3.0 cycle and one minor cycle of deprecation window.
+- Phase 7 gate override: on 2026-05-12 the original calendar gate was manually opened by operator instruction; this does not broaden scope beyond `DEPRC-01..04`.
+- Phase 7 `07-01` audit start: a repo scan shows the remaining internal legacy-surface usage is concentrated in `rag/`, `bench/`, `context/`, `rl/`, docs/examples, and the deprecated symbol definitions under `llm/legacy.go`.
+- Phase 7 `07-02` close: runtime packages `rag/`, `context/`, `bench/`, and `rl/` now depend only on `llm.ChatModel`; targeted and full `go test` verification passed on 2026-05-12.
+- Phase 7 `07-03` close: `llm/legacy.go` has been removed, docs/examples have been rewritten to the current API, and a regenerated `docs/api-snapshot.txt` now reflects the post-compat-removal surface.
+- Phase 7 `07-04` audit: on 2026-05-13, a local workspace rooted at `/tmp/phase7-v04-audit/go.work` verified that `llm-agent-providers`, `llm-agent-otel`, and `llm-agent-customer-support` all pass their full test suites against the current core API with no source edits required.
+- Phase 7 `07-05` blocker: on 2026-05-13, direct sister-repo dependency bumps
+  to `github.com/costa92/llm-agent v0.4.0` failed with `unknown revision
+  v0.4.0`. This confirms the remaining work is release publication, not code
+  migration.
 - Phase 1 close: live Ollama verification is nightly-only by design; PR CI remains fixture-driven and Docker-free.
 - Phase 1 close: `PROVIDER_AUTHORING.md` is now the canonical Generate-only third-party adapter contract.
 - Phase 2 close: shared streaming conformance is now the contract gate before Phase 3 native tool-calling work.
@@ -82,25 +90,23 @@ Recent decisions affecting current work:
 - Phase 6 runtime verification: on 2026-05-12, a locally built server running against the live local dependency stack returned `200` from `/readyz` and `/chat`, emitted real `X-Trace-Id` headers, and confirmed that Grafana had provisioned the `Customer Support Observability` dashboard.
 - Phase 6 observability closeout: on 2026-05-12, live verification exposed two real gaps in the demo observability path — the collector OTLP receiver was bound to loopback inside the container, and error spans recorded exceptions without setting `STATUS_CODE_ERROR`. After fixing both, a direct OTLP probe confirmed the configured tail-sampling branches: fast baseline retained 2/30 traces, while error and >5s traces were both retained 1/1.
 - Phase 6 compose-native proof: on 2026-05-12, `/tmp/llm-agent-customer-support` built the compose `app` image successfully with `docker compose -f compose/compose.yaml build app`, and a compose-built `app` container then returned `200` from `/readyz` and `/chat` with real `X-Trace-Id` / `X-Session-Id` headers. The host still showed demo-environment sensitivity around `11434` port binding and `ollama-init` DNS resolution, but those no longer block milestone close.
-- Milestone close decision: archive `v0.3` now, carry forward only the calendar-gated deprecation cycle plus archive-quality tech debt, and do not start Phase 7 early.
+- Milestone close decision was superseded on 2026-05-12 by an explicit operator override opening Phase 7 early.
 
 ### Pending Todos
 
-[From .planning/todos/pending/ — ideas captured during sessions]
-
-- ~~**Out-of-band Phase 0 close**: `git tag v0.3.0-pre.1 && git push --tags`~~ — ✓ done 2026-05-10.
-- ~~**Enable sister repo branch protection** — `.planning/todos/pending/2026-05-12-enable-sister-repo-branch-protection.md`~~ — ✓ done 2026-05-12 (`llm-agent-providers`, `llm-agent-otel`, `llm-agent-customer-support` `main` now require PR review + `test / go`)
-- ~~**Publish sister repo release tags** — `.planning/todos/pending/2026-05-12-publish-sister-repo-release-tags.md`~~ — ✓ done 2026-05-12 (`llm-agent-otel v0.1.0`, `llm-agent-providers v0.1.0`)
-- ~~**Trigger nightly Ollama live smoke** — `.planning/todos/pending/2026-05-12-trigger-nightly-ollama-live-smoke.md`~~ — ✓ done 2026-05-12 (`nightly-ollama-live` run `25717795596` succeeded in GitHub Actions)
-- ~~**Rerun refsvc compose native proof** — `.planning/todos/pending/2026-05-12-rerun-refsvc-compose-native-proof.md`~~ — ✓ done 2026-05-12 (`docker compose ... build app` succeeded; compose-built app container returned `200` from `/readyz` and `/chat`)
+- publish/finalize the `llm-agent v0.4.x` release tag
+- update sister-repo `go.mod` requirements from `v0.3.0-pre.2` to the final
+  published `v0.4.x` tag
+- cut coordinated release tags in:
+  - `llm-agent-providers`
+  - `llm-agent-otel`
+  - `llm-agent-customer-support`
 
 ### Blockers/Concerns
 
 No implementation blocker inside `llm-agent` itself. The current constraints
 are:
 
-- planning discipline: do not resume implementation without either opening the
-  Phase 7 gate or defining a fresh milestone
 - the archived reference-service demo still has environment-sensitive runtime
   wrinkles on some hosts (`11434` port conflicts and `ollama-init` compose DNS
   resolution), but the stronger app-container proof itself is now captured
@@ -115,6 +121,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-12
-Stopped at: `v0.3` archived; active planning surface reset for post-milestone state.
+Last session: 2026-05-13
+Stopped at: local 4-repo compatibility audit complete; next action is final version/tag coordination.
 Resume file: .planning/ROADMAP.md

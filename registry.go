@@ -60,7 +60,7 @@ func (r *Registry) List() []Tool {
 	return out
 }
 
-// AsLLMTools returns all tools formatted for llm.GenerateRequest.Tools.
+// AsLLMTools returns all tools formatted for llm.ToolCaller bindings.
 func (r *Registry) AsLLMTools() []llm.Tool {
 	tools := r.List()
 	out := make([]llm.Tool, len(tools))

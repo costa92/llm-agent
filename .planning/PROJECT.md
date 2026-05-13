@@ -12,9 +12,10 @@ At `v0.3`, the project now spans four coordinated repos:
 - `llm-agent-customer-support` ships a demo customer-support service that ties
   the stack together.
 
-`v0.3` is now shipped and archived. The active roadmap is no longer "build the
-deployable stack"; it is "hold the line on the deprecation window, then define
-the next milestone cleanly."
+`v0.3` is now shipped and archived. As of 2026-05-12, the Phase 7 gate has
+been opened early by explicit operator decision, so the active roadmap is now
+"execute the deprecation-removal cycle cleanly and cut `v0.4` without dragging
+new feature scope into it."
 
 ## Core Value
 
@@ -30,8 +31,18 @@ module stays readable, portable, and cheap to adopt.
   across the targeted provider set.
 - OpenTelemetry wrappers and the reference customer-support service are part of
   the released milestone state.
-- Phase 7 is intentionally not started because it is calendar-gated
-  post-`v0.3` work.
+- Phase 7 has been explicitly opened early on 2026-05-12 by operator override
+  despite the original calendar gate.
+- As of 2026-05-12, the core repo itself has completed the compatibility
+  removal: runtime packages use `llm.ChatModel`, `llm/legacy.go` is gone, and
+  only cross-repo release coordination remains.
+- As of 2026-05-13, local workspace verification against `/tmp` sibling repos
+  shows that providers, OTel wrappers, and the reference service all already
+  pass against the removed-compatibility core without source changes.
+- As of 2026-05-13, attempting to bump sister-repo `go.mod` files directly to
+  `github.com/costa92/llm-agent v0.4.0` fails with `unknown revision v0.4.0`
+  because the final core tag is not published yet. This is now the only real
+  Phase 7 blocker.
 
 ## Requirements
 
@@ -45,8 +56,10 @@ module stays readable, portable, and cheap to adopt.
 
 ### Active
 
-- None. `v0.3` scope has been archived and no new milestone requirements are
-  active yet.
+- `DEPRC-01`: Audit complete — zero internal users of `llm.Client` remain.
+- `DEPRC-02`: `llm.Client` and v0.2-era types removed in `v0.4.0` core.
+- `DEPRC-03`: CHANGELOG `### Breaking` documents the removal.
+- `DEPRC-04`: Sister repos bump to `llm-agent v0.4.x` and tag together.
 
 ### Out of Scope
 
@@ -57,9 +70,9 @@ module stays readable, portable, and cheap to adopt.
 
 ## Next Milestone Goals
 
-- Honor the `llm.Client` deprecation window before starting Phase 7.
-- Decide whether the next planned work is the gated deprecation-removal cycle
-  or a distinct feature milestone.
+- Complete Phase 7 deprecation removal and cut the coordinated `v0.4` release.
+- Keep the Phase 7 scope tight: deprecation removal only, no opportunistic
+  feature work.
 - Raise archive quality by strengthening milestone-close verification quality
   beyond the newly backfilled validation artifacts.
 
@@ -71,10 +84,27 @@ module stays readable, portable, and cheap to adopt.
 
 ## Operational Follow-ups
 
-- Manual GitHub branch protection still needs to be enabled on the sister
-  repos.
-- The first post-merge `nightly-ollama-live` workflow smoke test should still
-  be observed once changes are pushed.
+- `DEPRC-04` remains: sister repos must be audited and bumped to the removed
+  compatibility surface before the final coordinated release cut.
+  The compatibility audit is now complete; only version/tag coordination is
+  left.
+
+## Key Decisions
+
+- 2026-05-12: Phase 7 gate opened early by explicit operator instruction even
+  though the original roadmap treated it as calendar-gated post-`v0.3` work.
+  This locks the next active work to `DEPRC-01..04` only; no unrelated feature
+  milestone is being opened in parallel.
+- 2026-05-12: Phase 7 execution was split into three core-repo slices:
+  `07-01` audit, `07-02` runtime migration, and `07-03` compatibility removal
+  + documentation rewrite. Cross-repo coordination is deferred to `07-04`.
+- 2026-05-13: a local 4-repo `go.work` audit proved that `llm-agent-providers`,
+  `llm-agent-otel`, and `llm-agent-customer-support` already pass against the
+  post-compat-removal core API with no source patches required.
+- 2026-05-13: direct sister-repo `go.mod` bumps to `llm-agent v0.4.0` were
+  intentionally rolled back after verification showed the final core tag does
+  not exist yet. Release publication must happen before the version bump can
+  stick.
 
 ## Archived Milestone Definition
 

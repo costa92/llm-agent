@@ -29,13 +29,13 @@ type JudgeOptions struct {
 
 // Judge wraps an LLM client into a multi-rubric evaluator.
 type Judge struct {
-	llm     llm.Client
+	llm     llm.ChatModel
 	rubrics []JudgeRubric
 	opts    JudgeOptions
 }
 
 // NewJudge constructs a Judge.
-func NewJudge(client llm.Client, rubrics []JudgeRubric, opts JudgeOptions) *Judge {
+func NewJudge(client llm.ChatModel, rubrics []JudgeRubric, opts JudgeOptions) *Judge {
 	if opts.Concurrency <= 0 {
 		opts.Concurrency = 1
 	}
@@ -65,7 +65,7 @@ type JudgeScore struct {
 }
 
 // ErrJudgeNoLLM is returned by Evaluate when the Judge has no LLM.
-var ErrJudgeNoLLM = stderrors.New("bench: judge requires non-nil llm.Client")
+var ErrJudgeNoLLM = stderrors.New("bench: judge requires non-nil llm.ChatModel")
 
 // Evaluate scores every item under bounded concurrency.
 func (j *Judge) Evaluate(ctx context.Context, items []JudgeItem) ([]JudgeScore, error) {
@@ -118,7 +118,9 @@ func (j *Judge) scoreOne(ctx context.Context, item JudgeItem) JudgeScore {
 	}
 	prompt := fmt.Sprintf(j.opts.PromptTemplate, item.Question, item.Answer, refLine, scale, scale, rubricList.String())
 
-	resp, err := j.llm.Generate(runCtx, llm.GenerateRequest{Prompt: prompt})
+	resp, err := j.llm.Generate(runCtx, llm.Request{
+		Messages: []llm.Message{{Role: "user", Content: prompt}},
+	})
 	if err != nil {
 		return JudgeScore{SampleID: item.SampleID, Reasoning: "judge llm error: " + err.Error()}
 	}

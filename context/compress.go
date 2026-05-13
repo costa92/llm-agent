@@ -70,10 +70,10 @@ func groupBySource(packets []Packet) map[Source][]Packet {
 }
 
 // compress applies fallback truncation when the structured prompt still
-// exceeds budget after Select. If a llm.Client is configured AND
+// exceeds budget after Select. If a llm.ChatModel is configured AND
 // EnableCompress=true, the Evidence + Context sections (in that order)
 // are summarized via the LLM. Otherwise sections are hard-truncated.
-func compress(ctx stdctx.Context, prompt string, counter TokenCounter, cfg Config, client llm.Client) string {
+func compress(ctx stdctx.Context, prompt string, counter TokenCounter, cfg Config, client llm.ChatModel) string {
 	tokens := counter.Count(prompt)
 	if tokens <= cfg.MaxTokens {
 		return prompt
@@ -91,13 +91,13 @@ func compress(ctx stdctx.Context, prompt string, counter TokenCounter, cfg Confi
 
 // llmSummarize asks the LLM to produce a tight summary of the prompt
 // that fits the budget. Returns the summary or an error.
-func llmSummarize(ctx stdctx.Context, prompt string, counter TokenCounter, cfg Config, client llm.Client) (string, error) {
+func llmSummarize(ctx stdctx.Context, prompt string, counter TokenCounter, cfg Config, client llm.ChatModel) (string, error) {
 	target := int(float64(cfg.MaxTokens) * 0.8)
-	req := llm.GenerateRequest{Prompt: fmt.Sprintf(
+	req := llm.Request{Messages: []llm.Message{{Role: "user", Content: fmt.Sprintf(
 		`Compress the prompt below to ~%d tokens. Preserve sections and key facts; drop filler.
 
 PROMPT:
-%s`, target, prompt)}
+%s`, target, prompt)}}}
 	resp, err := client.Generate(ctx, req)
 	if err != nil {
 		return "", err

@@ -36,24 +36,18 @@ import (
 	"github.com/costa92/llm-agent/llm"
 )
 
-// myClient satisfies llm.Client. Plug your own provider — OpenAI,
-// Ollama, Anthropic, anything that returns LLM responses.
-type myClient struct{}
-
-func (myClient) Generate(ctx context.Context, req llm.GenerateRequest) (llm.GenerateResponse, error) {
-	return llm.GenerateResponse{Text: "tool: calculator(12*8)", FinishReason: llm.FinishReasonStop}, nil
-}
-func (myClient) GenerateStream(ctx context.Context, req llm.GenerateRequest) (<-chan llm.StreamChunk, error) {
-	ch := make(chan llm.StreamChunk, 1)
-	close(ch)
-	return ch, nil
-}
-
 func main() {
+	model := llm.NewScriptedLLM(
+		llm.WithProvider("scripted"),
+		llm.WithModel("calculator-demo"),
+		llm.WithCapabilities(llm.Capabilities{Tools: true}),
+		llm.WithResponses(llm.ToolCallResponse("calculator", `{"expr":"12*8"}`)),
+	)
+
 	reg := agents.NewRegistry(builtin.NewCalculator())
-	a := agents.NewReActAgent(myClient{}, agents.ReActOptions{Registry: reg, MaxSteps: 4})
+	a, _ := agents.NewFunctionCallAgent(model, agents.FunctionCallOptions{Registry: reg})
 	res, _ := a.Run(context.Background(), "What is 12 times 8?")
-	fmt.Println(res.Text)
+	fmt.Println(res.Answer)
 }
 ````
 
@@ -62,7 +56,7 @@ func main() {
 | Package | Purpose |
 |---|---|
 | `agents` | Agent / Tool interface + 5 paradigm constructors (Simple/ReAct/Reflection/PlanAndSolve/FunctionCall) + Chain + Async + Registry |
-| `agents/llm` | LLM contract: Client interface, GenerateRequest/Response, Message, Tool, ToolCall, StreamChunk, StreamUsage, FinishReason |
+| `agents/llm` | LLM contract: ChatModel, ToolCaller, Request/Response, StreamReader/Event, Message, Tool, ToolCall, Usage, FinishReason |
 | `agents/builtin` | Calculator, MockSearch, NoteTool, TerminalTool |
 | `agents/memory` | WorkingMemory, EpisodicMemory, SemanticMemory, Manager, MemoryTool |
 | `agents/rag` | Embedder (HashEmbedder), Chunker, InMemoryStore, RAGSystem, MQE, HyDE |

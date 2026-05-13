@@ -17,7 +17,7 @@ type RAGSystem struct {
 	chunker  Chunker
 	embedder Embedder
 	store    VectorStore
-	llm      llm.Client
+	llm      llm.ChatModel
 	maxChunk int
 	seq      int
 	mu       sync.Mutex
@@ -28,7 +28,7 @@ type Options struct {
 	Chunker       Chunker
 	Embedder      Embedder
 	Store         VectorStore
-	LLM           llm.Client
+	LLM           llm.ChatModel
 	MaxChunkChars int
 }
 
@@ -179,7 +179,9 @@ func (r *RAGSystem) Ask(ctx context.Context, question string, opts SearchOptions
 	}
 	fmt.Fprintf(&b, "Question: %s", question)
 
-	resp, err := r.llm.Generate(ctx, llm.GenerateRequest{Prompt: b.String()})
+	resp, err := r.llm.Generate(ctx, llm.Request{
+		Messages: []llm.Message{{Role: "user", Content: b.String()}},
+	})
 	if err != nil {
 		return "", fmt.Errorf("rag: llm: %w", err)
 	}
@@ -227,4 +229,4 @@ var ErrEmptyQuery = errors.New("rag: query is required")
 
 // ErrLLMRequired is returned by Ask / MQE / HyDE paths when no LLM
 // client was configured.
-var ErrLLMRequired = errors.New("rag: llm.Client required for this operation")
+var ErrLLMRequired = errors.New("rag: llm.ChatModel required for this operation")
