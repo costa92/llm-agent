@@ -88,6 +88,12 @@ governance:
 - `governance` 已通过
 - 则调用 `gh pr merge --auto --merge --delete-branch`
 
+这里有一个容易忽略的约束：
+
+- workflow permissions 必须同时包含 `contents: write` 和 `pull-requests: write`
+- 如果只有 `pull-requests: write`，`gh pr merge --auto` 会返回 `Resource not accessible by integration`
+- 这个步骤不能用 `|| true` 吞掉失败，否则检查会显示成功，但 PR 不会真的进入 auto-merge
+
 这样 owner PR 在 `go` 和 `governance` 都绿时，会自动进入合并流程。
 
 ### 4. merge gate

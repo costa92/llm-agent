@@ -14,6 +14,7 @@
 - 所以 merge gate 被改成两个 required status checks：`go` 和 `governance`。
 - `go` 负责代码正确性，`governance` 负责 author-sensitive 审核策略。
 - owner PR 会自动通过 `governance` 并开启 auto-merge。
+- `pr-governance.yml` 需要 `contents: write` 和 `pull-requests: write`；只有 `pull-requests: write` 不足以启用 GitHub auto-merge。
 - non-owner PR 会自动 request review 给 `costa92`，且只有 `costa92` 对当前 head 审批后，`governance` 才通过。
 - 这套规则不是单仓库技巧，而是围绕 4 个关联项目建立的一致化多仓库治理策略。
 

@@ -17,6 +17,15 @@
 - 不需要信任 PR 分支内容
 - 可以安全拿到写权限去做 review routing 和 merge orchestration
 
+要让 owner auto-merge 真正生效，workflow permissions 至少要包含：
+
+- `contents: write`
+- `pull-requests: write`
+
+如果缺少 `contents: write`，`gh pr merge --auto` 会在 GitHub Actions 日志里报：
+
+- `GraphQL: Resource not accessible by integration (enablePullRequestAutoMerge)`
+
 ## 迁移时序
 
 这次不是在一个全新的仓库里启用规则，而是在已有 PR 已经打开、已经被旧规则卡住的状态下迁移，所以必须按顺序切换。
@@ -96,6 +105,7 @@
 执行动作：
 
 - 调用 `gh pr merge --auto --merge --delete-branch`
+- 失败必须直接让 job 变红，不能用 `|| true` 吞掉
 
 ## 失败模式
 
@@ -127,6 +137,8 @@
 3. `governance` 是否通过
 4. `go` 是否通过
 5. workflow 是否成功执行了 `gh pr merge --auto`
+6. workflow permissions 是否同时包含 `contents: write` 和 `pull-requests: write`
+7. 日志里是否出现 `enablePullRequestAutoMerge` 权限错误
 
 ### 4. non-owner PR 已经审过，但 `governance` 仍然失败
 
