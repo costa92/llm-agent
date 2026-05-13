@@ -1,8 +1,8 @@
 # Roadmap: llm-agent
 
 **Last updated:** 2026-05-13
-**Current state:** `v0.3` shipped and archived; Phase 7 manually opened
-**Active scope:** Phase 7 deprecation-removal cycle (`v0.4` cut)
+**Current state:** `v0.3` shipped and archived; Phase 7 complete
+**Active scope:** next milestone selection
 
 ## Archived Milestones
 
@@ -17,7 +17,7 @@
 
 ### Phase 7: Deprecation removal & `v0.4` cut
 
-**Status**: active by explicit early gate override on 2026-05-12
+**Status**: complete on 2026-05-13 after explicit early gate override on 2026-05-12
 
 **Goal**: Honor the deprecation window promised in `v0.3` by removing the old
 `llm.Client` surface only after a full minor cycle has elapsed.
@@ -42,6 +42,13 @@
 - `07-04` Verify sister repos against the removed-compatibility core API
 - `07-05` Bump sister repos to the final `llm-agent v0.4.x` tag and coordinate release tags
 
+**Completion notes**:
+
+- core `v0.4.0` tag resolves remotely
+- sister repos now require `github.com/costa92/llm-agent v0.4.0`
+- local 4-repo verification passed again on 2026-05-13
+- coordinated sister-repo tags are the final externalized release artifact
+
 **Gate**:
 
 The original calendar gate was explicitly overridden on 2026-05-12 by operator
@@ -50,9 +57,8 @@ instruction. Phase 7 is now active, but its scope remains constrained to
 
 ## Next Milestone Setup
 
-- `v0.4` is now the active deprecation-removal cycle.
-- Any non-deprecation feature work should still be introduced as a separate
-  milestone, not smuggled into Phase 7.
+- `v0.4` deprecation-removal work is complete.
+- Any new feature work should be introduced as a separate milestone.
 
 ## Known Carry-forward Debt
 

@@ -39,10 +39,10 @@ module stays readable, portable, and cheap to adopt.
 - As of 2026-05-13, local workspace verification against `/tmp` sibling repos
   shows that providers, OTel wrappers, and the reference service all already
   pass against the removed-compatibility core without source changes.
-- As of 2026-05-13, attempting to bump sister-repo `go.mod` files directly to
-  `github.com/costa92/llm-agent v0.4.0` fails with `unknown revision v0.4.0`
-  because the final core tag is not published yet. This is now the only real
-  Phase 7 blocker.
+- As of 2026-05-13, the core `v0.4.0` tag exists remotely, all three sister
+  repos have their `go.mod` files on `github.com/costa92/llm-agent v0.4.0`,
+  and coordinated sister-repo release tagging is the final Phase 7 closeout
+  action.
 
 ## Requirements
 
@@ -59,7 +59,8 @@ module stays readable, portable, and cheap to adopt.
 - `DEPRC-01`: Audit complete — zero internal users of `llm.Client` remain.
 - `DEPRC-02`: `llm.Client` and v0.2-era types removed in `v0.4.0` core.
 - `DEPRC-03`: CHANGELOG `### Breaking` documents the removal.
-- `DEPRC-04`: Sister repos bump to `llm-agent v0.4.x` and tag together.
+- `DEPRC-04`: Sister repos bumped to `llm-agent v0.4.0` and coordinated tags
+  complete the release line.
 
 ### Out of Scope
 
@@ -70,9 +71,7 @@ module stays readable, portable, and cheap to adopt.
 
 ## Next Milestone Goals
 
-- Complete Phase 7 deprecation removal and cut the coordinated `v0.4` release.
-- Keep the Phase 7 scope tight: deprecation removal only, no opportunistic
-  feature work.
+- Open the next milestone after the completed coordinated `v0.4` release.
 - Raise archive quality by strengthening milestone-close verification quality
   beyond the newly backfilled validation artifacts.
 
@@ -84,10 +83,8 @@ module stays readable, portable, and cheap to adopt.
 
 ## Operational Follow-ups
 
-- `DEPRC-04` remains: sister repos must be audited and bumped to the removed
-  compatibility surface before the final coordinated release cut.
-  The compatibility audit is now complete; only version/tag coordination is
-  left.
+- Archive Phase 7 and open the next milestone when the next scoped feature set
+  is ready.
 
 ## Key Decisions
 
@@ -101,10 +98,10 @@ module stays readable, portable, and cheap to adopt.
 - 2026-05-13: a local 4-repo `go.work` audit proved that `llm-agent-providers`,
   `llm-agent-otel`, and `llm-agent-customer-support` already pass against the
   post-compat-removal core API with no source patches required.
-- 2026-05-13: direct sister-repo `go.mod` bumps to `llm-agent v0.4.0` were
-  intentionally rolled back after verification showed the final core tag does
-  not exist yet. Release publication must happen before the version bump can
-  stick.
+- 2026-05-13: Phase 7 closeout verification confirmed that the released core
+  `v0.4.0` tag resolves remotely, all sister repos pass `go test ./...`
+  against the coordinated release line, and coordinated sister-repo tags can be
+  cut from the already-landed `v0.4.0` bump commits.
 
 ## Archived Milestone Definition
 

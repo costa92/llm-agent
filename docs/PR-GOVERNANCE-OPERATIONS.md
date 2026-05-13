@@ -107,6 +107,54 @@
 - 调用 `gh pr merge --auto --merge --delete-branch`
 - 失败必须直接让 job 变红，不能用 `|| true` 吞掉
 
+### owner auto-merge 幂等性
+
+owner PR 的治理 workflow 不只会在 `opened` / `synchronize` 时触发，也会在
+review 事件上再次运行。
+
+因此 `auto-merge-owner` 不能假设自己只会执行一次。最终稳定版本必须满足：
+
+- `auto-merge-owner` job 单独声明：
+  - `contents: write`
+  - `pull-requests: write`
+- 在调用 `gh pr merge --auto --merge --delete-branch` 之前，先查询
+  `autoMergeRequest`
+- 如果 auto-merge 已经开启，则直接 `exit 0`
+
+否则会出现一个非常隐蔽的假失败：
+
+- 第一次运行已经成功开启 auto-merge
+- 后续 review 事件再次触发同一 job
+- workflow 重新执行 `gh pr merge --auto`
+- GitHub CLI 返回非零，导致必需的 `governance` / `auto-merge-owner`
+  相关链路变红
+
+这不是权限错误，而是**幂等性错误**。
+
+## bootstrap 限制
+
+`pull_request_target` 的一个关键限制是：
+
+- PR 运行时使用的是 **base branch** 上的 workflow 定义
+- 不是 PR head 分支里的 workflow 定义
+
+这意味着：
+
+- 你不能依赖“这个 PR 自己带的新 workflow”来修复“这个 PR 自己当前正在跑的旧 workflow”
+- 修治理 workflow 的 PR 在落到 `main` 之前，仍然会继续执行 `main` 上的旧版本
+
+这次真实落地里就出现了这个 bootstrap 场景：
+
+1. `llm-agent-otel` 和 `llm-agent-customer-support` 的 owner PR 已经打开
+2. PR 分支里推入了修复后的 workflow
+3. 但 `pull_request_target` 仍执行 `main` 上旧 workflow
+4. 旧 workflow 只有 `contents: read`，日志继续报：
+   `GraphQL: Resource not accessible by integration (enablePullRequestAutoMerge)`
+5. 只能先手动为当下 owner PR 开启/完成合并
+6. 等修复进入 `main` 后，后续 owner PR 才会自动受益
+
+运维上要接受这个事实：**bootstrap PR 可能需要一次人工托底**。
+
 ## 失败模式
 
 ### 1. `go` 绿了，但 `governance` 红了
@@ -192,6 +240,24 @@
 | `llm-agent-providers` | `#1` | `2026-05-13T04:14:10Z` | `f24c5d665b07ad0c003d517b31c3bf715c99b738` |
 | `llm-agent-otel` | `#1` | `2026-05-13T04:14:10Z` | `b64f082d3e1bd3db596c0ab76c8cea89cd99f2cd` |
 | `llm-agent-customer-support` | `#2` | `2026-05-13T04:14:10Z` | `03385b77fccad5db1c1e8e2063d8e0ee6a62f1cd` |
+
+### 2026-05-13 bootstrap 修复记录
+
+治理规则初次落地后，又补了一个 owner auto-merge 幂等性修复，避免 review
+事件重跑时把 required check 误打红。最终进入各仓库 `main` 的 PR 是：
+
+| Repo | PR | Merged at (UTC) | 作用 |
+|---|---|---|---|
+| `llm-agent-providers` | `#5` | `2026-05-13T08:39:54Z` | owner auto-merge 幂等化 + job 级写权限 |
+| `llm-agent-otel` | `#3` | `2026-05-13T08:29:35Z` | bootstrap owner PR 手工托底后进入主线 |
+| `llm-agent-customer-support` | `#4` | `2026-05-13T08:29:35Z` | bootstrap owner PR 手工托底后进入主线 |
+
+最终统一后的 `main` 分支 workflow 具备这 3 个性质：
+
+1. `auto-merge-owner` job 有单独的 `contents: write` 与
+   `pull-requests: write`
+2. 先检查 `autoMergeRequest != null`
+3. 已启用 auto-merge 时直接成功退出，避免重复触发造成假失败
 
 ### 最终 protection 快照
 

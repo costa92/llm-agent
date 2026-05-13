@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Phase 7 deprecation removal (`v0.4` cut) after explicit early gate override
+**Current focus:** milestone transition after Phase 7 deprecation removal (`v0.4` cut)
 
 ## Current Position
 
-Phase: 7 — deprecation removal & `v0.4` cut
+Phase: 7 — deprecation removal & `v0.4` cut — complete
 Previous phase: 6 — reference customer-support service — implementation complete 2026-05-11
-Plan: compatibility verified across the local 4-repo workspace; blocked only on publishing the final core `v0.4.0` tag before sister-repo version bumps
-Status: `v0.3` is archived. Phase 7 was originally calendar-gated, but the gate was explicitly opened early on 2026-05-12 by operator instruction. Core-repo deprecation removal is complete, sister-repo code compatibility is verified, and the only remaining blocker is that the final `llm-agent v0.4.0` tag is not published yet.
-Last activity: 2026-05-13 — attempted sister-repo `go.mod` bumps to `v0.4.0`, confirmed `unknown revision v0.4.0`, then rolled the bumps back to keep local repos buildable.
+Plan: close Phase 7 by recording the coordinated `v0.4.0` release state and handing off to the next milestone
+Status: `v0.3` is archived and Phase 7 is complete. The core `v0.4.0` tag exists remotely, sister-repo `v0.4.0` bumps are already landed, cross-repo verification passed again on 2026-05-13, and the remaining work inside this repo is documentation/roadmap transition only.
+Last activity: 2026-05-13 — re-verified all three sister repos against the coordinated `v0.4.0` release line and updated Phase 7 closeout state.
 
 Progress: [██████████] 100% of `v0.3` shipped and archived
 
@@ -38,7 +38,7 @@ Progress: [██████████] 100% of `v0.3` shipped and archived
 
 **Recent Trend:**
 - Last 5 plans: 06-04, 06-05, 06-06, 06-07, 06-08 completed
-- Trend: milestone closeout is complete; focus has shifted to bounded deprecation-removal execution and final cross-repo release coordination
+- Trend: milestone closeout is complete; focus has shifted to post-release transition and next-milestone setup
 
 *Updated after each plan completion*
 
@@ -58,10 +58,18 @@ Recent decisions affecting current work:
 - Phase 7 `07-02` close: runtime packages `rag/`, `context/`, `bench/`, and `rl/` now depend only on `llm.ChatModel`; targeted and full `go test` verification passed on 2026-05-12.
 - Phase 7 `07-03` close: `llm/legacy.go` has been removed, docs/examples have been rewritten to the current API, and a regenerated `docs/api-snapshot.txt` now reflects the post-compat-removal surface.
 - Phase 7 `07-04` audit: on 2026-05-13, a local workspace rooted at `/tmp/phase7-v04-audit/go.work` verified that `llm-agent-providers`, `llm-agent-otel`, and `llm-agent-customer-support` all pass their full test suites against the current core API with no source edits required.
-- Phase 7 `07-05` blocker: on 2026-05-13, direct sister-repo dependency bumps
-  to `github.com/costa92/llm-agent v0.4.0` failed with `unknown revision
-  v0.4.0`. This confirms the remaining work is release publication, not code
-  migration.
+- Phase 7 `07-05` closeout: an early 2026-05-13 attempt to bump sister-repo
+  dependencies hit `unknown revision v0.4.0` before the core tag propagated,
+  but the released core tag now resolves remotely, sister-repo `v0.4.0` bumps
+  are landed, full verification passed, and coordinated tags were cut:
+  `llm-agent-providers v0.1.1`, `llm-agent-otel v0.1.1`,
+  `llm-agent-customer-support v0.1.0`.
+- Governance bootstrap closeout: on 2026-05-13, all 3 sister repos converged on
+  the same idempotent `pr-governance.yml` owner auto-merge behavior. The final
+  stable shape is: job-level `contents: write` + `pull-requests: write`,
+  `autoMergeRequest` pre-check before `gh pr merge --auto`, and an explicit
+  understanding that `pull_request_target` bootstrap PRs may need one manual
+  merge/auto-merge intervention before the fixed workflow reaches `main`.
 - Phase 1 close: live Ollama verification is nightly-only by design; PR CI remains fixture-driven and Docker-free.
 - Phase 1 close: `PROVIDER_AUTHORING.md` is now the canonical Generate-only third-party adapter contract.
 - Phase 2 close: shared streaming conformance is now the contract gate before Phase 3 native tool-calling work.
@@ -94,22 +102,12 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- publish/finalize the `llm-agent v0.4.x` release tag
-- update sister-repo `go.mod` requirements from `v0.3.0-pre.2` to the final
-  published `v0.4.x` tag
-- cut coordinated release tags in:
-  - `llm-agent-providers`
-  - `llm-agent-otel`
-  - `llm-agent-customer-support`
+- archive/transition after Phase 7 closeout
+- define the next scoped milestone before reopening active execution
 
 ### Blockers/Concerns
 
-No implementation blocker inside `llm-agent` itself. The current constraints
-are:
-
-- the archived reference-service demo still has environment-sensitive runtime
-  wrinkles on some hosts (`11434` port conflicts and `ollama-init` compose DNS
-  resolution), but the stronger app-container proof itself is now captured
+No implementation blocker inside `llm-agent` itself.
 
 ## Deferred Items
 
@@ -122,5 +120,5 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-13
-Stopped at: local 4-repo compatibility audit complete; next action is final version/tag coordination.
+Stopped at: coordinated `v0.4.0` release line re-verified; next action is milestone transition.
 Resume file: .planning/ROADMAP.md
