@@ -4,7 +4,7 @@
 // produce reproducible output.
 //
 // Real applications should plug a production llm.ChatModel (OpenAI-compatible,
-// Ollama, Anthropic, etc.) at the same boundary.
+// DeepSeek, Ollama, Anthropic, MiniMax, etc.) at the same boundary.
 package scriptedllm
 
 import (

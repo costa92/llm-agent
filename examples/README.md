@@ -3,7 +3,7 @@
 Each subdirectory is a standalone `package main` you can `go run` without
 an API key — every demo plugs a deterministic `scriptedllm` client so the
 output is reproducible offline. Replace it with a real `llm.ChatModel`
-(OpenAI-compatible / Ollama / Anthropic / …) and the same demo code keeps
+(OpenAI-compatible / DeepSeek / Ollama / Anthropic / MiniMax / …) and the same demo code keeps
 working in production.
 
 | Demo | Surface | What it shows |

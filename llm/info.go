@@ -6,7 +6,7 @@ package llm
 // model at construction time — `openai.New(openai.WithModel("gpt-4o"))`
 // — so Info() is constant for the lifetime of the value.
 type ProviderInfo struct {
-	Provider     string       `json:"provider"`     // "openai", "anthropic", "ollama"
+	Provider     string       `json:"provider"`     // "openai", "anthropic", "ollama", "deepseek", "minimax"
 	Model        string       `json:"model"`        // "gpt-4o-mini", "claude-3-5-haiku", "llama3.1:8b"
 	Capabilities Capabilities `json:"capabilities"`
 }

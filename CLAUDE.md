@@ -16,8 +16,8 @@ When the human gives an instruction, check those files before exploring the code
 ## Project at a glance
 
 - **Repo:** `github.com/costa92/llm-agent` — a stdlib-only Go LLM agents framework (v0.2.0 → v0.3.0).
-- **Milestone (v0.3):** add real provider adapters (OpenAI/Anthropic/Ollama), OpenTelemetry observability, and a deployable customer-support reference service — all in **sister repos** so the core stays stdlib-only.
-- **4-repo umbrella:** `llm-agent` (core, this repo), `llm-agent-providers`, `llm-agent-otel`, `llm-agent-customer-support`. The latter three don't exist yet — Phase 0 creates them.
+- **Milestone (v0.3):** add real provider adapters (OpenAI/Anthropic/Ollama/DeepSeek/MiniMax), OpenTelemetry observability, and a deployable customer-support reference service — all in **sister repos** so the core stays stdlib-only.
+- **4-repo umbrella:** `llm-agent` (core, this repo), `llm-agent-providers`, `llm-agent-otel`, `llm-agent-customer-support`.
 - **Pace:** solo, side-project, no deadline. **Quality > speed.**
 
 ## Hard rules

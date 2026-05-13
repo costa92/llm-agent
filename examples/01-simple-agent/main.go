@@ -20,7 +20,7 @@ import (
 
 func main() {
 	// Plug a deterministic mock LLM so the demo runs offline.
-	// In production, replace with an OpenAI-compatible / Ollama / Anthropic client.
+	// In production, replace with an OpenAI-compatible / DeepSeek / Ollama / Anthropic / MiniMax client.
 	client := scriptedllm.New(
 		scriptedllm.Text("The capital of France is Paris."),
 	)
