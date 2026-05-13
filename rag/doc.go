@@ -1,22 +1,24 @@
-// Package rag implements Retrieval-Augmented Generation primitives:
+// Package rag is the compatibility facade for Retrieval-Augmented Generation
+// inside the main llm-agent repository.
 //
-//   - Embedder         — text→vector seam (HashEmbedder fallback ships zero-deps)
-//   - Chunker          — text→chunks seam (CharChunker prefers paragraph breaks)
-//   - VectorStore      — vector index seam (InMemoryStore ships, swap in pgvector etc.)
-//   - RAGSystem        — façade: AddText (chunk+embed+upsert) / Search / Ask
-//   - Advanced retrieval (default off): MQE (multi-query expansion) + HyDE
-//   - AsTool           — wrap a RAGSystem as agents.Tool
+// The implementation source of truth now lives in the embedded standalone SDK:
 //
-// # Choosing implementations
+//   - third_party/llm-agent-rag
 //
-//   - HashEmbedder is deterministic + free but semantically poor (no
-//     synonym awareness). Sufficient for unit tests + learning demos.
-//     Swap in a real Embedder (Ollama, OpenAI, vLLM) for production.
-//   - InMemoryStore is O(N) per Search — fine up to a few thousand
-//     chunks. Beyond that, drop in a backend that does ANN.
+// This package continues to expose the historical llm-agent API so existing
+// callers do not need to migrate immediately:
 //
-// # Portability
+//   - Embedder
+//   - Chunker
+//   - VectorStore
+//   - RAGSystem
+//   - AsTool
 //
-// rag inherits the agents/pkg/llm portability contract — no
-// internal/*, no project pkg/*, no business vocabulary.
+// Most implementation logic is delegated to the embedded SDK through
+// compatibility wrappers and adapters.
+//
+// See:
+//
+//   - docs/2026-05-13-standalone-rag-sdk-design.md
+//   - docs/2026-05-13-rag-sdk-migration-status.md
 package rag
