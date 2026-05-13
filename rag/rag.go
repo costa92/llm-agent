@@ -7,12 +7,18 @@ import (
 	"strings"
 	"sync"
 
+	ragembed "github.com/costa92/llm-agent-rag/embed"
+	raggenerate "github.com/costa92/llm-agent-rag/generate"
+	ragingest "github.com/costa92/llm-agent-rag/ingest"
+	ragprompt "github.com/costa92/llm-agent-rag/prompt"
+	ragstore "github.com/costa92/llm-agent-rag/store"
+	ragcore "github.com/costa92/llm-agent-rag/rag"
+
 	"github.com/costa92/llm-agent/llm"
 )
 
-// RAGSystem is the orchestration façade: chunk → embed → upsert on
-// AddText; embed query → store.Search on Search; Search → render
-// prompt → llm.Generate on Ask.
+// RAGSystem preserves the historical llm-agent rag API while delegating
+// base import / retrieve / ask orchestration to the standalone SDK.
 type RAGSystem struct {
 	chunker  Chunker
 	embedder Embedder
@@ -20,7 +26,10 @@ type RAGSystem struct {
 	llm      llm.ChatModel
 	maxChunk int
 	seq      int
-	mu       sync.Mutex
+
+	core *ragcore.System
+
+	mu sync.Mutex
 }
 
 // Options configures a RAGSystem. All zero-values get safe defaults.
@@ -34,10 +43,10 @@ type Options struct {
 
 // SearchOptions tunes per-call retrieval.
 type SearchOptions struct {
-	EnableMQE               bool // multi-query expansion via LLM
-	EnableHyDE              bool // hypothetical document embedding via LLM
-	MQECount                int  // # rewrites; default 3
-	CandidatePoolMultiplier int  // initial pool size = topK * multiplier; default 4
+	EnableMQE               bool
+	EnableHyDE              bool
+	MQECount                int
+	CandidatePoolMultiplier int
 }
 
 // New constructs a RAGSystem with sensible defaults.
@@ -58,44 +67,40 @@ func New(opts Options) *RAGSystem {
 	if maxChunk <= 0 {
 		maxChunk = 500
 	}
-	return &RAGSystem{
+
+	r := &RAGSystem{
 		chunker:  chunker,
 		embedder: embedder,
 		store:    store,
 		llm:      opts.LLM,
 		maxChunk: maxChunk,
 	}
+	r.core = ragcore.New(ragcore.Options{
+		Splitter: splitterAdapter{inner: chunker},
+		Embedder: embedderAdapter{inner: embedder},
+		Store:    storeAdapter{inner: store},
+		Model:    modelAdapter{inner: opts.LLM},
+		Template: ragprompt.DefaultQATemplate{},
+		MaxChars: maxChunk,
+	})
+	return r
 }
 
-// AddText chunks text → embeds each chunk → upserts. Returns the new
-// chunk IDs in chunk order.
+// AddText chunks text → embeds each chunk → upserts. Returns the new chunk IDs.
 func (r *RAGSystem) AddText(ctx context.Context, text string, meta map[string]any) ([]string, error) {
-	chunks := r.chunker.Chunk(text, r.maxChunk)
-	if len(chunks) == 0 {
-		return nil, nil
+	docID := r.nextDocID()
+	res, err := r.core.Import(ctx, []ragingest.Document{{
+		ID:       docID,
+		Content:  text,
+		Metadata: meta,
+	}}, ragingest.ImportOptions{MaxChars: r.maxChunk})
+	if err != nil {
+		return nil, err
 	}
-	out := make([]string, 0, len(chunks))
-	for i, c := range chunks {
-		vec, err := r.embedder.Embed(ctx, c)
-		if err != nil {
-			return nil, fmt.Errorf("rag: embed chunk %d: %w", i, err)
-		}
-		id := r.nextID()
-		md := copyMeta(meta)
-		md["chunk_index"] = i
-		md["chunk_total"] = len(chunks)
-		if err := r.store.Upsert(ctx, Document{ID: id, Content: c, Vector: vec, Metadata: md}); err != nil {
-			return nil, fmt.Errorf("rag: upsert chunk %d: %w", i, err)
-		}
-		out = append(out, id)
-	}
-	return out, nil
+	return res.ChunkIDs, nil
 }
 
-// Search runs the configured retrieval pipeline. With both MQE and
-// HyDE off, it's a single embed + store.Search. With either on,
-// queries are expanded/rewritten via LLM (requires r.llm) and
-// results are merged + de-duped + re-ranked.
+// Search runs the configured retrieval pipeline.
 func (r *RAGSystem) Search(ctx context.Context, query string, topK int, opts SearchOptions) ([]SearchHit, error) {
 	if strings.TrimSpace(query) == "" {
 		return nil, ErrEmptyQuery
@@ -136,17 +141,14 @@ func (r *RAGSystem) Search(ctx context.Context, query string, topK int, opts Sea
 
 	merged := make(map[string]SearchHit, pool)
 	for _, q := range queries {
-		qv, err := r.embedder.Embed(ctx, q)
-		if err != nil {
-			return nil, fmt.Errorf("rag: embed query: %w", err)
-		}
-		hits, err := r.store.Search(ctx, qv, pool)
+		hits, err := r.core.Retrieve(ctx, q, ragcore.SearchOptions{TopK: pool})
 		if err != nil {
 			return nil, fmt.Errorf("rag: store search: %w", err)
 		}
 		for _, h := range hits {
-			if prev, ok := merged[h.Doc.ID]; !ok || h.Score > prev.Score {
-				merged[h.Doc.ID] = h
+			hit := fromStoreHit(h)
+			if prev, ok := merged[hit.Doc.ID]; !ok || hit.Score > prev.Score {
+				merged[hit.Doc.ID] = hit
 			}
 		}
 	}
@@ -162,8 +164,7 @@ func (r *RAGSystem) Search(ctx context.Context, query string, topK int, opts Sea
 	return out, nil
 }
 
-// Ask runs Search and stuffs the hits into a context-aware prompt for
-// the configured LLM. ErrLLMRequired if no LLM was wired.
+// Ask runs Search and sends the composed prompt to the configured LLM.
 func (r *RAGSystem) Ask(ctx context.Context, question string, opts SearchOptions) (string, error) {
 	if r.llm == nil {
 		return "", ErrLLMRequired
@@ -198,25 +199,14 @@ func (r *RAGSystem) Stats() StoreStats {
 	return r.store.Stats()
 }
 
-// nextID generates monotonic chunk IDs (no time component, no rand —
-// keeps tests deterministic across runs).
-func (r *RAGSystem) nextID() string {
+func (r *RAGSystem) nextDocID() string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.seq++
 	return fmt.Sprintf("chunk_%d", r.seq)
 }
 
-func copyMeta(in map[string]any) map[string]any {
-	out := make(map[string]any, len(in)+2)
-	for k, v := range in {
-		out[k] = v
-	}
-	return out
-}
-
 func sortHitsDesc(hits []SearchHit) {
-	// Insertion sort — small N (≤ pool*queries), no need for sort.Slice.
 	for i := 1; i < len(hits); i++ {
 		for j := i; j > 0 && hits[j].Score > hits[j-1].Score; j-- {
 			hits[j], hits[j-1] = hits[j-1], hits[j]
@@ -227,6 +217,148 @@ func sortHitsDesc(hits []SearchHit) {
 // ErrEmptyQuery is returned by Search when query is whitespace-only.
 var ErrEmptyQuery = errors.New("rag: query is required")
 
-// ErrLLMRequired is returned by Ask / MQE / HyDE paths when no LLM
-// client was configured.
+// ErrLLMRequired is returned by Ask / MQE / HyDE paths when no LLM client was configured.
 var ErrLLMRequired = errors.New("rag: llm.ChatModel required for this operation")
+
+type splitterAdapter struct {
+	inner Chunker
+}
+
+func (a splitterAdapter) Split(doc ragingest.Document, maxChars int) []ragingest.Chunk {
+	parts := a.inner.Chunk(doc.Content, maxChars)
+	out := make([]ragingest.Chunk, 0, len(parts))
+	for i, part := range parts {
+		md := copyMeta(doc.Metadata)
+		md["chunk_index"] = i
+		md["chunk_total"] = len(parts)
+		out = append(out, ragingest.Chunk{
+			ID:       fmt.Sprintf("%s:%d", doc.ID, i),
+			DocID:    doc.ID,
+			Index:    i,
+			Total:    len(parts),
+			Title:    doc.Title,
+			Content:  part,
+			Metadata: md,
+		})
+	}
+	return out
+}
+
+type embedderAdapter struct {
+	inner Embedder
+}
+
+func (a embedderAdapter) Embed(ctx context.Context, text string) (ragembed.Vector, error) {
+	v, err := a.inner.Embed(ctx, text)
+	return ragembed.Vector(v), err
+}
+
+func (a embedderAdapter) Dimension() int {
+	return a.inner.Dimension()
+}
+
+type storeAdapter struct {
+	inner VectorStore
+}
+
+func (a storeAdapter) Upsert(ctx context.Context, chunks []ragstore.StoredChunk) error {
+	for _, chunk := range chunks {
+		if err := a.inner.Upsert(ctx, Document{
+			ID:       chunk.ID,
+			Content:  chunk.Content,
+			Vector:   chunk.Vector,
+			Metadata: chunk.Metadata,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a storeAdapter) Search(ctx context.Context, q ragstore.Query) ([]ragstore.Hit, error) {
+	hits, err := a.inner.Search(ctx, q.Vector, q.TopK)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ragstore.Hit, 0, len(hits))
+	for _, hit := range hits {
+		out = append(out, ragstore.Hit{
+			Chunk: ragstore.StoredChunk{
+				ID:       hit.Doc.ID,
+				Content:  hit.Doc.Content,
+				Vector:   hit.Doc.Vector,
+				Metadata: hit.Doc.Metadata,
+			},
+			Score: hit.Score,
+		})
+	}
+	return out, nil
+}
+
+func (a storeAdapter) Get(ctx context.Context, id string) (ragstore.StoredChunk, error) {
+	doc, err := a.inner.Get(ctx, id)
+	if err != nil {
+		return ragstore.StoredChunk{}, err
+	}
+	return ragstore.StoredChunk{
+		ID:       doc.ID,
+		Content:  doc.Content,
+		Vector:   doc.Vector,
+		Metadata: doc.Metadata,
+	}, nil
+}
+
+func (a storeAdapter) Remove(ctx context.Context, id string) error {
+	return a.inner.Remove(ctx, id)
+}
+
+func (a storeAdapter) Stats(_ context.Context, _ string) (ragstore.Stats, error) {
+	stats := a.inner.Stats()
+	return ragstore.Stats{Count: stats.Count, Dim: stats.Dim}, nil
+}
+
+type modelAdapter struct {
+	inner llm.ChatModel
+}
+
+func (a modelAdapter) Generate(ctx context.Context, req raggenerate.Request) (raggenerate.Response, error) {
+	if a.inner == nil {
+		return raggenerate.Response{}, ragcore.ErrModelRequired
+	}
+	msgs := make([]llm.Message, 0, len(req.Messages))
+	for _, msg := range req.Messages {
+		msgs = append(msgs, llm.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+		})
+	}
+	resp, err := a.inner.Generate(ctx, llm.Request{
+		SystemPrompt: req.SystemPrompt,
+		Messages:     msgs,
+		Metadata:     req.Metadata,
+	})
+	if err != nil {
+		return raggenerate.Response{}, err
+	}
+	return raggenerate.Response{Text: resp.Text}, nil
+}
+
+func fromStoreHit(hit ragstore.Hit) SearchHit {
+	return SearchHit{
+		Doc: Document{
+			ID:       hit.Chunk.ID,
+			Content:  hit.Chunk.Content,
+			Vector:   hit.Chunk.Vector,
+			Metadata: hit.Chunk.Metadata,
+		},
+		Score: hit.Score,
+	}
+}
+
+func copyMeta(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in)+2)
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}
