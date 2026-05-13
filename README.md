@@ -222,6 +222,12 @@ stay in sync with whatever is checked out in the parent directory.
 - ✅ `examples/agents-demo` (in parent AICS repo) end-to-end runnable
 - ⏸ v1.0 — pending real-world feedback
 
+## Operational notes
+
+- Multi-repo PR governance design across `llm-agent`, `llm-agent-providers`,
+  `llm-agent-otel`, and `llm-agent-customer-support`:
+  [`docs/PR-GOVERNANCE-OVERVIEW.md`](./docs/PR-GOVERNANCE-OVERVIEW.md)
+
 ## License
 
 MIT — see `LICENSE`.
