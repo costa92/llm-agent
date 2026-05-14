@@ -49,6 +49,15 @@ func TestRAGTool_Ask(t *testing.T) {
 	if !strings.Contains(out, "Modules") {
 		t.Errorf("answer missing: %s", out)
 	}
+	if !strings.Contains(out, `"citations"`) {
+		t.Errorf("ask output missing citations: %s", out)
+	}
+	if !strings.Contains(out, `"diagnostics"`) {
+		t.Errorf("ask output missing diagnostics: %s", out)
+	}
+	if !strings.Contains(out, `"trace"`) {
+		t.Errorf("ask output missing trace: %s", out)
+	}
 }
 
 func TestRAGTool_Remove(t *testing.T) {

@@ -1,34 +1,121 @@
-# Requirements: Phase 7 deprecation removal
+# Requirements: v0.5 RAG productionization
 
-**Status:** complete as of 2026-05-13 by explicit early gate override
-**Core Value:** the core `llm-agent` module remains stdlib-only and zero-dep;
-providers, telemetry, and reference services stay opt-in sister repos
+**Defined:** 2026-05-14
+**Core Value:** the core `llm-agent` module stays stdlib-only and zero-dep
+while RAG grows into a reusable, production-oriented capability through the
+standalone `llm-agent-rag` module and a thin compatibility facade in the core
+repo
 
-The full shipped `v0.3` requirement set remains archived at
-`.planning/milestones/v0.3-REQUIREMENTS.md`. This active file pulls forward
-only the deprecation-removal work for Phase 7.
+## v0.5 Requirements
 
-## Active
+### Core Retrieval Contract
 
-- [x] **DEPRC-01**: Audit complete — zero internal users of `llm.Client`
-      remain inside the core repo.
-- [x] **DEPRC-02**: `llm.Client`, `llm.LegacyClient`, `GenerateRequest`,
-      `GenerateResponse`, `StreamChunk`, and `StreamUsage` are removed in the
-      `v0.4.0` core release line.
-- [x] **DEPRC-03**: `CHANGELOG.md`, `DEPRECATIONS.md`, and
-      `docs/migration-v0.2-to-v0.3.md` clearly document the v0.4 breaking
-      removal.
-- [x] **DEPRC-04**: Sister repos now target `llm-agent v0.4.0`, verification
-      passed against the coordinated release line, and coordinated release tags
-      have been cut.
+- [ ] **RAG-CORE-01**: `llm-agent-rag` supports real metadata filtering in the
+      default store, including namespace-aware search and stable provenance in
+      retrieval results.
+- [ ] **RAG-CORE-02**: retrieval distinguishes optional caller filters from
+      mandatory security filters so access-control trimming cannot be bypassed
+      by application code.
+- [ ] **RAG-CORE-03**: the standalone `Ask` path returns machine-readable
+      citations, diagnostics, and trace data rather than only free-form text.
+- [ ] **RAG-CORE-04**: the `llm-agent/rag` compatibility facade preserves the
+      historical API shape while delegating to the richer standalone core.
 
-## Carry-forward Notes
+### Ingestion and Indexing
 
-- This gate was opened early by explicit operator instruction on 2026-05-12.
-- Phase 7 scope is intentionally narrow: remove the deprecated v0.2 surface and
-  coordinate the release. New feature work still requires a distinct milestone.
+- [ ] **RAG-INGEST-01**: the standalone SDK supports source-aware ingestion
+      metadata including source ID, document version, checksum, and embedding
+      model version.
+- [ ] **RAG-INGEST-02**: markdown hierarchy is preserved through heading-aware
+      chunking and section metadata suitable for structure-aware retrieval.
+- [ ] **RAG-INGEST-03**: the import pipeline defines safe update semantics for
+      re-import, delete-by-source, and tombstone handling.
 
-## Next Action
+### Retrieval Policies
 
-- Open the next milestone instead of extending Phase 7.
-- Use `.planning/ROADMAP.md` as the active phase ordering source.
+- [ ] **RAG-RETRIEVE-01**: the standalone SDK exposes a first-class retrieval
+      policy layer that can run dense-only, lexical-only, or hybrid retrieval.
+- [ ] **RAG-RETRIEVE-02**: MQE and HyDE move into reusable standalone policy
+      hooks instead of living only in the core compatibility wrapper.
+- [ ] **RAG-RETRIEVE-03**: retrieval supports traceable query preprocessing,
+      including rewrite/classification/decomposition hooks.
+- [ ] **RAG-RETRIEVE-04**: a default rerank and context-packing path exists so
+      final prompt assembly is token-budget-aware and explainable.
+
+### Structure-Aware RAG
+
+- [ ] **RAG-STRUCT-01**: the SDK supports hierarchical document or section
+      metadata sufficient for PageIndex-style structured retrieval.
+- [ ] **RAG-STRUCT-02**: retrieval can return section/path lineage and search
+      trajectory, not only flat chunk IDs.
+
+### Persistence and Operations
+
+- [ ] **RAG-OPS-01**: at least one persistent vector backend is supported by
+      the standalone SDK with conformance coverage against the core store
+      contract.
+- [ ] **RAG-OPS-02**: tracing and evaluation hooks exist for import, retrieve,
+      pack, and ask flows.
+- [ ] **RAG-OPS-03**: production failures can be captured as regression cases
+      and fed back into retrieval evaluation.
+
+### Ecosystem and Documentation
+
+- [ ] **RAG-ECO-01**: the standalone repo documents production deployment
+      guidance, backend choices, and compatibility expectations with the core
+      `llm-agent` facade.
+- [ ] **RAG-ECO-02**: both repos ship tests and CI gates that prevent contract
+      drift between standalone RAG and the core compatibility layer.
+
+## v0.6+ Requirements
+
+### Advanced and Future Work
+
+- **RAG-FUTURE-01**: live or federated retrieval across non-indexed sources
+  without requiring full ingestion.
+- **RAG-FUTURE-02**: multimodal or OCR-native RAG flows.
+- **RAG-FUTURE-03**: enterprise IAM integrations beyond metadata-based
+  security trimming.
+- **RAG-FUTURE-04**: distributed ingestion workers and hosted service control
+  plane.
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Embedding providers inside core `llm-agent` | Violates the zero-dependency core value; keep provider deps opt-in |
+| Full OCR/PDF extraction stack in the first wave | Too much infra and parser complexity for the first productionization milestone |
+| Hosted UI or SaaS control plane | Not required to prove the SDK and compatibility architecture |
+| Kubernetes packaging for RAG infrastructure | Operationally useful, but downstream from store contracts and retrieval quality |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| RAG-CORE-01 | Phase 8 | Pending |
+| RAG-CORE-02 | Phase 8 | Pending |
+| RAG-CORE-03 | Phase 8 | Pending |
+| RAG-CORE-04 | Phase 8 | Pending |
+| RAG-INGEST-01 | Phase 9 | Pending |
+| RAG-INGEST-02 | Phase 9 | Pending |
+| RAG-INGEST-03 | Phase 9 | Pending |
+| RAG-RETRIEVE-01 | Phase 10 | Pending |
+| RAG-RETRIEVE-02 | Phase 10 | Pending |
+| RAG-RETRIEVE-03 | Phase 10 | Pending |
+| RAG-RETRIEVE-04 | Phase 10 | Pending |
+| RAG-STRUCT-01 | Phase 11 | Pending |
+| RAG-STRUCT-02 | Phase 11 | Pending |
+| RAG-OPS-01 | Phase 12 | Pending |
+| RAG-OPS-02 | Phase 12 | Pending |
+| RAG-OPS-03 | Phase 13 | Pending |
+| RAG-ECO-01 | Phase 13 | Pending |
+| RAG-ECO-02 | Phase 13 | Pending |
+
+**Coverage:**
+- v0.5 requirements: 18 total
+- Mapped to phases: 18
+- Unmapped: 0
+
+---
+*Requirements defined: 2026-05-14*
+*Last updated: 2026-05-14 after opening the v0.5 RAG productionization milestone*

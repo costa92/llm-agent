@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -47,6 +48,8 @@ type SearchOptions struct {
 	EnableHyDE              bool
 	MQECount                int
 	CandidatePoolMultiplier int
+	Filters                 map[string]any
+	SecurityFilters         map[string]any
 }
 
 const namespaceMetadataKey = "__rag_namespace"
@@ -152,8 +155,10 @@ func (r *RAGSystem) searchWithNamespace(ctx context.Context, query string, topK 
 	merged := make(map[string]SearchHit, pool)
 	for _, q := range queries {
 		hits, err := r.core.Retrieve(ctx, q, ragcore.SearchOptions{
-			TopK:      pool,
-			Namespace: namespace,
+			TopK:            pool,
+			Namespace:       namespace,
+			Filters:         opts.Filters,
+			SecurityFilters: opts.SecurityFilters,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("rag: store search: %w", err)
@@ -308,6 +313,12 @@ func (a storeAdapter) Search(ctx context.Context, q ragstore.Query) ([]ragstore.
 			return nil, nil
 		}
 	}
+	if len(q.SecurityFilters) > 0 {
+		pool = a.inner.Stats().Count
+		if pool == 0 {
+			return nil, nil
+		}
+	}
 	hits, err := a.inner.Search(ctx, q.Vector, pool)
 	if err != nil {
 		return nil, err
@@ -318,6 +329,9 @@ func (a storeAdapter) Search(ctx context.Context, q ragstore.Query) ([]ragstore.
 			continue
 		}
 		if !metadataMatchesFilters(hit.Doc.Metadata, q.Filters) {
+			continue
+		}
+		if !metadataMatchesFilters(hit.Doc.Metadata, q.SecurityFilters) {
 			continue
 		}
 		out = append(out, ragstore.Hit{
@@ -416,7 +430,7 @@ func metadataMatchesFilters(meta map[string]any, filters map[string]any) bool {
 	}
 	for k, want := range filters {
 		got, ok := meta[k]
-		if !ok || got != want {
+		if !ok || !reflect.DeepEqual(got, want) {
 			return false
 		}
 	}

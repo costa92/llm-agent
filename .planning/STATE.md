@@ -5,17 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** milestone transition after Phase 7 deprecation removal (`v0.4` cut)
+**Current focus:** milestone setup for RAG productionization after the completed `v0.4` deprecation-removal cycle
 
 ## Current Position
 
-Phase: 7 — deprecation removal & `v0.4` cut — complete
-Previous phase: 6 — reference customer-support service — implementation complete 2026-05-11
-Plan: close Phase 7 by recording the coordinated `v0.4.0` release state and handing off to the next milestone
-Status: `v0.3` is archived and Phase 7 is complete. The core `v0.4.0` tag exists remotely, sister-repo `v0.4.0` bumps are already landed, cross-repo verification passed again on 2026-05-13, and the remaining work inside this repo is documentation/roadmap transition only.
-Last activity: 2026-05-13 — re-verified all three sister repos against the coordinated `v0.4.0` release line and updated Phase 7 closeout state.
+Phase: Not started — defining `v0.5` RAG productionization scope
+Previous phase: 7 — deprecation removal & `v0.4` cut — complete 2026-05-13
+Plan: establish the `v0.5` RAG productionization milestone, then begin with
+Phase 8 to harden the standalone/core RAG contract
+Status: the prior milestone is complete, `llm-agent-rag` exists as a
+standalone repo, and the active work is to bring RAG into the roadmap as the
+next formal multi-repo milestone.
+Last activity: 2026-05-14 — researched production RAG architecture, documented
+the milestone plan, and opened the GSD milestone setup path.
 
-Progress: [██████████] 100% of `v0.3` shipped and archived
+Progress: [░░░░░░░░░░] 0% of `v0.5` planned milestone executed
 
 ## Performance Metrics
 
@@ -102,12 +106,15 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- archive/transition after Phase 7 closeout
-- define the next scoped milestone before reopening active execution
+- define and plan Phase 8 for RAG core contract hardening
+- execute the RAG productionization milestone in phased slices
+- keep standalone `llm-agent-rag` and core `llm-agent/rag` compatibility in lockstep
 
 ### Blockers/Concerns
 
-No implementation blocker inside `llm-agent` itself.
+No immediate implementation blocker, but the new milestone must preserve the
+zero-dependency core value while pushing RAG capability into the standalone
+module.
 
 ## Deferred Items
 
@@ -120,5 +127,6 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-13
-Stopped at: coordinated `v0.4.0` release line re-verified; next action is milestone transition.
+Stopped at: new milestone setup for RAG productionization; next action is
+planning the first active phase.
 Resume file: .planning/ROADMAP.md

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/costa92/llm-agent"
+	ragcore "github.com/costa92/llm-agent-rag/rag"
 )
 
 // AsTool wraps a compatibility RAGSystem as an agents.Tool.
@@ -79,9 +80,11 @@ func ragToolHandler(r *RAGSystem) agents.ExecuteFunc {
 				return "", ErrEmptyQuery
 			}
 			hits, err := r.searchWithNamespace(ctx, p.Query, p.TopK, p.Namespace, SearchOptions{
-				EnableMQE:  p.EnableMQE,
-				EnableHyDE: p.EnableHyDE,
-				MQECount:   p.MQECount,
+				EnableMQE:      p.EnableMQE,
+				EnableHyDE:     p.EnableHyDE,
+				MQECount:       p.MQECount,
+				Filters:        copyMeta(p.Metadata),
+				SecurityFilters: nil,
 			})
 			if err != nil {
 				return "", err
@@ -92,15 +95,24 @@ func ragToolHandler(r *RAGSystem) agents.ExecuteFunc {
 			if p.Question == "" {
 				return "", errors.New("rag: question required for ask")
 			}
-			ans, err := r.askWithNamespace(ctx, p.Question, p.Namespace, SearchOptions{
-				EnableMQE:  p.EnableMQE,
-				EnableHyDE: p.EnableHyDE,
-				MQECount:   p.MQECount,
+			answer, err := r.core.Ask(ctx, p.Question, ragcore.AskOptions{
+				Search: ragcore.SearchOptions{
+					TopK:            max(p.TopK, 5),
+					Namespace:       p.Namespace,
+					Filters:         copyMeta(p.Metadata),
+					SecurityFilters: nil,
+				},
+				Metadata: copyMeta(p.Metadata),
 			})
 			if err != nil {
 				return "", err
 			}
-			b, _ := json.Marshal(map[string]string{"answer": ans})
+			b, _ := json.Marshal(map[string]any{
+				"answer":      answer.Text,
+				"citations":   answer.Citations,
+				"diagnostics": answer.Diagnostics,
+				"trace":       answer.Trace,
+			})
 			return string(b), nil
 		case "remove":
 			if p.ID == "" {
@@ -119,4 +131,11 @@ func ragToolHandler(r *RAGSystem) agents.ExecuteFunc {
 			return "", fmt.Errorf("rag: unknown action %q", p.Action)
 		}
 	}
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
