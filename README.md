@@ -17,6 +17,17 @@ A standalone, **stdlib-only** Go module providing the building blocks for LLM-dr
 go get github.com/costa92/llm-agent@latest
 ```
 
+RAG has been split into a standalone companion module:
+
+```bash
+go get github.com/costa92/llm-agent-rag@latest
+```
+
+See:
+
+- `github.com/costa92/llm-agent-rag`
+- `docs/2026-05-13-rag-sdk-migration-status.md`
+
 > **Runnable demos:** five end-to-end examples live in
 > [`./examples/`](./examples) — each is a standalone `go run .`-able program
 > with a deterministic mock LLM, no API key required. See
