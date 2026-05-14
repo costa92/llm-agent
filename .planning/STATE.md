@@ -12,15 +12,16 @@ explainability in `llm-agent-rag`
 
 Phase: 11 — structure-aware retrieval and explainability — in progress
 Previous phase: 10 — retrieval policies, hybrid recall, and context packing — complete 2026-05-14
-Plan: continue Phase 11 after the first structure-aware slice that normalized
-section lineage and added structure-aware retrieval plus explainability traces.
+Plan: continue Phase 11 after the initial structure-aware slices that
+normalized section lineage, added structure-aware retrieval, and introduced an
+explicit document-tree model.
 Status: milestone `v0.5` is active. Phases 8, 9, and 10 are complete, and
-Phase 11 has now opened with plans `11-01` and `11-02` executed in the
+Phase 11 now has plans `11-01`, `11-02`, and `11-03` executed in the
 standalone repo.
-Last activity: 2026-05-14 — added structure-aware chunk lineage, retrieval,
-prompt rendering, and ask-time section/path traces in `llm-agent-rag`.
+Last activity: 2026-05-14 — added explicit document-tree primitives on top of
+the structure-aware chunk lineage and retrieval work in `llm-agent-rag`.
 
-Progress: [███████████] 90% of `v0.5` planned milestone executed
+Progress: [████████████] 92% of `v0.5` planned milestone executed
 
 ## Performance Metrics
 
@@ -107,7 +108,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- continue Phase 11 with richer document trees and more explicit structure-aware routing
+- continue Phase 11 with tree-aware retrieval routing and richer search trajectory output
 - keep standalone `llm-agent-rag` and core `llm-agent/rag` compatibility in lockstep
 
 ### Blockers/Concerns
