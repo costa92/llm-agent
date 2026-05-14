@@ -12,16 +12,15 @@ productionization in `llm-agent-rag`
 
 Phase: 10 — retrieval policies, hybrid recall, and context packing — in progress
 Previous phase: 9 — source-aware ingestion and lifecycle controls — complete 2026-05-14
-Plan: finish Phase 10 by adding rerank plus context-packing after the completed
-policy seams, lexical/hybrid recall, and MQE/HyDE retrieval-layer migration
-work.
+Plan: finish milestone closeout prep after completing Phase 10 policy seams,
+hybrid recall, MQE/HyDE migration, and rerank plus context-packing.
 Status: milestone `v0.5` is active. Phases 8 and 9 are complete, and Phase 10
-has completed plans `10-01`, `10-02`, and `10-03` in the standalone
+has now completed plans `10-01` through `10-04` in the standalone
 `llm-agent-rag` repo while the core repo tracks contract and planning state.
-Last activity: 2026-05-14 — completed Phase `10-03`, moving MQE/HyDE into the
-standalone retrieval policy layer and verifying the full standalone test suite.
+Last activity: 2026-05-14 — completed Phase `10-04`, adding default rerank and
+budget-aware context packing plus full standalone verification.
 
-Progress: [██████░░░░] 60% of `v0.5` planned milestone executed
+Progress: [████████░░] 80% of `v0.5` planned milestone executed
 
 ## Performance Metrics
 
@@ -108,7 +107,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- execute Phase `10-04` for rerank and token-budget-aware context packing
+- decide whether to open Phase 11 immediately or cut a standalone release first
 - decide whether Phase 10 is ready for a standalone `llm-agent-rag` release cut
 - keep standalone `llm-agent-rag` and core `llm-agent/rag` compatibility in lockstep
 
@@ -129,6 +128,6 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-14
-Stopped at: Phase `10-03` closeout; next action is executing `10-04` for
-rerank and context packing.
+Stopped at: Phase `10-04` closeout; next action is release-or-Phase-11
+decision for the standalone RAG roadmap.
 Resume file: .planning/ROADMAP.md
