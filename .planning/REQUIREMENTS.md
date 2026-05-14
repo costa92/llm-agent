@@ -99,10 +99,10 @@ repo
 | RAG-INGEST-01 | Phase 9 | Pending |
 | RAG-INGEST-02 | Phase 9 | Pending |
 | RAG-INGEST-03 | Phase 9 | Pending |
-| RAG-RETRIEVE-01 | Phase 10 | Pending |
-| RAG-RETRIEVE-02 | Phase 10 | Pending |
-| RAG-RETRIEVE-03 | Phase 10 | Pending |
-| RAG-RETRIEVE-04 | Phase 10 | Pending |
+| RAG-RETRIEVE-01 | Phase 10 | Complete |
+| RAG-RETRIEVE-02 | Phase 10 | Complete |
+| RAG-RETRIEVE-03 | Phase 10 | Complete |
+| RAG-RETRIEVE-04 | Phase 10 | Complete |
 | RAG-STRUCT-01 | Phase 11 | Pending |
 | RAG-STRUCT-02 | Phase 11 | Pending |
 | RAG-OPS-01 | Phase 12 | Pending |

@@ -11,8 +11,21 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
-Phase 7 of the `v0.4` cut — the deprecated compatibility surface has been
-removed from the core repo.
+Post-`v0.4` RAG compatibility maintenance while the standalone SDK advances
+through the `v0.5` retrieval productionization milestone.
+
+### Changed
+
+- bumped `github.com/costa92/llm-agent-rag` from `v0.1.2` to `v0.1.4`
+- aligned the core `rag/` compatibility facade with the standalone retrieval
+  policy path:
+  - MQE / HyDE now delegate to standalone retrieval orchestration
+  - `Ask(...)` delegates to standalone rerank + context packing flow
+  - tool-facing `enable_rerank` is now plumbed through to standalone ask/search
+- extended the core facade's internal store adapter for standalone contract
+  parity:
+  - `List(...)`
+  - `RemoveByFilter(...)`
 
 ### Breaking
 

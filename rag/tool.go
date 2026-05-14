@@ -41,17 +41,18 @@ func ragToolSchema() json.RawMessage {
 }
 
 type ragToolArgs struct {
-	Action     string         `json:"action"`
-	Text       string         `json:"text"`
-	Query      string         `json:"query"`
-	Question   string         `json:"question"`
-	ID         string         `json:"id"`
-	TopK       int            `json:"top_k"`
-	Namespace  string         `json:"namespace"`
-	EnableMQE  bool           `json:"enable_mqe"`
-	EnableHyDE bool           `json:"enable_hyde"`
-	MQECount   int            `json:"mqe_count"`
-	Metadata   map[string]any `json:"metadata"`
+	Action       string         `json:"action"`
+	Text         string         `json:"text"`
+	Query        string         `json:"query"`
+	Question     string         `json:"question"`
+	ID           string         `json:"id"`
+	TopK         int            `json:"top_k"`
+	Namespace    string         `json:"namespace"`
+	EnableMQE    bool           `json:"enable_mqe"`
+	EnableHyDE   bool           `json:"enable_hyde"`
+	MQECount     int            `json:"mqe_count"`
+	EnableRerank bool           `json:"enable_rerank"`
+	Metadata     map[string]any `json:"metadata"`
 }
 
 func ragToolHandler(r *RAGSystem) agents.ExecuteFunc {
@@ -80,10 +81,11 @@ func ragToolHandler(r *RAGSystem) agents.ExecuteFunc {
 				return "", ErrEmptyQuery
 			}
 			hits, err := r.searchWithNamespace(ctx, p.Query, p.TopK, p.Namespace, SearchOptions{
-				EnableMQE:      p.EnableMQE,
-				EnableHyDE:     p.EnableHyDE,
-				MQECount:       p.MQECount,
-				Filters:        copyMeta(p.Metadata),
+				EnableMQE:       p.EnableMQE,
+				EnableHyDE:      p.EnableHyDE,
+				MQECount:        p.MQECount,
+				EnableRerank:    p.EnableRerank,
+				Filters:         copyMeta(p.Metadata),
 				SecurityFilters: nil,
 			})
 			if err != nil {
@@ -101,6 +103,10 @@ func ragToolHandler(r *RAGSystem) agents.ExecuteFunc {
 					Namespace:       p.Namespace,
 					Filters:         copyMeta(p.Metadata),
 					SecurityFilters: nil,
+					EnableMQE:       p.EnableMQE,
+					EnableHyDE:      p.EnableHyDE,
+					MQECount:        p.MQECount,
+					EnableRerank:    p.EnableRerank,
 				},
 				Metadata: copyMeta(p.Metadata),
 			})

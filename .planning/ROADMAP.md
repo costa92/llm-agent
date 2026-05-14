@@ -34,7 +34,7 @@ zero-dependency compatibility facade in the core `llm-agent` repo.
 
 ### Phase 8: RAG core contract hardening
 
-**Status**: planned
+**Status**: complete 2026-05-14
 
 **Goal**: harden the standalone/core RAG contract so metadata filters,
 security-trim semantics, citations, diagnostics, and provenance become

@@ -12,8 +12,8 @@ import (
 	raggenerate "github.com/costa92/llm-agent-rag/generate"
 	ragingest "github.com/costa92/llm-agent-rag/ingest"
 	ragprompt "github.com/costa92/llm-agent-rag/prompt"
-	ragstore "github.com/costa92/llm-agent-rag/store"
 	ragcore "github.com/costa92/llm-agent-rag/rag"
+	ragstore "github.com/costa92/llm-agent-rag/store"
 
 	"github.com/costa92/llm-agent/llm"
 )
@@ -47,6 +47,7 @@ type SearchOptions struct {
 	EnableMQE               bool
 	EnableHyDE              bool
 	MQECount                int
+	EnableRerank            bool
 	CandidatePoolMultiplier int
 	Filters                 map[string]any
 	SecurityFilters         map[string]any
@@ -125,59 +126,24 @@ func (r *RAGSystem) searchWithNamespace(ctx context.Context, query string, topK 
 	if opts.CandidatePoolMultiplier > 1 {
 		pool = topK * opts.CandidatePoolMultiplier
 	}
-
-	queries := []string{query}
-	if opts.EnableMQE {
-		if r.llm == nil {
+	hits, err := r.core.Retrieve(ctx, query, ragcore.SearchOptions{
+		TopK:            pool,
+		Namespace:       namespace,
+		Filters:         opts.Filters,
+		SecurityFilters: opts.SecurityFilters,
+		EnableMQE:       opts.EnableMQE,
+		EnableHyDE:      opts.EnableHyDE,
+		MQECount:        opts.MQECount,
+	})
+	if err != nil {
+		if errors.Is(err, ragcore.ErrModelRequired) {
 			return nil, ErrLLMRequired
 		}
-		count := opts.MQECount
-		if count <= 0 {
-			count = 3
-		}
-		expansions, err := r.mqeExpand(ctx, query, count)
-		if err != nil {
-			return nil, fmt.Errorf("rag: MQE: %w", err)
-		}
-		queries = append(queries, expansions...)
+		return nil, fmt.Errorf("rag: store search: %w", err)
 	}
-	if opts.EnableHyDE {
-		if r.llm == nil {
-			return nil, ErrLLMRequired
-		}
-		hypo, err := r.hydeGenerate(ctx, query)
-		if err != nil {
-			return nil, fmt.Errorf("rag: HyDE: %w", err)
-		}
-		queries = append(queries, hypo)
-	}
-
-	merged := make(map[string]SearchHit, pool)
-	for _, q := range queries {
-		hits, err := r.core.Retrieve(ctx, q, ragcore.SearchOptions{
-			TopK:            pool,
-			Namespace:       namespace,
-			Filters:         opts.Filters,
-			SecurityFilters: opts.SecurityFilters,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("rag: store search: %w", err)
-		}
-		for _, h := range hits {
-			hit := fromStoreHit(h)
-			if prev, ok := merged[hit.Doc.ID]; !ok || hit.Score > prev.Score {
-				merged[hit.Doc.ID] = hit
-			}
-		}
-	}
-
-	out := make([]SearchHit, 0, len(merged))
-	for _, h := range merged {
-		out = append(out, h)
-	}
-	sortHitsDesc(out)
-	if len(out) > topK {
-		out = out[:topK]
+	out := make([]SearchHit, 0, len(hits))
+	for _, h := range hits {
+		out = append(out, fromStoreHit(h))
 	}
 	return out, nil
 }
@@ -191,24 +157,25 @@ func (r *RAGSystem) askWithNamespace(ctx context.Context, question string, names
 	if r.llm == nil {
 		return "", ErrLLMRequired
 	}
-	hits, err := r.searchWithNamespace(ctx, question, 5, namespace, opts)
-	if err != nil {
-		return "", err
-	}
-	var b strings.Builder
-	b.WriteString("Use the context below to answer the question. Cite chunk IDs in [brackets] when you rely on them.\n\nContext:\n")
-	for _, h := range hits {
-		fmt.Fprintf(&b, "[%s] %s\n\n", h.Doc.ID, h.Doc.Content)
-	}
-	fmt.Fprintf(&b, "Question: %s", question)
-
-	resp, err := r.llm.Generate(ctx, llm.Request{
-		Messages: []llm.Message{{Role: "user", Content: b.String()}},
+	answer, err := r.core.Ask(ctx, question, ragcore.AskOptions{
+		Search: ragcore.SearchOptions{
+			TopK:            5,
+			Namespace:       namespace,
+			Filters:         opts.Filters,
+			SecurityFilters: opts.SecurityFilters,
+			EnableMQE:       opts.EnableMQE,
+			EnableHyDE:      opts.EnableHyDE,
+			MQECount:        opts.MQECount,
+			EnableRerank:    opts.EnableRerank,
+		},
 	})
 	if err != nil {
-		return "", fmt.Errorf("rag: llm: %w", err)
+		if errors.Is(err, ragcore.ErrModelRequired) {
+			return "", ErrLLMRequired
+		}
+		return "", err
 	}
-	return resp.Text, nil
+	return answer.Text, nil
 }
 
 // Remove deletes one chunk by ID.
@@ -226,14 +193,6 @@ func (r *RAGSystem) nextDocID() string {
 	defer r.mu.Unlock()
 	r.seq++
 	return fmt.Sprintf("chunk_%d", r.seq)
-}
-
-func sortHitsDesc(hits []SearchHit) {
-	for i := 1; i < len(hits); i++ {
-		for j := i; j > 0 && hits[j].Score > hits[j-1].Score; j-- {
-			hits[j], hits[j-1] = hits[j-1], hits[j]
-		}
-	}
 }
 
 // ErrEmptyQuery is returned by Search when query is whitespace-only.
@@ -336,11 +295,11 @@ func (a storeAdapter) Search(ctx context.Context, q ragstore.Query) ([]ragstore.
 		}
 		out = append(out, ragstore.Hit{
 			Chunk: ragstore.StoredChunk{
-				ID:       hit.Doc.ID,
+				ID:        hit.Doc.ID,
 				Namespace: namespaceFromMetadata(hit.Doc.Metadata),
-				Content:  hit.Doc.Content,
-				Vector:   hit.Doc.Vector,
-				Metadata: hit.Doc.Metadata,
+				Content:   hit.Doc.Content,
+				Vector:    hit.Doc.Vector,
+				Metadata:  hit.Doc.Metadata,
 			},
 			Score: hit.Score,
 		})
@@ -351,22 +310,69 @@ func (a storeAdapter) Search(ctx context.Context, q ragstore.Query) ([]ragstore.
 	return out, nil
 }
 
+func (a storeAdapter) List(ctx context.Context, namespace string, filters ragstore.Filter, securityFilters ragstore.Filter) ([]ragstore.StoredChunk, error) {
+	stats := a.inner.Stats()
+	if stats.Count == 0 {
+		return nil, nil
+	}
+	// Compatibility facade has no direct list primitive, so emulate via a wide search.
+	hits, err := a.inner.Search(ctx, nil, stats.Count)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ragstore.StoredChunk, 0, len(hits))
+	for _, hit := range hits {
+		if namespace != "" && namespaceFromMetadata(hit.Doc.Metadata) != namespace {
+			continue
+		}
+		if !metadataMatchesFilters(hit.Doc.Metadata, filters) {
+			continue
+		}
+		if !metadataMatchesFilters(hit.Doc.Metadata, securityFilters) {
+			continue
+		}
+		out = append(out, ragstore.StoredChunk{
+			ID:        hit.Doc.ID,
+			Namespace: namespaceFromMetadata(hit.Doc.Metadata),
+			Content:   hit.Doc.Content,
+			Vector:    hit.Doc.Vector,
+			Metadata:  hit.Doc.Metadata,
+		})
+	}
+	return out, nil
+}
+
 func (a storeAdapter) Get(ctx context.Context, id string) (ragstore.StoredChunk, error) {
 	doc, err := a.inner.Get(ctx, id)
 	if err != nil {
 		return ragstore.StoredChunk{}, err
 	}
 	return ragstore.StoredChunk{
-		ID:       doc.ID,
+		ID:        doc.ID,
 		Namespace: namespaceFromMetadata(doc.Metadata),
-		Content:  doc.Content,
-		Vector:   doc.Vector,
-		Metadata: doc.Metadata,
+		Content:   doc.Content,
+		Vector:    doc.Vector,
+		Metadata:  doc.Metadata,
 	}, nil
 }
 
 func (a storeAdapter) Remove(ctx context.Context, id string) error {
 	return a.inner.Remove(ctx, id)
+}
+
+func (a storeAdapter) RemoveByFilter(ctx context.Context, namespace string, filters ragstore.Filter) (int, error) {
+	chunks, err := a.List(ctx, namespace, filters, nil)
+	if err != nil {
+		return 0, err
+	}
+	removed := 0
+	for _, chunk := range chunks {
+		if err := a.inner.Remove(ctx, chunk.ID); err != nil {
+			return removed, err
+		}
+		removed++
+	}
+	return removed, nil
 }
 
 func (a storeAdapter) Stats(_ context.Context, _ string) (ragstore.Stats, error) {
