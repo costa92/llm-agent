@@ -2,14 +2,14 @@
 
 Date: 2026-05-13
 Project: `github.com/costa92/llm-agent`
-Embedded SDK path: `third_party/llm-agent-rag`
-Status: in-repo extraction complete, external release pending
+Historical in-repo staging path: `third_party/llm-agent-rag`
+Status: external release complete, main repo switched to remote module
 
 ## Summary
 
 The original `rag/` package in `llm-agent` has been split into two layers:
 
-- `third_party/llm-agent-rag`
+- `github.com/costa92/llm-agent-rag`
   - standalone SDK core
   - provider-agnostic import / retrieve / ask orchestration
   - `advanced/` LLM-assisted retrieval helpers
@@ -57,10 +57,10 @@ for implementation logic.
 
 ## Completed Milestones
 
-Completed in this repo:
+Completed:
 
 - design and implementation planning docs created
-- standalone SDK scaffolded and embedded under `third_party/llm-agent-rag`
+- standalone SDK scaffolded and published as `github.com/costa92/llm-agent-rag`
 - `rag.RAGSystem` converted into a compatibility facade over the SDK
 - `MQE` / `HyDE` prompt logic moved into SDK `advanced/`
 - tool-level namespace support wired through the facade
@@ -70,17 +70,19 @@ Completed in this repo:
   - `enable_mqe`
   - `enable_hyde`
   - `mqe_count`
+- standalone SDK pushed to GitHub and tagged:
+  - `v0.1.0`
+- main repo switched from local `replace` to:
+  - `require github.com/costa92/llm-agent-rag v0.1.0`
 
 ## Known Boundaries
 
-### 1. Embedded SDK is still in-repo
+### 1. Main repo now uses the remote module
 
-The standalone SDK currently lives at:
+The vendored staging copy has been removed. Main repo resolution now goes
+through the published module version:
 
-- `third_party/llm-agent-rag`
-
-It has not yet been pushed and versioned as an external repository release from
-this working tree.
+- `github.com/costa92/llm-agent-rag v0.1.0`
 
 ### 2. `adapter/llmagent` is dev-only in the standalone module
 
@@ -109,14 +111,14 @@ That is acceptable for now because:
 
 The next high-value step is externalization, not more in-repo refactoring.
 
-Recommended order:
+Recommended order from here:
 
-1. create/push the standalone repository from `third_party/llm-agent-rag`
-2. tag an initial version
-3. replace the local `replace github.com/costa92/llm-agent-rag => ./third_party/llm-agent-rag`
-   with a real module version in `llm-agent`
-4. decide whether `rag/` remains as a permanent compatibility package or begins
-   a deprecation path
+1. keep publishing `github.com/costa92/llm-agent-rag` as the implementation source of truth
+2. decide whether `rag/` remains a permanent compatibility package or enters deprecation
+3. if deprecating, publish explicit migration guidance for:
+   - direct SDK imports
+   - tool callers
+   - downstream tests relying on `rag` compatibility types
 
 ## Verification Snapshot
 
