@@ -1,7 +1,5 @@
 # .github/workflows/umbrella.yml
-# INFRA-05: builds all 4 repos against this PR's llm-agent on every PR to main.
-# Sister repos must exist on GitHub for the cross-repo checkouts to succeed
-# (Phase 0 plan 00-03 creates them).
+# INFRA-05: builds all related repos against this PR's llm-agent on every PR to main.
 name: umbrella
 
 on:
@@ -44,17 +42,22 @@ jobs:
           path: llm-agent-customer-support
           ref: main
 
+      - name: Checkout llm-agent-rag (master)
+        uses: actions/checkout@v4
+        with:
+          repository: costa92/llm-agent-rag
+          path: llm-agent-rag
+          ref: master
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: llm-agent/go.mod
           cache: false
 
-      - name: Verify scripts/workspace.sh is byte-identical across all 4 checkouts (INFRA-03)
+      - name: Verify scripts/workspace.sh is byte-identical across the 4 core checkouts (INFRA-03)
         run: |
           set -euo pipefail
-          # INFRA-03: scripts/workspace.sh MUST be byte-identical in every repo.
-          # Compute the SHA-256 of the core repo's copy and assert each sister
-          # repo's copy matches. Any drift fails the umbrella job loudly.
+          # INFRA-03 applies to the 4 core repos that carry scripts/workspace.sh.
           core_sha=$(sha256sum llm-agent/scripts/workspace.sh | awk '{print $1}')
           echo "core scripts/workspace.sh sha256: $core_sha"
           for repo in llm-agent-providers llm-agent-otel llm-agent-customer-support; do
@@ -68,12 +71,12 @@ jobs:
             echo "$repo scripts/workspace.sh sha256 matches core: OK"
           done
 
-      - name: Initialize go.work pointing all 4 modules at this PR's llm-agent
+      - name: Initialize go.work pointing all 5 modules at this PR's llm-agent
         run: |
-          go work init ./llm-agent ./llm-agent-providers ./llm-agent-otel ./llm-agent-customer-support
-          # All 4 modules now resolve github.com/costa92/llm-agent to ./llm-agent
+          go work init ./llm-agent ./llm-agent-providers ./llm-agent-otel ./llm-agent-customer-support ./llm-agent-rag
+          # All related modules now resolve github.com/costa92/llm-agent to ./llm-agent
           # (this PR's HEAD), regardless of the version pinned in their go.mod files.
-          go work sync || true   # best-effort sync; failures are not fatal because sister repos may have no source files yet (Phase 0 skeleton)
+          go work sync || true
 
       - name: Build llm-agent (this PR)
         run: |
@@ -99,6 +102,13 @@ jobs:
       - name: Build llm-agent-customer-support against this PR's llm-agent
         run: |
           cd llm-agent-customer-support
+          go vet ./...
+          go build ./...
+          go test ./...
+
+      - name: Build llm-agent-rag
+        run: |
+          cd llm-agent-rag
           go vet ./...
           go build ./...
           go test ./...
