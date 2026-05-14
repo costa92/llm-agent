@@ -39,6 +39,9 @@ removed from the core repo.
   - `rl`
 - Repository examples, test helpers, and quick-start docs now show only the
   current `ChatModel` API.
+- `rag` has been externally split into `github.com/costa92/llm-agent-rag`.
+  Main-repo `rag/` now acts as a compatibility facade while this repo depends on:
+  - `github.com/costa92/llm-agent-rag v0.1.0`
 
 ### Removed
 
