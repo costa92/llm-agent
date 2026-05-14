@@ -103,8 +103,8 @@ repo
 | RAG-RETRIEVE-02 | Phase 10 | Complete |
 | RAG-RETRIEVE-03 | Phase 10 | Complete |
 | RAG-RETRIEVE-04 | Phase 10 | Complete |
-| RAG-STRUCT-01 | Phase 11 | Pending |
-| RAG-STRUCT-02 | Phase 11 | Pending |
+| RAG-STRUCT-01 | Phase 11 | In Progress |
+| RAG-STRUCT-02 | Phase 11 | In Progress |
 | RAG-OPS-01 | Phase 12 | Pending |
 | RAG-OPS-02 | Phase 12 | Pending |
 | RAG-OPS-03 | Phase 13 | Pending |

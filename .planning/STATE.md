@@ -5,24 +5,22 @@
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** post-Phase-10 compatibility alignment and Phase 11
-preparation for structure-aware retrieval
+**Current focus:** Phase 11 execution for structure-aware retrieval and
+explainability in `llm-agent-rag`
 
 ## Current Position
 
-Phase: 10 — retrieval policies, hybrid recall, and context packing — complete 2026-05-14
-Previous phase: 9 — source-aware ingestion and lifecycle controls — complete 2026-05-14
-Plan: open Phase 11 for structure-aware retrieval now that the standalone
-release is cut and the core compatibility facade has been aligned to
-`llm-agent-rag v0.1.4`.
-Status: milestone `v0.5` is active. Phases 8, 9, and 10 are complete. The
-standalone repo shipped `v0.1.4`, and the core repo now consumes it while
-preserving the historical `rag/` facade.
-Last activity: 2026-05-14 — upgraded the core repo to `llm-agent-rag v0.1.4`,
-aligned facade retrieval/tool plumbing to the standalone policy path, and
-verified the full core test suite.
+Phase: 11 — structure-aware retrieval and explainability — in progress
+Previous phase: 10 — retrieval policies, hybrid recall, and context packing — complete 2026-05-14
+Plan: continue Phase 11 after the first structure-aware slice that normalized
+section lineage and added structure-aware retrieval plus explainability traces.
+Status: milestone `v0.5` is active. Phases 8, 9, and 10 are complete, and
+Phase 11 has now opened with plans `11-01` and `11-02` executed in the
+standalone repo.
+Last activity: 2026-05-14 — added structure-aware chunk lineage, retrieval,
+prompt rendering, and ask-time section/path traces in `llm-agent-rag`.
 
-Progress: [██████████░] 85% of `v0.5` planned milestone executed
+Progress: [███████████] 90% of `v0.5` planned milestone executed
 
 ## Performance Metrics
 
@@ -109,7 +107,7 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- open Phase 11 for structure-aware retrieval and explainability
+- continue Phase 11 with richer document trees and more explicit structure-aware routing
 - keep standalone `llm-agent-rag` and core `llm-agent/rag` compatibility in lockstep
 
 ### Blockers/Concerns
@@ -129,6 +127,6 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-05-14
-Stopped at: Phase 10 closeout including core facade alignment to
-`llm-agent-rag v0.1.4`; next action is Phase 11 planning/execution.
+Stopped at: Phase 11 initial structure-aware retrieval slice; next action is
+deeper document-tree modeling or Phase 12 depending on milestone priorities.
 Resume file: .planning/ROADMAP.md

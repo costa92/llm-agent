@@ -65,7 +65,7 @@ first-class before larger retrieval changes land.
 
 ### Phase 9: Source-aware ingestion and index lifecycle
 
-**Status**: planned
+**Status**: in progress
 
 **Goal**: move from flat chunk ingestion to source-aware, version-aware,
 section-aware indexing with safe update semantics.
