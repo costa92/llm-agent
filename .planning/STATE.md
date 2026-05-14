@@ -5,21 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** milestone setup for RAG productionization after the completed `v0.4` deprecation-removal cycle
+**Current focus:** Phase 10 execution for standalone retrieval policy
+productionization in `llm-agent-rag`
 
 ## Current Position
 
-Phase: Not started — defining `v0.5` RAG productionization scope
-Previous phase: 7 — deprecation removal & `v0.4` cut — complete 2026-05-13
-Plan: establish the `v0.5` RAG productionization milestone, then begin with
-Phase 8 to harden the standalone/core RAG contract
-Status: the prior milestone is complete, `llm-agent-rag` exists as a
-standalone repo, and the active work is to bring RAG into the roadmap as the
-next formal multi-repo milestone.
-Last activity: 2026-05-14 — researched production RAG architecture, documented
-the milestone plan, and opened the GSD milestone setup path.
+Phase: 10 — retrieval policies, hybrid recall, and context packing — in progress
+Previous phase: 9 — source-aware ingestion and lifecycle controls — complete 2026-05-14
+Plan: finish Phase 10 by adding rerank plus context-packing after the completed
+policy seams, lexical/hybrid recall, and MQE/HyDE retrieval-layer migration
+work.
+Status: milestone `v0.5` is active. Phases 8 and 9 are complete, and Phase 10
+has completed plans `10-01`, `10-02`, and `10-03` in the standalone
+`llm-agent-rag` repo while the core repo tracks contract and planning state.
+Last activity: 2026-05-14 — completed Phase `10-03`, moving MQE/HyDE into the
+standalone retrieval policy layer and verifying the full standalone test suite.
 
-Progress: [░░░░░░░░░░] 0% of `v0.5` planned milestone executed
+Progress: [██████░░░░] 60% of `v0.5` planned milestone executed
 
 ## Performance Metrics
 
@@ -106,15 +108,15 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- define and plan Phase 8 for RAG core contract hardening
-- execute the RAG productionization milestone in phased slices
+- execute Phase `10-04` for rerank and token-budget-aware context packing
+- decide whether Phase 10 is ready for a standalone `llm-agent-rag` release cut
 - keep standalone `llm-agent-rag` and core `llm-agent/rag` compatibility in lockstep
 
 ### Blockers/Concerns
 
-No immediate implementation blocker, but the new milestone must preserve the
-zero-dependency core value while pushing RAG capability into the standalone
-module.
+No immediate implementation blocker. The standing constraint is still to
+preserve the zero-dependency core value while pushing retrieval capability into
+the standalone module first.
 
 ## Deferred Items
 
@@ -126,7 +128,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-13
-Stopped at: new milestone setup for RAG productionization; next action is
-planning the first active phase.
+Last session: 2026-05-14
+Stopped at: Phase `10-03` closeout; next action is executing `10-04` for
+rerank and context packing.
 Resume file: .planning/ROADMAP.md
