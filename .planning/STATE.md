@@ -140,19 +140,23 @@ Recent decisions affecting current work:
   `llm-agent-rag` master (`e112620..1679fcc`), `llm-agent` main
   (`28b3eb5..195e9f2`), `llm-agent-otel` branch
   `feat/otelrag-wrap-rag-system` (new branch, upstream tracked).
-- **Tag** a standalone post-v0.1.4 release (v0.2.x). This unblocks
-  the otel-branch cleanup below.
-- **otel branch cleanup** (blocked until standalone tag OR proxy
-  ingestion): the `feat/otelrag-wrap-rag-system` commit still
-  carries `replace ... => /tmp/llm-agent-rag`. Cleanup is a
-  4-step follow-up — `go get llm-agent-rag@<tag>`,
-  `go mod edit -dropreplace`, `go mod tidy`, new commit + push.
-  Attempted 2026-05-15 but blocked: `proxy.golang.org` had not yet
-  ingested the freshly-pushed master commits (resolved `@master`
-  to stale `v0.1.4`), and `GOPROXY=direct` needs HTTPS git auth
-  that can't be supplied without a git-config change. Retry once
-  the proxy refreshes (minutes-to-hours) or after the v0.2.x tag.
-  CI on the otel branch will be red until then — expected.
+- ~~Tag a standalone release~~ — **`v0.2.0` tagged + pushed
+  2026-05-15** at `llm-agent-rag` master `7f68e30` (annotated tag;
+  CHANGELOG.md updated). v0.2.0 closes the v0.5 milestone.
+- **otel branch cleanup** (still blocked — environment, not
+  decision): the `feat/otelrag-wrap-rag-system` commit still
+  carries `replace ... => /tmp/llm-agent-rag`. The 4-step finish
+  is `go get llm-agent-rag@v0.2.0`, `go mod edit -dropreplace`,
+  `go mod tidy`, new commit + push. Attempted again 2026-05-15
+  after the tag: `go get @v0.2.0` resolved the version, but
+  `go mod tidy`'s full graph walk still fell through to direct
+  VCS (`git ls-remote` over HTTPS needs auth) for transitive
+  go.mod reads — `proxy.golang.org` had not fully ingested the
+  brand-new tag. Working tree restored to the committed state
+  (replace intact, otelrag builds locally). Retry the 4-step
+  finish once the proxy has fully ingested `v0.2.0` (typically
+  within an hour of the tag push); it will then complete without
+  any git-config change. CI on the branch stays red until then.
 - Optional formal sign-off: `/gsd-audit-milestone` or
   `/gsd-verify-work`
 - Live-Postgres CI wiring (testcontainers-go or GH Actions services)
