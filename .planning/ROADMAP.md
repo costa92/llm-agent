@@ -90,7 +90,7 @@ section-aware indexing with safe update semantics.
 
 ### Phase 10: Retrieval policies, hybrid recall, and context packing
 
-**Status**: planned
+**Status**: in progress
 
 **Goal**: turn retrieval into a configurable policy pipeline with dense,
 lexical, hybrid, rerank, query-governance, and budget-aware prompt packing.
@@ -117,7 +117,7 @@ lexical, hybrid, rerank, query-governance, and budget-aware prompt packing.
 
 ### Phase 11: Structure-aware retrieval and explainability
 
-**Status**: planned
+**Status**: complete 2026-05-14
 
 **Goal**: add PageIndex-style section/path-aware retrieval and search
 trajectory output for long, hierarchical documents.
@@ -137,10 +137,26 @@ trajectory output for long, hierarchical documents.
 
 - `11-01` add document tree or section hierarchy primitives
 - `11-02` add structured retrieval path and lineage-rich results
+- `11-03` add explicit document tree primitives for future retrieval reuse
+- `11-04` activate tree-aware section expansion and explainable retrieval trace
+- `11-05` add explicit subtree route-path routing across retrieval modes
+- `11-06` add automatic section route selection on top of route-path execution
+- `11-07` add multi-candidate auto-route planning and query-variant aggregation
+- `11-08` add route-confidence groundwork and candidate evidence metadata
+- `11-09` add confidence-driven route selection and top-N multi-route fanout
+- `11-10` add route-policy rationale and selected-route trace visibility
+- `11-11` add confidence-gap adaptive fanout decision on top of route policy
+  (converge on a strong top-1, fan out when the top two routes are close)
+- `11-12` add per-route search-trajectory output so route-policy decisions
+  attribute hits, matched sections, and expansions per executed route
+- `11-13` extract the inline gap/fanout logic into a named `SectionPlanner`
+  interface with a default `GapAwareSectionPlanner` that preserves current
+  behavior bit-for-bit, so future planner strategies have a clean plug-in
+  point
 
 ### Phase 12: Persistence, tracing, and backend conformance
 
-**Status**: planned
+**Status**: complete 2026-05-15
 
 **Goal**: make the standalone SDK deployable beyond in-memory demos with at
 least one persistent backend and first-class tracing hooks.
@@ -158,13 +174,18 @@ least one persistent backend and first-class tracing hooks.
 
 **Planned work**:
 
-- `12-01` implement one persistent vector backend
-- `12-02` add backend conformance coverage and tracing hooks for import,
-  retrieve, pack, and ask
+- `12-01` add PostgreSQL + pgvector store implementation behind the
+  existing `store.Store` interface, with conformance test scaffolding
+  guarded behind a live-Postgres env var
+- `12-02` add a shared `store/storetest` conformance suite that all
+  `store.Store` implementations run against (in-memory always, postgres
+  env-gated)
+- `12-03` add tracing hooks for import, retrieve, pack, and ask so
+  RAG-OPS-02 is covered end-to-end
 
 ### Phase 13: Evaluation, feedback loop, and ecosystem contract
 
-**Status**: planned
+**Status**: complete 2026-05-15
 
 **Goal**: close the milestone with regression-ready evaluation assets,
 feedback-loop tooling, documentation, and CI contract gates across both repos.
@@ -185,8 +206,11 @@ feedback-loop tooling, documentation, and CI contract gates across both repos.
 
 - `13-01` add retrieval and grounding regression datasets plus CI gates
 - `13-02` document production deployment, backend selection, and compatibility
-  guidance
+  guidance (covers RAG-ECO-01)
 - `13-03` add online-to-offline feedback workflow for production misses
+  (covers RAG-OPS-03)
+- `13-04` add cross-repo contract-drift CI gates between standalone
+  `llm-agent-rag` and the core `llm-agent/rag` facade (covers RAG-ECO-02)
 
 ## Known Carry-forward Debt
 

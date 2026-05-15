@@ -5,23 +5,51 @@
 See: .planning/PROJECT.md (updated 2026-05-13)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** Phase 11 execution for structure-aware retrieval and
-explainability in `llm-agent-rag`
+**Current focus:** v0.5 milestone close-out. All 13 numbered phases
+are complete; remaining items are operational (CI plumbing, OTel
+sister-repo wiring, latent adapter triage).
 
 ## Current Position
 
-Phase: 11 — structure-aware retrieval and explainability — in progress
-Previous phase: 10 — retrieval policies, hybrid recall, and context packing — complete 2026-05-14
+Phase: 13 — evaluation, feedback loop, and ecosystem contract — complete 2026-05-15
+Previous phase: 12 — persistence, tracing, and backend conformance — complete 2026-05-15
 Plan: continue Phase 11 after the initial structure-aware slices that
-normalized section lineage, added structure-aware retrieval, and introduced an
-explicit document-tree model.
+normalized section lineage, added structure-aware retrieval, introduced an
+explicit document-tree model, and activated tree-aware section expansion in the
+standalone retriever. The newest slice adds explicit subtree route-path
+constraints across retrieval modes, plus automatic section route selection.
+The latest step extends this into multi-candidate auto-route planning.
+Route candidates now also carry confidence/evidence groundwork for later
+planner policy.
+The current slice turns that metadata into executable selection and fanout
+policy.
+The next step makes that route policy explainable through explicit rationale
+trace data.
+The next step turns rationale + confidence into an adaptive fanout decision:
+the planner now converges on a strong top-1 route and only fans out when the
+top two routes are close in confidence.
+The next step exposes per-route attribution through a `SearchTrajectory` of
+trajectory steps so downstream consumers can see exactly which route produced
+which hits without losing the converge/fanout decision context.
+The newest step extracts the inline fanout/converge decision into a
+`SectionPlanner` interface (default `GapAwareSectionPlanner`), giving future
+planner strategies a clean plug-in point while preserving today's behavior
+bit-for-bit.
 Status: milestone `v0.5` is active. Phases 8, 9, and 10 are complete, and
-Phase 11 now has plans `11-01`, `11-02`, and `11-03` executed in the
-standalone repo.
-Last activity: 2026-05-14 — added explicit document-tree primitives on top of
-the structure-aware chunk lineage and retrieval work in `llm-agent-rag`.
+Phase 11 now has plans `11-01`, `11-02`, `11-03`, `11-04`, and `11-05`
+executed in the standalone repo, with `11-06` and `11-07` extending
+automatic route planning behavior, `11-08` adding route-confidence
+groundwork, `11-09` adding executable route-policy behavior, `11-10`
+adding route-policy rationale trace output, `11-11` turning that
+groundwork into a confidence-gap adaptive fanout decision, `11-12`
+adding per-route search-trajectory output for end-to-end attribution,
+and `11-13` extracting the gap/fanout logic into a `SectionPlanner`
+seam.
+Last activity: 2026-05-14 — extracted the route-policy decision into a
+named `SectionPlanner` interface with `GapAwareSectionPlanner` as the
+default, preserving current behavior in `llm-agent-rag`.
 
-Progress: [████████████] 92% of `v0.5` planned milestone executed
+Progress: [██████████████] 100% of `v0.5` planned milestone executed (Phases 8-13 complete)
 
 ## Performance Metrics
 
@@ -108,7 +136,24 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- continue Phase 11 with tree-aware retrieval routing and richer search trajectory output
+- **Milestone close-out** (when ready): commit the accumulated
+  11-04 → 13-04 work across both repos, plus the operational
+  follow-ups (adapter fix, otelrag package); run
+  `/gsd-audit-milestone` or `/gsd-verify-work` if formal sign-off
+  is desired
+- ~~Triage: latent `adapter/llmagent` namespace-isolation test failure~~
+  — **fixed 2026-05-15**: `ragToolHandler` now generates a unique base
+  `doc-<seq>` ID per `add_text` call when caller omits ID, preventing
+  silent chunk-ID collision. `go test -tags llmagent ./...` is now
+  green
+- Live-Postgres CI wiring (testcontainers-go or GH Actions services)
+- ~~llm-agent-otel: wire up the new `rag.Observer{OnImport, OnRetrieve,
+  OnAsk}` from the sister repo~~ — **shipped 2026-05-15**: new
+  `otelrag` package wraps `*rag.System` with `Import/Retrieve/Ask`
+  spans, plus an `Observer(...)` helper that emits span events on the
+  active span. Uses a local `replace` directive pointing at
+  `/tmp/llm-agent-rag` until the standalone v0.5 tag ships. 4/4
+  otelrag tests pass; full `llm-agent-otel` suite green
 - keep standalone `llm-agent-rag` and core `llm-agent/rag` compatibility in lockstep
 
 ### Blockers/Concerns
@@ -127,7 +172,20 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-14
-Stopped at: Phase 11 initial structure-aware retrieval slice; next action is
-deeper document-tree modeling or Phase 12 depending on milestone priorities.
+Last session: 2026-05-15
+Stopped at: post-milestone operational follow-ups complete. Two
+shipped in sequence:
+1. **adapter/llmagent fix**: `ragToolHandler.add_text` now generates
+   a unique `doc-<seq>` base ID per caller-omitted call (atomic
+   counter), preventing chunk-ID collision.
+2. **otelrag sister-repo package**: new
+   `github.com/costa92/llm-agent-otel/otelrag` wraps `*rag.System`
+   with Import/Retrieve/Ask spans plus an `Observer(...)` helper for
+   event-style attribution. Uses a local `replace` directive
+   pointing at the working standalone checkout until v0.5 tags.
+   4/4 otelrag tests pass; full `llm-agent-otel` suite green.
+
+Remaining operational items: commit accumulated work across three
+repos, optional live-Postgres CI wiring, optional milestone
+sign-off via `/gsd-audit-milestone`.
 Resume file: .planning/ROADMAP.md
