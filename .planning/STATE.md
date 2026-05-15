@@ -143,20 +143,22 @@ Recent decisions affecting current work:
 - ~~Tag a standalone release~~ — **`v0.2.0` tagged + pushed
   2026-05-15** at `llm-agent-rag` master `7f68e30` (annotated tag;
   CHANGELOG.md updated). v0.2.0 closes the v0.5 milestone.
-- **otel branch cleanup** (still blocked — environment, not
-  decision): the `feat/otelrag-wrap-rag-system` commit still
-  carries `replace ... => /tmp/llm-agent-rag`. The 4-step finish
-  is `go get llm-agent-rag@v0.2.0`, `go mod edit -dropreplace`,
-  `go mod tidy`, new commit + push. Attempted again 2026-05-15
-  after the tag: `go get @v0.2.0` resolved the version, but
-  `go mod tidy`'s full graph walk still fell through to direct
-  VCS (`git ls-remote` over HTTPS needs auth) for transitive
-  go.mod reads — `proxy.golang.org` had not fully ingested the
-  brand-new tag. Working tree restored to the committed state
-  (replace intact, otelrag builds locally). Retry the 4-step
-  finish once the proxy has fully ingested `v0.2.0` (typically
-  within an hour of the tag push); it will then complete without
-  any git-config change. CI on the branch stays red until then.
+- **otel branch cleanup** (blocked by sandbox network — must be
+  finished in an environment with GitHub access): the
+  `feat/otelrag-wrap-rag-system` commit still carries
+  `replace ... => /tmp/llm-agent-rag`. Diagnosis after multiple
+  attempts on 2026-05-15: this sandbox can reach
+  `proxy.golang.org` (CDN) but cannot reach `github.com:443`
+  directly — `go mod tidy` times out after ~133s trying to
+  `git ls-remote` a transitive dependency the proxy does not
+  serve (pgvector-go pulls gorm/bun/ent/gonum as its own deps;
+  the proxy lacks part of that graph). Restored otel working
+  tree to the committed state (replace intact; otelrag builds
+  locally). **Finish on a machine with normal GitHub network**:
+  `go get github.com/costa92/llm-agent-rag@v0.2.0`,
+  `go mod edit -dropreplace github.com/costa92/llm-agent-rag`,
+  `go mod tidy && go test ./otelrag`, then new commit + push.
+  CI on the branch stays red until this lands — expected.
 - Optional formal sign-off: `/gsd-audit-milestone` or
   `/gsd-verify-work`
 - Live-Postgres CI wiring (testcontainers-go or GH Actions services)
