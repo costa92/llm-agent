@@ -143,22 +143,12 @@ Recent decisions affecting current work:
 - ~~Tag a standalone release~~ — **`v0.2.0` tagged + pushed
   2026-05-15** at `llm-agent-rag` master `7f68e30` (annotated tag;
   CHANGELOG.md updated). v0.2.0 closes the v0.5 milestone.
-- **otel branch cleanup** (blocked by sandbox network — must be
-  finished in an environment with GitHub access): the
-  `feat/otelrag-wrap-rag-system` commit still carries
-  `replace ... => /tmp/llm-agent-rag`. Diagnosis after multiple
-  attempts on 2026-05-15: this sandbox can reach
-  `proxy.golang.org` (CDN) but cannot reach `github.com:443`
-  directly — `go mod tidy` times out after ~133s trying to
-  `git ls-remote` a transitive dependency the proxy does not
-  serve (pgvector-go pulls gorm/bun/ent/gonum as its own deps;
-  the proxy lacks part of that graph). Restored otel working
-  tree to the committed state (replace intact; otelrag builds
-  locally). **Finish on a machine with normal GitHub network**:
-  `go get github.com/costa92/llm-agent-rag@v0.2.0`,
-  `go mod edit -dropreplace github.com/costa92/llm-agent-rag`,
-  `go mod tidy && go test ./otelrag`, then new commit + push.
-  CI on the branch stays red until this lands — expected.
+- ~~otel branch cleanup~~ — **finished 2026-05-15**:
+  `llm-agent-otel` branch `feat/otelrag-wrap-rag-system` now points
+  at `github.com/costa92/llm-agent-rag v0.2.0` with the local
+  `replace` directive removed. Verified with `go test ./...` in
+  `/tmp/llm-agent-otel`, then pushed as `40b0fce`
+  (`chore(otelrag): consume llm-agent-rag v0.2.0`).
 - Optional formal sign-off: `/gsd-audit-milestone` or
   `/gsd-verify-work`
 - Live-Postgres CI wiring (testcontainers-go or GH Actions services)
