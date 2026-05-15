@@ -136,11 +136,26 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- **Milestone close-out** (when ready): commit the accumulated
-  11-04 → 13-04 work across both repos, plus the operational
-  follow-ups (adapter fix, otelrag package); run
-  `/gsd-audit-milestone` or `/gsd-verify-work` if formal sign-off
-  is desired
+- ~~Push the 15 local commits~~ — **pushed 2026-05-15**:
+  `llm-agent-rag` master (`e112620..1679fcc`), `llm-agent` main
+  (`28b3eb5..195e9f2`), `llm-agent-otel` branch
+  `feat/otelrag-wrap-rag-system` (new branch, upstream tracked).
+- **Tag** a standalone post-v0.1.4 release (v0.2.x). This unblocks
+  the otel-branch cleanup below.
+- **otel branch cleanup** (blocked until standalone tag OR proxy
+  ingestion): the `feat/otelrag-wrap-rag-system` commit still
+  carries `replace ... => /tmp/llm-agent-rag`. Cleanup is a
+  4-step follow-up — `go get llm-agent-rag@<tag>`,
+  `go mod edit -dropreplace`, `go mod tidy`, new commit + push.
+  Attempted 2026-05-15 but blocked: `proxy.golang.org` had not yet
+  ingested the freshly-pushed master commits (resolved `@master`
+  to stale `v0.1.4`), and `GOPROXY=direct` needs HTTPS git auth
+  that can't be supplied without a git-config change. Retry once
+  the proxy refreshes (minutes-to-hours) or after the v0.2.x tag.
+  CI on the otel branch will be red until then — expected.
+- Optional formal sign-off: `/gsd-audit-milestone` or
+  `/gsd-verify-work`
+- Live-Postgres CI wiring (testcontainers-go or GH Actions services)
 - ~~Triage: latent `adapter/llmagent` namespace-isolation test failure~~
   — **fixed 2026-05-15**: `ragToolHandler` now generates a unique base
   `doc-<seq>` ID per `add_text` call when caller omits ID, preventing
