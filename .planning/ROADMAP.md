@@ -1,8 +1,9 @@
 # Roadmap: llm-agent
 
-**Last updated:** 2026-05-14
-**Current state:** `v0.4` deprecation-removal cycle complete
-**Active scope:** `v0.5` RAG productionization milestone
+**Last updated:** 2026-05-17
+**Current state:** `v0.6` retrieval-quality milestone — all six phases
+(14-19) executed; pending milestone-close (commit, tag, audit)
+**Active scope:** `v0.6` production-grade retrieval quality and safety
 
 ## Archived Milestones
 
@@ -12,210 +13,220 @@
   - Archive: `.planning/milestones/v0.3-ROADMAP.md`
   - Requirements archive: `.planning/milestones/v0.3-REQUIREMENTS.md`
   - Audit: `.planning/v0.3-MILESTONE-AUDIT.md`
+- [x] **v0.5: RAG productionization and standalone SDK evolution** — shipped
+  2026-05-15. Delivered structure-aware retrieval, a PostgreSQL + pgvector
+  backend with a shared conformance suite, tracing hooks, an evaluation
+  framework, a feedback loop, and cross-repo contract gates. `llm-agent-rag`
+  tagged `v0.2.0`.
+  - Archive: `.planning/milestones/v0.5-ROADMAP.md`
+  - Requirements archive: `.planning/milestones/v0.5-REQUIREMENTS.md`
 
-## Milestone v0.5: RAG productionization and standalone SDK evolution
+## Milestone v0.6: Production-grade retrieval quality and safety
 
-**Goal**: turn the extracted `llm-agent-rag` module from a reusable baseline
-into a production-oriented retrieval system while preserving a thin,
-zero-dependency compatibility facade in the core `llm-agent` repo.
+**Goal**: deepen the six retrieval-quality seams that v0.5 left thin —
+lexical/hybrid retrieval, reranking, evaluation, observability, content
+safety, and agentic retrieval — turning minimal interfaces into
+production-grade implementations. This is a quality milestone, not a
+packaging one: no new deployment surface.
 
-**Repos**: `llm-agent`, `llm-agent-rag`
+**Repos**: `llm-agent-rag` (primary), `llm-agent-otel` (RED metrics wiring),
+`llm-agent` (compatibility-facade lockstep)
 
 **Requirements in scope**:
 
-- `RAG-CORE-01..04`
-- `RAG-INGEST-01..03`
-- `RAG-RETRIEVE-01..04`
-- `RAG-STRUCT-01..02`
-- `RAG-OPS-01..03`
-- `RAG-ECO-01..02`
+- `RAG-RETR2-01..02`
+- `RAG-RERANK-01..02`
+- `RAG-EVAL2-01..02`
+- `RAG-OBS-01..02`
+- `RAG-SEC-01..02`
+- `RAG-AGENT-01..02`
 
 ## Active Forward Work
 
-### Phase 8: RAG core contract hardening
-
-**Status**: complete 2026-05-14
-
-**Goal**: harden the standalone/core RAG contract so metadata filters,
-security-trim semantics, citations, diagnostics, and provenance become
-first-class before larger retrieval changes land.
-
-**Depends on**:
-
-- standalone `llm-agent-rag v0.1.x` baseline exists
-- core repo already consumes the standalone module
-- `v0.4` release line is stable
-
-**Repos**: `llm-agent-rag`, `llm-agent`
-
-**Requirements covered**:
-
-- `RAG-CORE-01`
-- `RAG-CORE-02`
-- `RAG-CORE-03`
-- `RAG-CORE-04`
-
-**Planned work**:
-
-- `08-01` implement real metadata filtering in the default store
-- `08-02` add mandatory security filters and non-bypassable retrieval plumbing
-- `08-03` add citations, provenance, and retrieval trace structures to `Ask`
-- `08-04` align the core `rag/` compatibility facade and tool surface with the
-  richer standalone contract
-
-### Phase 9: Source-aware ingestion and index lifecycle
-
-**Status**: in progress
-
-**Goal**: move from flat chunk ingestion to source-aware, version-aware,
-section-aware indexing with safe update semantics.
-
-**Depends on**:
-
-- Phase 8
-
-**Repos**: `llm-agent-rag`
-
-**Requirements covered**:
-
-- `RAG-INGEST-01`
-- `RAG-INGEST-02`
-- `RAG-INGEST-03`
-
-**Planned work**:
-
-- `09-01` add source identity, version, checksum, and embedding-version fields
-- `09-02` add heading-aware markdown ingestion and section metadata
-- `09-03` define re-import, delete-by-source, and tombstone semantics
-
-### Phase 10: Retrieval policies, hybrid recall, and context packing
-
-**Status**: in progress
-
-**Goal**: turn retrieval into a configurable policy pipeline with dense,
-lexical, hybrid, rerank, query-governance, and budget-aware prompt packing.
-
-**Depends on**:
-
-- Phase 9
-
-**Repos**: `llm-agent-rag`, `llm-agent`
-
-**Requirements covered**:
-
-- `RAG-RETRIEVE-01`
-- `RAG-RETRIEVE-02`
-- `RAG-RETRIEVE-03`
-- `RAG-RETRIEVE-04`
-
-**Planned work**:
-
-- `10-01` add retrieval policy and query-preprocessor seams
-- `10-02` add lexical retrieval and hybrid fusion
-- `10-03` move MQE/HyDE into standalone reusable policy hooks
-- `10-04` add rerank plus token-budget-aware context packing
-
-### Phase 11: Structure-aware retrieval and explainability
-
-**Status**: complete 2026-05-14
-
-**Goal**: add PageIndex-style section/path-aware retrieval and search
-trajectory output for long, hierarchical documents.
-
-**Depends on**:
-
-- Phase 10
-
-**Repos**: `llm-agent-rag`
-
-**Requirements covered**:
-
-- `RAG-STRUCT-01`
-- `RAG-STRUCT-02`
-
-**Planned work**:
-
-- `11-01` add document tree or section hierarchy primitives
-- `11-02` add structured retrieval path and lineage-rich results
-- `11-03` add explicit document tree primitives for future retrieval reuse
-- `11-04` activate tree-aware section expansion and explainable retrieval trace
-- `11-05` add explicit subtree route-path routing across retrieval modes
-- `11-06` add automatic section route selection on top of route-path execution
-- `11-07` add multi-candidate auto-route planning and query-variant aggregation
-- `11-08` add route-confidence groundwork and candidate evidence metadata
-- `11-09` add confidence-driven route selection and top-N multi-route fanout
-- `11-10` add route-policy rationale and selected-route trace visibility
-- `11-11` add confidence-gap adaptive fanout decision on top of route policy
-  (converge on a strong top-1, fan out when the top two routes are close)
-- `11-12` add per-route search-trajectory output so route-policy decisions
-  attribute hits, matched sections, and expansions per executed route
-- `11-13` extract the inline gap/fanout logic into a named `SectionPlanner`
-  interface with a default `GapAwareSectionPlanner` that preserves current
-  behavior bit-for-bit, so future planner strategies have a clean plug-in
-  point
-
-### Phase 12: Persistence, tracing, and backend conformance
+### Phase 14: Lexical retrieval and principled hybrid fusion
 
 **Status**: complete 2026-05-15
 
-**Goal**: make the standalone SDK deployable beyond in-memory demos with at
-least one persistent backend and first-class tracing hooks.
+**Goal**: replace token-overlap lexical scoring with a real BM25 model and
+fuse dense/lexical/structure signals through a principled method with
+per-signal score attribution.
 
 **Depends on**:
 
-- Phase 10
+- v0.5 milestone complete (Phase 13)
 
 **Repos**: `llm-agent-rag`
 
 **Requirements covered**:
 
-- `RAG-OPS-01`
-- `RAG-OPS-02`
+- `RAG-RETR2-01`
+- `RAG-RETR2-02`
 
 **Planned work**:
 
-- `12-01` add PostgreSQL + pgvector store implementation behind the
-  existing `store.Store` interface, with conformance test scaffolding
-  guarded behind a live-Postgres env var
-- `12-02` add a shared `store/storetest` conformance suite that all
-  `store.Store` implementations run against (in-memory always, postgres
-  env-gated)
-- `12-03` add tracing hooks for import, retrieve, pack, and ask so
-  RAG-OPS-02 is covered end-to-end
+- `14-01` Okapi BM25 in-memory lexical retriever plus an optional
+  `store.LexicalSearcher` capability interface (covers RAG-RETR2-01)
+- `14-02` Postgres `tsvector`/`ts_rank_cd` lexical path implementing
+  `store.LexicalSearcher`, with an opt-in lexical conformance suite
+  (covers RAG-RETR2-01)
+- `14-03` configurable RRF constant plus per-signal fusion attribution in the
+  retrieval `Trace` (covers RAG-RETR2-02)
 
-### Phase 13: Evaluation, feedback loop, and ecosystem contract
+### Phase 15: Model-based reranking and rerank explainability
 
 **Status**: complete 2026-05-15
 
-**Goal**: close the milestone with regression-ready evaluation assets,
-feedback-loop tooling, documentation, and CI contract gates across both repos.
+**Goal**: add a model-based reranker behind the existing `rerank.Reranker`
+seam and make rerank decisions auditable through score/rank-delta trace data.
 
 **Depends on**:
 
-- Phases 8-12
+- Phase 14
 
-**Repos**: `llm-agent-rag`, `llm-agent`
+**Repos**: `llm-agent-rag`
 
 **Requirements covered**:
 
-- `RAG-OPS-03`
-- `RAG-ECO-01`
-- `RAG-ECO-02`
+- `RAG-RERANK-01`
+- `RAG-RERANK-02`
 
 **Planned work**:
 
-- `13-01` add retrieval and grounding regression datasets plus CI gates
-- `13-02` document production deployment, backend selection, and compatibility
-  guidance (covers RAG-ECO-01)
-- `13-03` add online-to-offline feedback workflow for production misses
-  (covers RAG-OPS-03)
-- `13-04` add cross-repo contract-drift CI gates between standalone
-  `llm-agent-rag` and the core `llm-agent/rag` facade (covers RAG-ECO-02)
+- `15-01` rerank explainability: `rerank.RerankScore` + `Trace.Scores`
+  (input/output score, rank, delta), surfaced through
+  `rag.Diagnostics.RerankScores` (covers RAG-RERANK-02)
+- `15-02` `rerank.ScoringModel` seam + `ModelReranker` + `HTTPScoringModel`
+  (`net/http` rerank-API client; no new dependency) (covers RAG-RERANK-01)
+
+### Phase 16: Generation-side evaluation and the RAG Triad
+
+**Status**: complete 2026-05-15
+
+**Goal**: complete the RAG Triad by adding generation-side evaluation —
+groundedness/faithfulness and answer-relevance via LLM-as-judge — and assemble
+retrieval + generation scores into one report.
+
+**Depends on**:
+
+- Phase 14
+- Phase 15
+
+**Repos**: `llm-agent-rag`
+
+**Requirements covered**:
+
+- `RAG-EVAL2-01`
+- `RAG-EVAL2-02`
+
+**Planned work**:
+
+- `16-01` `eval.Judge` seam (`JudgeRequest`/`Judgement`) + `LLMJudge`
+  LLM-as-judge over `generate.Model`, lenient JSON parsing (covers
+  RAG-EVAL2-01)
+- `16-02` `eval.TriadEvaluator` assembling retrieval + generation metrics
+  into a `TriadResult`, `WriteJSONL` report + `Summary`, and a RAG-Triad CI
+  gate (covers RAG-EVAL2-02)
+
+### Phase 17: Cost and latency observability
+
+**Status**: complete 2026-05-16
+
+**Goal**: instrument every import/retrieve/ask flow with token counts,
+per-stage durations, and call counts, and emit RED + cost metrics from the
+`otelrag` sister-repo wrapper.
+
+**Depends on**:
+
+- Phases 14-16
+
+**Repos**: `llm-agent-rag`, `llm-agent-otel`
+
+**Requirements covered**:
+
+- `RAG-OBS-01`
+- `RAG-OBS-02`
+
+**Planned work**:
+
+- `17-01` `obs` package (`Metrics`/`StageTiming`/`CallCounts`/`TokenUsage` +
+  context-scoped `Counter`); `countingEmbedder`/`countingModel` decorators;
+  per-stage durations + call counts into `Diagnostics`, `retrieve.Trace`,
+  `ImportResult`, `ImportTrace` (covers RAG-OBS-01 — measurement)
+- `17-02` `generate.Usage` on `generate.Response`; ask flow records token
+  cost into `obs.Metrics.Tokens` — reported usage or a `pack.TokenCounter`
+  estimate flagged `Estimated` (covers RAG-OBS-01 — tokens)
+- `17-03` `otelrag` RED + cost metrics: `MeterProvider` in `Config`, four
+  instruments on `Wrapper`, emitted per `Import`/`Retrieve`/`Ask`; verified
+  locally via `go.work` (covers RAG-OBS-02)
+
+**Cross-repo note**: `17-03` references RAG-SDK fields in the untagged
+`llm-agent-rag` working tree — verified locally via a temporary `go.work`;
+the `otelrag/go.mod` `require` bump waits on an `llm-agent-rag` re-tag at
+v0.6 close (the v0.5 pattern).
+
+### Phase 18: Content safety — PII redaction and injection defense
+
+**Status**: complete 2026-05-17
+
+**Goal**: add a content-safety layer — PII redaction on ingestion and a
+prompt-injection filter on retrieved content before prompt assembly.
+
+**Depends on**:
+
+- Phase 14
+
+**Repos**: `llm-agent-rag`
+
+**Requirements covered**:
+
+- `RAG-SEC-01`
+- `RAG-SEC-02`
+
+**Planned work**:
+
+- `18-01` `guard` package + PII redaction: `Redactor`/`PIIRedactor` with a
+  configurable rule set (`NewPIIRedactor`: email/phone/credit-card/SSN/
+  IPv4); wired into `Import` before chunking; per-kind `Redactions` on
+  `ImportResult`/`ImportTrace` (covers RAG-SEC-01)
+- `18-02` `guard` injection scanner: `InjectionScanner`/`PatternScanner` +
+  `SanitizeMode` (Neutralize/Drop) + `Neutralize`; wired into `Ask` before
+  prompt assembly; `InjectionFindings` on `Diagnostics` (covers RAG-SEC-02)
+
+### Phase 19: Agentic retrieval — decomposition and self-correction
+
+**Status**: complete 2026-05-17
+
+**Goal**: add agentic retrieval patterns — multi-hop query decomposition and a
+self-correcting retrieval loop driven by the grounding signal.
+
+**Depends on**:
+
+- Phase 16
+
+**Repos**: `llm-agent-rag`
+
+**Requirements covered**:
+
+- `RAG-AGENT-01`
+- `RAG-AGENT-02`
+
+**Planned work**:
+
+- `19-01` `retrieve.MultiHopRetriever` decorator + `QueryDecomposer`
+  (`HeuristicDecomposer`/`LLMDecomposer`): decompose a compound query into
+  sub-queries, retrieve per sub-query through the wrapped `Retriever`, merge
+  (dedup + `TopK`); `Trace.Hops` per-hop attribution (covers RAG-AGENT-01)
+- `19-02` new `agentic` package: `CorrectiveAsker` + `QueryReformulator`
+  (`LLMReformulator`) — judge groundedness via `eval.Judge`, reformulate and
+  retry under a bounded `MaxRetries` cap, return the best attempt (covers
+  RAG-AGENT-02)
 
 ## Known Carry-forward Debt
 
 - Formal verification artifacts are still uneven after Phase 0.
 - The refsvc demo remains intentionally demo-grade in observability fidelity
   and packaging.
-- The standalone RAG module is still at an early baseline with only in-memory
-  storage and thin retrieval diagnostics.
+- Deployment-layer surface for `llm-agent-rag` (HTTP service, CLI, caching) is
+  intentionally deferred past v0.6 — v0.6 is a retrieval-quality milestone.
+- Live-Postgres CI wiring (testcontainers-go or GH Actions services) is still
+  pending from v0.5.

@@ -15,10 +15,11 @@ The project now spans four coordinated repos plus a standalone RAG SDK:
   answer-generation primitives while the core repo preserves a compatibility
   facade.
 
-`v0.3` shipped and `v0.4` closed the deprecation-removal cycle. The next
-milestone is focused on turning the extracted RAG work into a production-ready,
-multi-repo capability without violating the zero-dependency contract of the
-core module.
+`v0.3` shipped, `v0.4` closed the deprecation-removal cycle, and `v0.5`
+turned the extracted RAG work into a production-oriented standalone SDK.
+The next milestone (`v0.6`) deepens RAG retrieval quality, evaluation,
+observability, and safety without violating the zero-dependency contract of
+the core module.
 
 ## Core Value
 
@@ -39,10 +40,13 @@ module stays readable, portable, and cheap to adopt.
 - As of 2026-05-14, the RAG code has been extracted into the standalone repo
   `llm-agent-rag`, released independently, and re-consumed from the core repo
   through module dependency instead of a vendored copy.
-- The active next step is not another compatibility cleanup. It is the
-  productionization of RAG contracts, retrieval policies, ingestion metadata,
-  persistence, and evaluation across the standalone SDK plus the core
-  compatibility facade.
+- `v0.5` shipped on 2026-05-15: structure-aware retrieval, a PostgreSQL +
+  pgvector backend with a shared conformance suite, tracing hooks, an
+  evaluation framework, a feedback loop, and cross-repo contract gates.
+  `llm-agent-rag` is tagged `v0.2.0`.
+- The active next step (`v0.6`) is a retrieval-quality milestone: deepen the
+  six seams v0.5 left thin — lexical/hybrid retrieval, reranking, evaluation,
+  observability, content safety, and agentic retrieval.
 
 ## Requirements
 
@@ -54,22 +58,27 @@ module stays readable, portable, and cheap to adopt.
 - ✓ Capability-preserving OTel wrappers exist in a sister repo.
 - ✓ A runnable customer-support demo service exists in a sister repo.
 
-### Active
+### Active (v0.6)
 
-- `RAG-CORE-01..04`: harden standalone/core RAG contract boundaries, filters,
-  diagnostics, and compatibility behavior.
-- `RAG-INGEST-01..03`: add source-aware ingestion metadata, hierarchy-aware
-  chunking, and safe update semantics.
-- `RAG-RETRIEVE-01..04`: add retrieval policy, hybrid retrieval, reusable
-  MQE/HyDE, rerank, and context packing.
-- `RAG-STRUCT-01..02`: support section-aware retrieval and explainable
-  structure lineage.
-- `RAG-OPS-01..03`: add persistent backend(s), tracing/eval hooks, and
-  feedback-driven regression coverage.
-- `RAG-ECO-01..02`: document and test the standalone/core multi-repo contract.
+- `RAG-RETR2-01..02`: real BM25 lexical retrieval and principled hybrid fusion
+  with per-signal score attribution.
+- `RAG-RERANK-01..02`: a model-based reranker behind the existing seam, plus
+  rerank-decision explainability in the trace.
+- `RAG-EVAL2-01..02`: generation-side LLM-as-judge evaluation completing the
+  RAG Triad, assembled into a combined report.
+- `RAG-OBS-01..02`: cost/latency instrumentation in `Trace`/`Diagnostics` and
+  RED metrics emitted from `otelrag`.
+- `RAG-SEC-01..02`: PII redaction on ingestion and prompt-injection defense on
+  retrieved content.
+- `RAG-AGENT-01..02`: multi-hop query decomposition and a self-correcting
+  retrieval loop.
 
 ### Out of Scope
 
+- HTTP service layer, CLI, and caching for `llm-agent-rag` are deferred past
+  v0.6 — v0.6 is a retrieval-quality milestone, not a packaging one.
+- GraphRAG / relationship traversal is deferred past v0.6.
+- PDF/OCR ingestion is out of scope for v0.6.
 - Kubernetes packaging is still out of scope until a future milestone plans it
   explicitly.
 - Multimodal/vision support is still out of scope.
@@ -77,25 +86,28 @@ module stays readable, portable, and cheap to adopt.
 - Moving provider or vector-store dependencies into the core `llm-agent` repo
   remains out of scope because it would violate the zero-dependency core value.
 
-## Next Milestone Goals
+## Next Milestone Goals (v0.6)
 
-- Turn RAG into a production-oriented, standalone capability while preserving a
-  thin compatibility facade in the core repo.
-- Add retrieval-policy layering:
-  dense, lexical, hybrid, and structure-aware retrieval.
-- Add source-aware ingestion, prompt packing, diagnostics, evaluation, and at
-  least one persistent backend.
-- Raise milestone quality with first-class tracing, regression fixtures, and
-  stronger cross-repo compatibility gates.
+- Replace token-overlap lexical scoring with real BM25 and fuse retrieval
+  signals through a principled method.
+- Add a model-based reranker behind the existing seam, with auditable rerank
+  decisions.
+- Complete the RAG Triad with generation-side LLM-as-judge evaluation.
+- Instrument cost/latency end-to-end and emit RED metrics from `otelrag`.
+- Add a content-safety layer: PII redaction and prompt-injection defense.
+- Add agentic retrieval: query decomposition and self-correcting retrieval.
 
 ## Known Tech Debt
 
 - Formal `*-VERIFICATION.md` coverage is uneven after Phase 0.
 - The refsvc observability demo is intentionally demo-grade rather than
   production-billing-grade.
-- The extracted RAG SDK is still at a `v0.1` baseline:
-  in-memory store only, minimal chunking, thin diagnostics, and no
-  production-grade retrieval pipeline yet.
+- `llm-agent-rag` lexical retrieval is still token-overlap scoring, not BM25;
+  reranking is heuristic-only; evaluation covers the retrieval side but not
+  generation; there is no cost/latency instrumentation or content-safety
+  layer. v0.6 closes these gaps.
+- Live-Postgres CI wiring (testcontainers-go or GH Actions services) is still
+  pending from v0.5.
 
 ## Operational Follow-ups
 
@@ -128,6 +140,16 @@ module stays readable, portable, and cheap to adopt.
 - 2026-05-14: the next active milestone is RAG productionization rather than
   another core-API transition; the main architectural constraint is preserving
   the zero-dependency core while expanding retrieval capability externally.
+- 2026-05-15: `v0.5` shipped (`llm-agent-rag v0.2.0`). The `v0.6` milestone
+  was scoped after a gap analysis against the Awesome-RAG-Production taxonomy.
+  The operator explicitly chose to deepen the six 🟡 Partial seams — retrieval,
+  reranking, evaluation, observability, security, agentic — over building the
+  ❌ Missing deployment layer (HTTP service, CLI, caching). v0.6 is therefore a
+  retrieval-quality milestone; deployment-layer surface is deferred.
+- 2026-05-15: new non-stdlib deps needed by v0.6 (e.g. a rerank-model HTTP
+  client) are permitted in `llm-agent-rag` but must follow the `postgres`
+  subpackage pattern — isolated behind a subpackage/build tag so the core SDK
+  stays publishable. The stdlib-only rule remains absolute for core `llm-agent`.
 
 ## Archived Milestone Definition
 

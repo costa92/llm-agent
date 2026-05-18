@@ -1,121 +1,106 @@
-# Requirements: v0.5 RAG productionization
+# Requirements: v0.6 Production-grade retrieval quality and safety
 
-**Defined:** 2026-05-14
+**Defined:** 2026-05-15
 **Core Value:** the core `llm-agent` module stays stdlib-only and zero-dep
-while RAG grows into a reusable, production-oriented capability through the
-standalone `llm-agent-rag` module and a thin compatibility facade in the core
-repo
+while `llm-agent-rag` deepens its retrieval, reranking, evaluation,
+observability, safety, and agentic seams from minimal interfaces into
+production-grade implementations.
 
-## v0.5 Requirements
+## Milestone Scope
 
-### Core Retrieval Contract
+v0.6 does **not** add new deployment-layer surface (HTTP service, CLI,
+caching are deferred). It hardens the six seams that v0.5 left as thin or
+partial: real lexical/hybrid retrieval, model-based reranking, generation-side
+evaluation, cost/latency observability, content safety, and agentic retrieval.
 
-- [ ] **RAG-CORE-01**: `llm-agent-rag` supports real metadata filtering in the
-      default store, including namespace-aware search and stable provenance in
-      retrieval results.
-- [ ] **RAG-CORE-02**: retrieval distinguishes optional caller filters from
-      mandatory security filters so access-control trimming cannot be bypassed
-      by application code.
-- [ ] **RAG-CORE-03**: the standalone `Ask` path returns machine-readable
-      citations, diagnostics, and trace data rather than only free-form text.
-- [ ] **RAG-CORE-04**: the `llm-agent/rag` compatibility facade preserves the
-      historical API shape while delegating to the richer standalone core.
+Reference: the v0.6 gap analysis against
+[Awesome-RAG-Production](https://github.com/Enes830/Awesome-RAG-Production)
+classified these six areas as 🟡 Partial — seams exist, implementations are
+weak. Each area becomes one phase.
 
-### Ingestion and Indexing
+## v0.6 Requirements
 
-- [ ] **RAG-INGEST-01**: the standalone SDK supports source-aware ingestion
-      metadata including source ID, document version, checksum, and embedding
-      model version.
-- [ ] **RAG-INGEST-02**: markdown hierarchy is preserved through heading-aware
-      chunking and section metadata suitable for structure-aware retrieval.
-- [ ] **RAG-INGEST-03**: the import pipeline defines safe update semantics for
-      re-import, delete-by-source, and tombstone handling.
+### Retrieval quality
 
-### Retrieval Policies
+- [x] **RAG-RETR2-01**: lexical retrieval uses a real BM25 ranking model in the
+      in-memory path and a `tsvector`/`ts_rank` lexical path in `postgres.Store`,
+      replacing the current token-overlap scoring.
+- [x] **RAG-RETR2-02**: hybrid retrieval fuses dense, lexical, and structure
+      signals through a principled method (reciprocal rank fusion / normalized
+      score fusion) with per-signal score attribution exposed in the trace.
 
-- [ ] **RAG-RETRIEVE-01**: the standalone SDK exposes a first-class retrieval
-      policy layer that can run dense-only, lexical-only, or hybrid retrieval.
-- [ ] **RAG-RETRIEVE-02**: MQE and HyDE move into reusable standalone policy
-      hooks instead of living only in the core compatibility wrapper.
-- [ ] **RAG-RETRIEVE-03**: retrieval supports traceable query preprocessing,
-      including rewrite/classification/decomposition hooks.
-- [ ] **RAG-RETRIEVE-04**: a default rerank and context-packing path exists so
-      final prompt assembly is token-budget-aware and explainable.
+### Reranking
 
-### Structure-Aware RAG
+- [x] **RAG-RERANK-01**: a model-based reranker implements the existing
+      `rerank.Reranker` interface by calling an external cross-encoder/rerank
+      model, isolated behind a subpackage/build tag like `postgres`.
+- [x] **RAG-RERANK-02**: rerank decisions are auditable — pre/post-rerank
+      scores and rank deltas are surfaced in `Diagnostics` / retrieval trace.
 
-- [ ] **RAG-STRUCT-01**: the SDK supports hierarchical document or section
-      metadata sufficient for PageIndex-style structured retrieval.
-- [ ] **RAG-STRUCT-02**: retrieval can return section/path lineage and search
-      trajectory, not only flat chunk IDs.
+### Evaluation
 
-### Persistence and Operations
+- [x] **RAG-EVAL2-01**: a `Judge` interface supports LLM-as-judge scoring of
+      groundedness/faithfulness and answer-relevance, completing the RAG Triad
+      alongside the existing retrieval metrics.
+- [x] **RAG-EVAL2-02**: retrieval and generation scores are assembled into a
+      single evaluation report (JSONL + summary) wired into the `eval` package
+      and the existing CI regression gate.
 
-- [ ] **RAG-OPS-01**: at least one persistent vector backend is supported by
-      the standalone SDK with conformance coverage against the core store
-      contract.
-- [ ] **RAG-OPS-02**: tracing and evaluation hooks exist for import, retrieve,
-      pack, and ask flows.
-- [ ] **RAG-OPS-03**: production failures can be captured as regression cases
-      and fed back into retrieval evaluation.
+### Observability
 
-### Ecosystem and Documentation
+- [x] **RAG-OBS-01**: token counts, per-stage durations, and embedding/
+      generation call counts are recorded in `Trace` / `Diagnostics` for every
+      import, retrieve, and ask flow.
+- [x] **RAG-OBS-02**: the `otelrag` sister-repo wrapper emits rate/error/
+      duration plus cost metrics derived from those fields.
 
-- [ ] **RAG-ECO-01**: the standalone repo documents production deployment
-      guidance, backend choices, and compatibility expectations with the core
-      `llm-agent` facade.
-- [ ] **RAG-ECO-02**: both repos ship tests and CI gates that prevent contract
-      drift between standalone RAG and the core compatibility layer.
+### Content safety
 
-## v0.6+ Requirements
+- [x] **RAG-SEC-01**: a `guard` package redacts PII from ingested content
+      before chunking/embedding, with configurable entity rules.
+- [x] **RAG-SEC-02**: retrieved chunks pass an injection-pattern filter before
+      prompt assembly; untrusted content is neutralized or dropped fail-safe.
 
-### Advanced and Future Work
+### Agentic retrieval
 
-- **RAG-FUTURE-01**: live or federated retrieval across non-indexed sources
-  without requiring full ingestion.
-- **RAG-FUTURE-02**: multimodal or OCR-native RAG flows.
-- **RAG-FUTURE-03**: enterprise IAM integrations beyond metadata-based
-  security trimming.
-- **RAG-FUTURE-04**: distributed ingestion workers and hosted service control
-  plane.
+- [x] **RAG-AGENT-01**: a multi-hop `Retriever` decorator decomposes compound
+      queries into sub-queries and merges their sub-retrievals.
+- [x] **RAG-AGENT-02**: a self-correcting retrieval loop detects low grounding
+      (using the Phase 16 grounding signal) and re-retrieves with reformulated
+      queries up to a bounded retry cap.
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Embedding providers inside core `llm-agent` | Violates the zero-dependency core value; keep provider deps opt-in |
-| Full OCR/PDF extraction stack in the first wave | Too much infra and parser complexity for the first productionization milestone |
-| Hosted UI or SaaS control plane | Not required to prove the SDK and compatibility architecture |
-| Kubernetes packaging for RAG infrastructure | Operationally useful, but downstream from store contracts and retrieval quality |
+| HTTP service layer / CLI for `llm-agent-rag` | Deployment-layer work; deferred to a later milestone — v0.6 is a quality milestone, not a packaging one |
+| Embedding / retrieval caching | Useful, but downstream of getting retrieval quality and instrumentation right first |
+| GraphRAG / relationship traversal | Large architectural addition; defer past v0.6 |
+| PDF/OCR ingestion stack | Ingestion robustness is not in the six chosen areas |
+| Embedding or vector-store deps in core `llm-agent` | Violates the zero-dependency core value |
+| Kubernetes packaging | Still out of scope until a future milestone plans it explicitly |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RAG-CORE-01 | Phase 8 | Pending |
-| RAG-CORE-02 | Phase 8 | Pending |
-| RAG-CORE-03 | Phase 8 | Pending |
-| RAG-CORE-04 | Phase 8 | Pending |
-| RAG-INGEST-01 | Phase 9 | Pending |
-| RAG-INGEST-02 | Phase 9 | Pending |
-| RAG-INGEST-03 | Phase 9 | Pending |
-| RAG-RETRIEVE-01 | Phase 10 | Complete |
-| RAG-RETRIEVE-02 | Phase 10 | Complete |
-| RAG-RETRIEVE-03 | Phase 10 | Complete |
-| RAG-RETRIEVE-04 | Phase 10 | Complete |
-| RAG-STRUCT-01 | Phase 11 | In Progress |
-| RAG-STRUCT-02 | Phase 11 | In Progress |
-| RAG-OPS-01 | Phase 12 | Pending |
-| RAG-OPS-02 | Phase 12 | Pending |
-| RAG-OPS-03 | Phase 13 | Pending |
-| RAG-ECO-01 | Phase 13 | Pending |
-| RAG-ECO-02 | Phase 13 | Pending |
+| RAG-RETR2-01 | Phase 14 | Delivered |
+| RAG-RETR2-02 | Phase 14 | Delivered |
+| RAG-RERANK-01 | Phase 15 | Delivered |
+| RAG-RERANK-02 | Phase 15 | Delivered |
+| RAG-EVAL2-01 | Phase 16 | Delivered |
+| RAG-EVAL2-02 | Phase 16 | Delivered |
+| RAG-OBS-01 | Phase 17 | Delivered |
+| RAG-OBS-02 | Phase 17 | Delivered |
+| RAG-SEC-01 | Phase 18 | Delivered |
+| RAG-SEC-02 | Phase 18 | Delivered |
+| RAG-AGENT-01 | Phase 19 | Delivered |
+| RAG-AGENT-02 | Phase 19 | Delivered |
 
 **Coverage:**
-- v0.5 requirements: 18 total
-- Mapped to phases: 18
+- v0.6 requirements: 12 total
+- Mapped to phases: 12
 - Unmapped: 0
 
 ---
-*Requirements defined: 2026-05-14*
-*Last updated: 2026-05-14 after opening the v0.5 RAG productionization milestone*
+*Requirements defined: 2026-05-15 after opening the v0.6 retrieval-quality milestone*
