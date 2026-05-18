@@ -15,11 +15,11 @@ The project now spans four coordinated repos plus a standalone RAG SDK:
   answer-generation primitives while the core repo preserves a compatibility
   facade.
 
-`v0.3` shipped, `v0.4` closed the deprecation-removal cycle, and `v0.5`
-turned the extracted RAG work into a production-oriented standalone SDK.
-The next milestone (`v0.6`) deepens RAG retrieval quality, evaluation,
-observability, and safety without violating the zero-dependency contract of
-the core module.
+`v0.3` shipped, `v0.4` closed the deprecation-removal cycle, `v0.5` turned
+the extracted RAG work into a production-oriented standalone SDK, and `v0.6`
+deepened RAG retrieval quality, reranking, evaluation, observability, and
+safety — all without violating the zero-dependency contract of the core
+module.
 
 ## Core Value
 
@@ -44,9 +44,15 @@ module stays readable, portable, and cheap to adopt.
   pgvector backend with a shared conformance suite, tracing hooks, an
   evaluation framework, a feedback loop, and cross-repo contract gates.
   `llm-agent-rag` is tagged `v0.2.0`.
-- The active next step (`v0.6`) is a retrieval-quality milestone: deepen the
-  six seams v0.5 left thin — lexical/hybrid retrieval, reranking, evaluation,
-  observability, content safety, and agentic retrieval.
+- `v0.6` shipped on 2026-05-18: the six retrieval-quality seams v0.5 left
+  thin are now production-grade — BM25 lexical retrieval + principled RRF
+  fusion, model-based reranking with explainability, the generation-side
+  RAG Triad, cost/latency observability, content safety (PII redaction +
+  injection defense), and agentic retrieval. `llm-agent-rag` is tagged
+  `v0.3.0`; 12/12 requirements delivered (audit
+  `.planning/v0.6-MILESTONE-AUDIT.md`).
+- No milestone is currently active — run `/gsd-new-milestone` to scope the
+  next one.
 
 ## Requirements
 
@@ -57,21 +63,18 @@ module stays readable, portable, and cheap to adopt.
 - ✓ Three real provider adapters exist in sister repos.
 - ✓ Capability-preserving OTel wrappers exist in a sister repo.
 - ✓ A runnable customer-support demo service exists in a sister repo.
+- ✓ `llm-agent-rag` (`v0.3.0`) has production-grade retrieval: real BM25
+  lexical retrieval + principled RRF fusion with per-signal attribution,
+  a model-based reranker behind the existing seam with rerank
+  explainability, the generation-side RAG Triad (LLM-as-judge), cost/
+  latency observability with `otelrag` RED metrics, content safety (PII
+  redaction + prompt-injection defense), and agentic retrieval (multi-hop
+  decomposition + self-correcting loop).
 
-### Active (v0.6)
+### Active
 
-- `RAG-RETR2-01..02`: real BM25 lexical retrieval and principled hybrid fusion
-  with per-signal score attribution.
-- `RAG-RERANK-01..02`: a model-based reranker behind the existing seam, plus
-  rerank-decision explainability in the trace.
-- `RAG-EVAL2-01..02`: generation-side LLM-as-judge evaluation completing the
-  RAG Triad, assembled into a combined report.
-- `RAG-OBS-01..02`: cost/latency instrumentation in `Trace`/`Diagnostics` and
-  RED metrics emitted from `otelrag`.
-- `RAG-SEC-01..02`: PII redaction on ingestion and prompt-injection defense on
-  retrieved content.
-- `RAG-AGENT-01..02`: multi-hop query decomposition and a self-correcting
-  retrieval loop.
+None — `v0.6` shipped and no milestone is currently active. Run
+`/gsd-new-milestone` to scope the next one.
 
 ### Out of Scope
 
@@ -86,28 +89,27 @@ module stays readable, portable, and cheap to adopt.
 - Moving provider or vector-store dependencies into the core `llm-agent` repo
   remains out of scope because it would violate the zero-dependency core value.
 
-## Next Milestone Goals (v0.6)
+## Next Milestone
 
-- Replace token-overlap lexical scoring with real BM25 and fuse retrieval
-  signals through a principled method.
-- Add a model-based reranker behind the existing seam, with auditable rerank
-  decisions.
-- Complete the RAG Triad with generation-side LLM-as-judge evaluation.
-- Instrument cost/latency end-to-end and emit RED metrics from `otelrag`.
-- Add a content-safety layer: PII redaction and prompt-injection defense.
-- Add agentic retrieval: query decomposition and self-correcting retrieval.
+No milestone is currently active. Scope the next one with
+`/gsd-new-milestone`. Areas surfaced but deliberately deferred during v0.6:
+the `llm-agent-rag` deployment layer (HTTP service, CLI, caching), GraphRAG
+/ relationship traversal, and PDF/OCR ingestion.
 
 ## Known Tech Debt
 
 - Formal `*-VERIFICATION.md` coverage is uneven after Phase 0.
 - The refsvc observability demo is intentionally demo-grade rather than
   production-billing-grade.
-- `llm-agent-rag` lexical retrieval is still token-overlap scoring, not BM25;
-  reranking is heuristic-only; evaluation covers the retrieval side but not
-  generation; there is no cost/latency instrumentation or content-safety
-  layer. v0.6 closes these gaps.
+- `llm-agent-otel`'s `require github.com/costa92/llm-agent-rag` is still
+  pinned to `v0.2.0`; the bump to `v0.3.0` (so `otelrag` builds against the
+  v0.6 RAG SDK without a `go.work`) is pending — see `.planning/STATE.md`
+  Blockers.
 - Live-Postgres CI wiring (testcontainers-go or GH Actions services) is still
-  pending from v0.5.
+  pending from v0.5; the Phase 14 Postgres `tsvector` lexical path remains
+  unverified against a live database.
+- Regex-based content safety (`guard`) is best-effort — it catches known PII
+  and injection patterns, not novel/obfuscated ones.
 
 ## Operational Follow-ups
 
@@ -150,6 +152,12 @@ module stays readable, portable, and cheap to adopt.
   client) are permitted in `llm-agent-rag` but must follow the `postgres`
   subpackage pattern — isolated behind a subpackage/build tag so the core SDK
   stays publishable. The stdlib-only rule remains absolute for core `llm-agent`.
+- 2026-05-18: `v0.6` shipped — `llm-agent-rag` tagged `v0.3.0`, milestone
+  audit PASS (12/12 requirements). In the event, v0.6 needed **no** new
+  dependency at all: every new capability (BM25, RRF, rerank HTTP client,
+  LLM-as-judge, `obs` metrics, `guard` safety, agentic retrieval) was built
+  on the stdlib plus existing seams — the `postgres` subpackage remains the
+  SDK's only non-stdlib island.
 
 ## Archived Milestone Definition
 
@@ -168,5 +176,28 @@ Archive references:
 - Roadmap: `.planning/milestones/v0.3-ROADMAP.md`
 - Requirements: `.planning/milestones/v0.3-REQUIREMENTS.md`
 - Audit: `.planning/v0.3-MILESTONE-AUDIT.md`
+
+</details>
+
+<details>
+<summary>v0.6 milestone snapshot</summary>
+
+`v0.6` was the "production-grade retrieval quality and safety" milestone —
+six phases (14-19), one per retrieval-quality seam v0.5 left thin:
+
+- Phase 14 — BM25 lexical retrieval + principled RRF fusion
+- Phase 15 — model-based reranking + rerank explainability
+- Phase 16 — generation-side evaluation (the RAG Triad)
+- Phase 17 — cost/latency observability + `otelrag` RED metrics
+- Phase 18 — content safety: PII redaction + injection defense
+- Phase 19 — agentic retrieval: decomposition + self-correction
+
+Shipped 2026-05-18; `llm-agent-rag` tagged `v0.3.0`; no new dependency.
+
+Archive references:
+
+- Roadmap: `.planning/milestones/v0.6-ROADMAP.md`
+- Requirements: `.planning/milestones/v0.6-REQUIREMENTS.md`
+- Audit: `.planning/v0.6-MILESTONE-AUDIT.md`
 
 </details>
