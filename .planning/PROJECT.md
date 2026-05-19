@@ -16,10 +16,12 @@ The project now spans four coordinated repos plus a standalone RAG SDK:
   facade.
 
 `v0.3` shipped, `v0.4` closed the deprecation-removal cycle, `v0.5` turned
-the extracted RAG work into a production-oriented standalone SDK, and `v0.6`
+the extracted RAG work into a production-oriented standalone SDK, `v0.6`
 deepened RAG retrieval quality, reranking, evaluation, observability, and
-safety — all without violating the zero-dependency contract of the core
-module.
+safety, and `v0.7` added Tier-1 GraphRAG — knowledge-graph construction and
+relationship-traversal retrieval — to `llm-agent-rag`, all without violating
+the zero-dependency contract of the core module. The project is currently
+**between milestones**; the next milestone is not yet scoped.
 
 ## Core Value
 
@@ -51,8 +53,15 @@ module stays readable, portable, and cheap to adopt.
   injection defense), and agentic retrieval. `llm-agent-rag` is tagged
   `v0.3.0`; 12/12 requirements delivered (audit
   `.planning/v0.6-MILESTONE-AUDIT.md`).
-- No milestone is currently active — run `/gsd-new-milestone` to scope the
-  next one.
+- `v0.7` shipped on 2026-05-19: Tier-1 GraphRAG for `llm-agent-rag` —
+  knowledge-graph construction (`graph` package, dual-mode extraction), a
+  `store.GraphStore` optional capability (in-memory + `postgres`
+  recursive-CTE) with re-ingest reconciliation, and a `GraphRetriever`
+  fused as a fourth RRF signal. `llm-agent-rag` is tagged `v0.4.0`; 6/6
+  requirements delivered (audit `.planning/v0.7-MILESTONE-AUDIT.md`); no
+  new dependency, no graph database.
+- The project is now between milestones; the next milestone is not yet
+  scoped.
 
 ## Requirements
 
@@ -70,18 +79,27 @@ module stays readable, portable, and cheap to adopt.
   latency observability with `otelrag` RED metrics, content safety (PII
   redaction + prompt-injection defense), and agentic retrieval (multi-hop
   decomposition + self-correcting loop).
+- ✓ `llm-agent-rag` (`v0.4.0`) has Tier-1 GraphRAG: a `graph` package with
+  dual-mode (LLM + deterministic) entity/relation extraction and
+  exact-match canonicalization, a `store.GraphStore` optional capability
+  (stdlib in-memory + `postgres` recursive-CTE) with hard-bounded traversal
+  and re-ingest reconciliation, and a `retrieve.GraphRetriever` fused as a
+  fourth RRF signal — no graph database, no new dependency.
 
 ### Active
 
-None — `v0.6` shipped and no milestone is currently active. Run
-`/gsd-new-milestone` to scope the next one.
+None — the project is between milestones. v0.7 GraphRAG is shipped and
+archived; the next milestone is not yet scoped.
 
 ### Out of Scope
 
-- HTTP service layer, CLI, and caching for `llm-agent-rag` are deferred past
-  v0.6 — v0.6 is a retrieval-quality milestone, not a packaging one.
-- GraphRAG / relationship traversal is deferred past v0.6.
-- PDF/OCR ingestion is out of scope for v0.6.
+- Microsoft-GraphRAG community detection, community summaries, and global /
+  DRIFT search are deferred to v0.8 — v0.7 is Tier-1 (LightRAG-end) GraphRAG.
+- A dedicated graph database (Neo4j etc.) — `GraphStore` stays an interface
+  so a graph-DB impl can be added later; v0.7 uses recursive-CTE traversal.
+- Embedding-similarity fuzzy entity resolution is deferred to v0.8.
+- HTTP service layer, CLI, and caching for `llm-agent-rag` remain deferred.
+- PDF/OCR ingestion is out of scope.
 - Kubernetes packaging is still out of scope until a future milestone plans it
   explicitly.
 - Multimodal/vision support is still out of scope.
@@ -89,25 +107,33 @@ None — `v0.6` shipped and no milestone is currently active. Run
 - Moving provider or vector-store dependencies into the core `llm-agent` repo
   remains out of scope because it would violate the zero-dependency core value.
 
-## Next Milestone
+## Active Milestone Goals
 
-No milestone is currently active. Scope the next one with
-`/gsd-new-milestone`. Areas surfaced but deliberately deferred during v0.6:
-the `llm-agent-rag` deployment layer (HTTP service, CLI, caching), GraphRAG
-/ relationship traversal, and PDF/OCR ingestion.
+None — the project is between milestones. v0.7 GraphRAG shipped 2026-05-19
+(`llm-agent-rag v0.4.0`).
+
+Candidate next directions (not yet scoped):
+
+- **v0.8 GraphRAG Tier-3** — Microsoft-GraphRAG community detection,
+  community summaries, map-reduce global / DRIFT search, and fuzzy /
+  embedding-similarity entity resolution (deferred from v0.7 by keystone
+  KG-1 / KG-6).
+- the `llm-agent-rag` **deployment layer** — HTTP service, CLI, caching —
+  deferred since v0.6.
+- **live-Postgres CI wiring** — carried-forward infra debt.
+- PDF/OCR ingestion remains out of scope until a milestone plans it.
 
 ## Known Tech Debt
 
 - Formal `*-VERIFICATION.md` coverage is uneven after Phase 0.
 - The refsvc observability demo is intentionally demo-grade rather than
   production-billing-grade.
-- `llm-agent-otel`'s `require github.com/costa92/llm-agent-rag` is still
-  pinned to `v0.2.0`; the bump to `v0.3.0` (so `otelrag` builds against the
-  v0.6 RAG SDK without a `go.work`) is pending — see `.planning/STATE.md`
-  Blockers.
 - Live-Postgres CI wiring (testcontainers-go or GH Actions services) is still
-  pending from v0.5; the Phase 14 Postgres `tsvector` lexical path remains
-  unverified against a live database.
+  pending from v0.5; the Phase 14 Postgres `tsvector` lexical path and the
+  Phase 21 `postgres` graph path (`entities`/`relations` tables,
+  recursive-CTE traversal) remain unverified against a live database.
+- Entity canonicalization (v0.7) is deterministic exact-match only; fuzzy /
+  embedding-similarity entity resolution is deferred to v0.8.
 - Regex-based content safety (`guard`) is best-effort — it catches known PII
   and injection patterns, not novel/obfuscated ones.
 
@@ -158,6 +184,23 @@ the `llm-agent-rag` deployment layer (HTTP service, CLI, caching), GraphRAG
   LLM-as-judge, `obs` metrics, `guard` safety, agentic retrieval) was built
   on the stdlib plus existing seams — the `postgres` subpackage remains the
   SDK's only non-stdlib island.
+- 2026-05-18: `v0.7` opened — GraphRAG for `llm-agent-rag`, scoped from
+  `.planning/research/v0.7-graphrag-SUMMARY.md`. Keystone calls (KG-1..KG-7):
+  v0.7 targets **Tier-1 lightweight GraphRAG** (LightRAG-end: entity/relation
+  extraction + neighborhood-traversal retrieval) — community detection and
+  global search are v0.8. The graph is a `store.GraphStore` **optional
+  capability** (mirroring `store.LexicalSearcher`): a stdlib in-memory impl
+  plus a `postgres` recursive-CTE impl — **no graph database**, so the
+  milestone again adds no new module dependency. Extraction is dual-mode
+  (LLM + deterministic); graph retrieval fuses as a fourth RRF signal and
+  never replaces dense/lexical; traversal is hard-bounded (depth ≤ 2).
+- 2026-05-19: `v0.7` shipped — `llm-agent-rag` tagged `v0.4.0`, milestone
+  audit PASS (6/6 requirements). As with v0.6, v0.7 needed **no** new
+  dependency: the `graph` package, `store.GraphStore` (in-memory +
+  `postgres` recursive-CTE), and `retrieve.GraphRetriever` were all built
+  on the stdlib plus existing seams — no graph database. The KG-1..KG-7
+  keystone calls held in the delivered code; the `postgres` graph path is
+  env-gated and joins the carried-forward live-DB verification debt.
 
 ## Archived Milestone Definition
 
@@ -199,5 +242,31 @@ Archive references:
 - Roadmap: `.planning/milestones/v0.6-ROADMAP.md`
 - Requirements: `.planning/milestones/v0.6-REQUIREMENTS.md`
 - Audit: `.planning/v0.6-MILESTONE-AUDIT.md`
+
+</details>
+
+<details>
+<summary>v0.7 milestone snapshot</summary>
+
+`v0.7` was the "GraphRAG — relationship-traversal retrieval" milestone —
+three phases (20-22) adding Tier-1 lightweight GraphRAG to `llm-agent-rag`:
+
+- Phase 20 — knowledge-graph construction: the `graph` package, dual-mode
+  (LLM + deterministic) entity/relation extraction, exact-match
+  canonicalization
+- Phase 21 — graph storage: the `store.GraphStore` optional capability
+  (stdlib in-memory + `postgres` recursive-CTE), hard-bounded traversal,
+  re-ingest reconciliation
+- Phase 22 — graph-traversal retrieval: `GraphRetriever` fused as a fourth
+  RRF signal, graph-on/off eval A/B
+
+Shipped 2026-05-19; `llm-agent-rag` tagged `v0.4.0`; no new dependency, no
+graph database.
+
+Archive references:
+
+- Roadmap: `.planning/milestones/v0.7-ROADMAP.md`
+- Requirements: `.planning/milestones/v0.7-REQUIREMENTS.md`
+- Audit: `.planning/v0.7-MILESTONE-AUDIT.md`
 
 </details>
