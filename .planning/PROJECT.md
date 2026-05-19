@@ -22,8 +22,11 @@ safety, `v0.7` added Tier-1 GraphRAG — knowledge-graph construction and
 relationship-traversal retrieval — to `llm-agent-rag`, and `v0.8` extended
 that to Tier-3: hierarchical community detection, lazy community summaries,
 map-reduce global search, and fuzzy entity resolution, and `v0.9` refined
-it with DRIFT hybrid search and path-ranked subgraph evidence. The project
-is currently **between milestones**; the next milestone is not yet scoped.
+it with DRIFT hybrid search and path-ranked subgraph evidence. The active
+`v1.0` stabilized the `llm-agent-rag` public API and committed it to a
+Go-module compatibility promise — a quality milestone, no new features.
+The project is currently **between milestones**; the next milestone is not
+yet scoped.
 
 ## Core Value
 
@@ -77,6 +80,18 @@ module stays readable, portable, and cheap to adopt.
   tagged `v0.6.0`; 4/4 requirements delivered (audit
   `.planning/v0.9-MILESTONE-AUDIT.md`); no new dependency, no graph
   database. Incremental community maintenance is deferred to v1.0+.
+- `v1.0` shipped on 2026-05-21: API stabilization for `llm-agent-rag` —
+  a written exported-surface audit and the pre-freeze breaking renames
+  (`eval.Evaluator`→`RetrievalEvaluator`, `eval.Result`→`RetrievalResult`;
+  the `ragkit` root repurposed as a documented doc-anchor); full package +
+  exported-symbol doc-comment coverage and a written `docs/compatibility.md`
+  Go-module compatibility promise; a pure-stdlib `internal/apisnapshot`
+  exported-surface gate (`api/v1.snapshot.txt` + a `go test`
+  regeneration-diff) plus a `-tags llmagent` CI step. `llm-agent-rag` is
+  tagged `v1.0.0`; 6/6 requirements delivered (audit
+  `.planning/v1.0-MILESTONE-AUDIT.md`); no new dependency, no behavior
+  change. Scope was `llm-agent-rag` only — the core module and sister
+  repos stay on their own version tracks.
 - The project is now between milestones; the next milestone is not yet
   scoped.
 
@@ -118,8 +133,9 @@ module stays readable, portable, and cheap to adopt.
 
 ### Active
 
-None — the project is between milestones. v0.9 GraphRAG refinements is
-shipped and archived; the next milestone is not yet scoped.
+None — the project is between milestones. v1.0 API stabilization is
+shipped and archived (`.planning/milestones/v1.0-ROADMAP.md`); the next
+milestone has not been scoped.
 
 ### Out of Scope
 
@@ -133,29 +149,20 @@ shipped and archived; the next milestone is not yet scoped.
 - Kubernetes packaging is still out of scope until a future milestone plans it
   explicitly.
 - Multimodal/vision support is still out of scope.
-- A v1.0 stability promise is still out of scope pending real-world feedback.
 - Moving provider or vector-store dependencies into the core `llm-agent` repo
   remains out of scope because it would violate the zero-dependency core value.
 
 ## Active Milestone Goals
 
-None — the project is between milestones. v0.9 GraphRAG refinements shipped
-2026-05-20 (`llm-agent-rag v0.6.0`). After v0.9 the SDK spans the full
-practical GraphRAG spectrum: lightweight local (v0.7), path-ranked local
-(v0.9), community global (v0.8), and DRIFT hybrid (v0.9).
-
-Candidate next directions (not yet scoped):
-
-- **incremental community maintenance** — update only the communities a
-  re-ingest perturbs (deferred from v0.9 by keystone KG4-5; revisit if
-  profiling shows `Detect` dominating re-ingest).
-- the `llm-agent-rag` **deployment layer** — HTTP service, CLI, caching —
-  deferred since v0.6.
-- **live-Postgres CI wiring** — carried-forward infra debt.
-- a **v1.0** stability pass to lock the public API.
-
-Still deferred: PDF/OCR ingestion, claim/covariate extraction, a dedicated
-graph database.
+None — the project is between milestones. v1.0 API stabilization shipped
+2026-05-21 (`llm-agent-rag v1.0.0`, audit PASS 6/6): the exported surface
+is audited, frozen, fully documented, and protected by a stdlib
+API-snapshot gate; `docs/compatibility.md` records the Go-module
+compatibility promise. The next milestone has not been scoped — candidate
+directions are listed in `.planning/ROADMAP.md` "Active Forward Work".
+Still deferred: the `llm-agent-rag` deployment layer (HTTP service, CLI,
+caching), incremental community maintenance, PDF/OCR ingestion,
+claim/covariate extraction, a dedicated graph database.
 
 ## Known Tech Debt
 
@@ -274,6 +281,18 @@ graph database.
   answer path (`rag.System.AskDrift`) orchestrating `AskGlobal` + the local
   `GraphRetriever`, with a hard round cap; path ranking is a deterministic
   pure-stdlib opt-in mode on `GraphRetriever`. No new dependency.
+- 2026-05-20: `v1.0` opened — API stabilization for `llm-agent-rag`, scoped
+  from `.planning/research/v1.0-api-stabilization-SUMMARY.md`. A quality
+  milestone, not a feature one. Keystone calls (KS-1..KS-8): scope is
+  `llm-agent-rag` v1.0.0 **only** (the core module + sister repos stay on
+  their own tracks; the `contract` package is the cross-repo seam); v1.0 is
+  a **freeze** — the only code changes are pre-freeze naming fixes
+  (`eval.Evaluator`→`RetrievalEvaluator`, the `ragkit` doc-anchor comment),
+  doc comments, and a stdlib API-snapshot gate; a written
+  `docs/compatibility.md` states the Go import-compatibility promise; no
+  new dependency. The audit found a clean codebase — no `TODO`/`replace`/
+  dead code — so "cleanup" is light and the risk is *inventing* refactor
+  work, which v1.0 explicitly resists.
 
 ## Archived Milestone Definition
 
@@ -394,5 +413,39 @@ Archive references:
 - Roadmap: `.planning/milestones/v0.8-ROADMAP.md`
 - Requirements: `.planning/milestones/v0.8-REQUIREMENTS.md`
 - Audit: `.planning/v0.8-MILESTONE-AUDIT.md`
+
+</details>
+
+<details>
+<summary>v1.0 milestone snapshot</summary>
+
+`v1.0` was the "API stabilization and the compatibility promise"
+milestone — three phases (28-30), a quality milestone freezing the
+`llm-agent-rag` public API (no new features):
+
+- Phase 28 — API audit & pre-freeze decisions: the written
+  exported-surface inventory (`docs/api-audit-v1.0.md`), the ratified
+  breaking renames (`eval.Evaluator`→`RetrievalEvaluator`,
+  `eval.Result`→`RetrievalResult`), the `ragkit` root repurposed as a
+  documented doc-anchor, stale-README corrections
+- Phase 29 — documentation completeness & the compatibility policy: a
+  package comment on every package, a name-prefixed comment on every
+  exported symbol, the repo made `gofmt`-clean, the written
+  `docs/compatibility.md` Go-module compatibility promise
+- Phase 30 — API-stability gate, freeze & the tag: the pure-stdlib
+  `internal/apisnapshot` exported-surface gate (`api/v1.snapshot.txt` +
+  a `go test` regeneration-diff), the `-tags llmagent` CI step, the
+  `CHANGELOG.md` `[v1.0.0]` entry
+
+Shipped 2026-05-21; `llm-agent-rag` tagged `v1.0.0`; 6/6 requirements
+delivered (audit PASS); no new dependency, no behavior change. Scope was
+`llm-agent-rag` only — the core module and sister repos stay on their own
+version tracks.
+
+Archive references:
+
+- Roadmap: `.planning/milestones/v1.0-ROADMAP.md`
+- Requirements: `.planning/milestones/v1.0-REQUIREMENTS.md`
+- Audit: `.planning/v1.0-MILESTONE-AUDIT.md`
 
 </details>
