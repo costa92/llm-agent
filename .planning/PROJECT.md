@@ -21,8 +21,9 @@ deepened RAG retrieval quality, reranking, evaluation, observability, and
 safety, `v0.7` added Tier-1 GraphRAG — knowledge-graph construction and
 relationship-traversal retrieval — to `llm-agent-rag`, and `v0.8` extended
 that to Tier-3: hierarchical community detection, lazy community summaries,
-map-reduce global search, and fuzzy entity resolution. The project is
-currently **between milestones**; the next milestone is not yet scoped.
+map-reduce global search, and fuzzy entity resolution, and `v0.9` refined
+it with DRIFT hybrid search and path-ranked subgraph evidence. The project
+is currently **between milestones**; the next milestone is not yet scoped.
 
 ## Core Value
 
@@ -69,6 +70,13 @@ module stays readable, portable, and cheap to adopt.
   `llm-agent-rag` is tagged `v0.5.0`; 6/6 requirements delivered (audit
   `.planning/v0.8-MILESTONE-AUDIT.md`); no new dependency, no graph
   database.
+- `v0.9` shipped on 2026-05-20: GraphRAG refinements for `llm-agent-rag` —
+  path-ranked subgraph evidence (a deterministic stdlib `graph.PathRanker`
+  + an opt-in `GraphRetriever` mode) and DRIFT hybrid search
+  (`rag.System.AskDrift` + `eval.DriftEvaluator`). `llm-agent-rag` is
+  tagged `v0.6.0`; 4/4 requirements delivered (audit
+  `.planning/v0.9-MILESTONE-AUDIT.md`); no new dependency, no graph
+  database. Incremental community maintenance is deferred to v1.0+.
 - The project is now between milestones; the next milestone is not yet
   scoped.
 
@@ -101,16 +109,22 @@ module stays readable, portable, and cheap to adopt.
   global-search answer path, and an opt-in `EmbeddingEntityResolver`
   fuzzy-merge pre-pass — no graph database, no new dependency.
 
+- ✓ `llm-agent-rag` (`v0.6.0`) has the GraphRAG refinements: deterministic
+  pure-stdlib path ranking (`graph.PathRanker` + an opt-in
+  `retrieve.GraphRetriever` path mode with structured
+  subgraph-as-evidence), and DRIFT hybrid search (`rag.System.AskDrift` — a
+  global primer + bounded local loop + synthesis — with
+  `eval.DriftEvaluator`) — no graph database, no new dependency.
+
 ### Active
 
-None — the project is between milestones. v0.8 GraphRAG Tier-3 is shipped
-and archived; the next milestone is not yet scoped.
+None — the project is between milestones. v0.9 GraphRAG refinements is
+shipped and archived; the next milestone is not yet scoped.
 
 ### Out of Scope
 
-- DRIFT search, incremental community maintenance, and path-ranking /
-  subgraph-as-evidence are deferred to v0.9 — v0.8 shipped the rest of
-  Tier-3 GraphRAG.
+- Incremental community maintenance is deferred to v1.0+ — v0.8's full
+  re-detection on re-ingest is correct and fast at SDK scale.
 - A dedicated graph database (Neo4j etc.) — `GraphStore`/`CommunityStore`
   stay interfaces so a graph-DB impl can be added later; the SDK uses
   recursive-CTE traversal and in-Go community detection.
@@ -125,19 +139,23 @@ and archived; the next milestone is not yet scoped.
 
 ## Active Milestone Goals
 
-None — the project is between milestones. v0.8 GraphRAG Tier-3 shipped
-2026-05-20 (`llm-agent-rag v0.5.0`).
+None — the project is between milestones. v0.9 GraphRAG refinements shipped
+2026-05-20 (`llm-agent-rag v0.6.0`). After v0.9 the SDK spans the full
+practical GraphRAG spectrum: lightweight local (v0.7), path-ranked local
+(v0.9), community global (v0.8), and DRIFT hybrid (v0.9).
 
 Candidate next directions (not yet scoped):
 
-- **v0.9 GraphRAG refinements** — DRIFT search (global primer → local
-  follow-up loop), incremental community maintenance (vs v0.8's full
-  re-detection), path-ranking / subgraph-as-evidence (deferred from v0.8
-  by keystone KG3-1).
+- **incremental community maintenance** — update only the communities a
+  re-ingest perturbs (deferred from v0.9 by keystone KG4-5; revisit if
+  profiling shows `Detect` dominating re-ingest).
 - the `llm-agent-rag` **deployment layer** — HTTP service, CLI, caching —
   deferred since v0.6.
 - **live-Postgres CI wiring** — carried-forward infra debt.
-- PDF/OCR ingestion remains out of scope until a milestone plans it.
+- a **v1.0** stability pass to lock the public API.
+
+Still deferred: PDF/OCR ingestion, claim/covariate extraction, a dedicated
+graph database.
 
 ## Known Tech Debt
 
@@ -229,6 +247,15 @@ Candidate next directions (not yet scoped):
   `Retriever`, and never passes through rerank/pack; fuzzy entity resolution
   is an **opt-in pre-pass** before `Canonicalize` (`NoopEntityResolver`
   default). DRIFT search is deferred to v0.9.
+- 2026-05-20: `v0.9` shipped — `llm-agent-rag` tagged `v0.6.0`, milestone
+  audit PASS (4/4 requirements). As with v0.6/v0.7/v0.8, v0.9 needed **no**
+  new dependency: path ranking is a stdlib graph computation over the
+  existing `Subgraph`; DRIFT (`rag.System.AskDrift`) is orchestration over
+  `AskGlobal`'s helpers + direct graph traversal + `generate.Model`. The
+  KG4-1..KG4-7 keystone calls held; incremental community maintenance was
+  deferred again to v1.0+ (KG4-5) — v0.8's full re-detection is correct and
+  fast at SDK scale. After v0.9 the SDK spans the full practical GraphRAG
+  spectrum (lightweight/path-ranked local, community global, DRIFT hybrid).
 - 2026-05-20: `v0.8` shipped — `llm-agent-rag` tagged `v0.5.0`, milestone
   audit PASS (6/6 requirements). As with v0.6 and v0.7, v0.8 needed **no**
   new dependency: community detection is pure stdlib (a deterministic
@@ -237,6 +264,16 @@ Candidate next directions (not yet scoped):
   KG3-1..KG3-8 keystone calls held in the delivered code; the `postgres`
   `_communities`/`_community_reports` paths are env-gated and join the
   carried-forward live-DB verification debt.
+- 2026-05-20: `v0.9` opened — GraphRAG refinements for `llm-agent-rag`,
+  scoped from `.planning/research/v0.9-graphrag-refinements-SUMMARY.md`.
+  Keystone calls (KG4-1..KG4-7): v0.9 ships **two** of v0.8's three
+  deferrals — DRIFT hybrid search and path-ranking / subgraph-as-evidence —
+  and **defers incremental community maintenance again** (v0.8's full
+  re-detection is correct and fast at SDK scale; incremental Louvain is a
+  large subtle second algorithm solving a non-problem). DRIFT is a third
+  answer path (`rag.System.AskDrift`) orchestrating `AskGlobal` + the local
+  `GraphRetriever`, with a hard round cap; path ranking is a deterministic
+  pure-stdlib opt-in mode on `GraphRetriever`. No new dependency.
 
 ## Archived Milestone Definition
 
@@ -304,6 +341,32 @@ Archive references:
 - Roadmap: `.planning/milestones/v0.7-ROADMAP.md`
 - Requirements: `.planning/milestones/v0.7-REQUIREMENTS.md`
 - Audit: `.planning/v0.7-MILESTONE-AUDIT.md`
+
+</details>
+
+<details>
+<summary>v0.8 + v0.9 milestone snapshots</summary>
+
+`v0.8` was the "GraphRAG Tier-3" milestone — three phases (23-25):
+community detection (stdlib Louvain `CommunityDetector` + `store.CommunityStore`),
+lazy community summaries, the `rag.System.AskGlobal` map-reduce
+global-search path, and the opt-in `EmbeddingEntityResolver` fuzzy-merge
+pre-pass. Shipped 2026-05-20; `llm-agent-rag` tagged `v0.5.0`.
+
+`v0.9` was the "GraphRAG refinements" milestone — two phases (26-27):
+path-ranked subgraph evidence (`graph.PathRanker` + an opt-in
+`GraphRetriever` mode) and DRIFT hybrid search (`rag.System.AskDrift` +
+`eval.DriftEvaluator`). Shipped 2026-05-20; `llm-agent-rag` tagged
+`v0.6.0`. Both milestones added no new dependency and no graph database.
+
+Archive references:
+
+- Roadmaps: `.planning/milestones/v0.8-ROADMAP.md`,
+  `.planning/milestones/v0.9-ROADMAP.md`
+- Requirements: `.planning/milestones/v0.8-REQUIREMENTS.md`,
+  `.planning/milestones/v0.9-REQUIREMENTS.md`
+- Audits: `.planning/v0.8-MILESTONE-AUDIT.md`,
+  `.planning/v0.9-MILESTONE-AUDIT.md`
 
 </details>
 

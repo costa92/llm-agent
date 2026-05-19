@@ -1,8 +1,8 @@
 # Roadmap: llm-agent
 
 **Last updated:** 2026-05-20
-**Current state:** between milestones — `v0.8` GraphRAG Tier-3 shipped
-(`llm-agent-rag v0.5.0`, audit PASS); next milestone not yet scoped
+**Current state:** between milestones — `v0.9` GraphRAG refinements shipped
+(`llm-agent-rag v0.6.0`, audit PASS); next milestone not yet scoped
 **Active scope:** none — awaiting next-milestone definition
 
 ## Archived Milestones
@@ -49,19 +49,30 @@
   - Archive: `.planning/milestones/v0.8-ROADMAP.md`
   - Requirements archive: `.planning/milestones/v0.8-REQUIREMENTS.md`
   - Audit: `.planning/v0.8-MILESTONE-AUDIT.md`
+- [x] **v0.9: GraphRAG refinements — DRIFT search and path-ranking** —
+  shipped 2026-05-20. Two phases (26-27): path-ranked subgraph evidence (a
+  deterministic stdlib `graph.PathRanker` + an opt-in `GraphRetriever`
+  mode) and DRIFT hybrid search (`rag.System.AskDrift` — a global primer +
+  bounded local follow-up loop + synthesis — plus `eval.DriftEvaluator`).
+  `llm-agent-rag` tagged `v0.6.0`; no new dependency, no graph database.
+  - Archive: `.planning/milestones/v0.9-ROADMAP.md`
+  - Requirements archive: `.planning/milestones/v0.9-REQUIREMENTS.md`
+  - Audit: `.planning/v0.9-MILESTONE-AUDIT.md`
 
 ## Active Forward Work
 
-None — `v0.8` is closed and archived. The next milestone has not been
+None — `v0.9` is closed and archived. The next milestone has not been
 scoped. Candidate directions carried forward:
 
-- **v0.9 GraphRAG refinements** — DRIFT search (global primer → local
-  follow-up loop), incremental community maintenance (vs v0.8's full
-  re-detection), and path-ranking / subgraph-as-evidence output. Explicitly
-  deferred from v0.8 (keystone KG3-1).
-- **`llm-agent-rag` deployment layer** — the HTTP service, CLI, and caching
-  surface deferred since v0.6.
+- **Incremental community maintenance** — update only the communities a
+  re-ingest perturbs, instead of v0.8's full per-namespace re-detection.
+  Deferred from v0.9 (keystone KG4-5); revisit if profiling shows
+  `Detect` dominating re-ingest on a real corpus.
+- **The `llm-agent-rag` deployment layer** — the HTTP service, CLI, and
+  caching surface deferred since v0.6.
 - **Live-Postgres CI wiring** — carried-forward infra debt (see below).
+- A **v1.0** stability pass — the SDK now spans the full practical GraphRAG
+  spectrum; a v1.0 could lock the public API.
 
 ## Known Carry-forward Debt
 
@@ -70,6 +81,8 @@ scoped. Candidate directions carried forward:
   Phase 21 `postgres` graph path, and the Phase 23-24 `postgres`
   `_communities`/`_community_reports` paths all need verification against a
   live database.
+- Incremental community maintenance is deferred (KG4-5) — v0.8's full
+  re-detection on re-ingest stays until profiling shows it a bottleneck.
 - Regex-based content safety (`guard`, v0.6) is best-effort — known
   patterns, not novel/obfuscated ones.
 - `EmbeddingEntityResolver` (v0.8) has documented false-positive risk; it

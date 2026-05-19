@@ -1,133 +1,107 @@
-# Requirements: v0.8 GraphRAG Tier-3 — communities, global search, fuzzy resolution
+# Requirements: v0.9 GraphRAG refinements — DRIFT search and path-ranking
 
-**Defined:** 2026-05-19
-**Shipped:** 2026-05-20 — `llm-agent-rag` tagged `v0.5.0`; milestone audit
-PASS, 6/6 requirements (`.planning/v0.8-MILESTONE-AUDIT.md`).
+**Defined:** 2026-05-20
+**Shipped:** 2026-05-20 — `llm-agent-rag` tagged `v0.6.0`; milestone audit
+PASS, 4/4 requirements (`.planning/v0.9-MILESTONE-AUDIT.md`).
 **Core Value:** the core `llm-agent` module stays stdlib-only and zero-dep;
-`llm-agent-rag` extends its v0.7 GraphRAG with hierarchical community
-detection, lazy community summaries, a map-reduce global-search answer
-path, and embedding-similarity fuzzy entity resolution — all additive,
-with no graph database and no new module dependency.
+`llm-agent-rag` refines its GraphRAG stack with DRIFT hybrid search and
+path-ranked subgraph evidence — both additive, with no graph database and
+no new module dependency.
 
 ## Milestone Scope
 
-v0.8 delivers the **Tier-3 GraphRAG** capabilities v0.7 explicitly deferred
-(v0.7 keystone calls KG-1 and KG-6). Building on the shipped v0.7 stack —
-the `graph` package, the `store.GraphStore` optional capability, and
-`retrieve.GraphRetriever` — v0.8 adds:
+v0.9 delivers two of the three GraphRAG refinements v0.8 named on its
+deferral list (v0.8 keystone KG3-1). Building on the shipped v0.7 Tier-1
+graph and v0.8 Tier-3 communities/global search:
 
-- **hierarchical community detection** — deterministic stdlib clustering of
-  the canonicalized entity graph into a nested community hierarchy;
-- **lazy community summaries** — LLM-written "community reports" generated
-  at query time and cached (LazyGraphRAG model), with eager pre-warming as
-  an opt-in;
-- **map-reduce global search** — a `rag.System.AskGlobal` answer path for
-  whole-corpus "sense-making" questions, distinct from chunk retrieval;
-- **fuzzy entity resolution** — an opt-in embedding-similarity pre-pass that
-  merges near-duplicate entities before `Canonicalize`.
+- **path-ranking / subgraph-as-evidence** — beyond v0.7's proximity-decay
+  node scoring, rank multi-hop *paths* between linked entities
+  deterministically and surface a structured subgraph as evidence;
+- **DRIFT search** — a third answer path that runs a global "primer" pass
+  for broad orientation, then a bounded local follow-up loop that drills
+  into the entities the primer surfaced, then synthesizes.
 
-The milestone is **additive**: no existing seam changes shape. New `graph`
-types (`Community`, `CommunityReport`), new seams (`CommunityDetector`,
-`CommunitySummarizer`, `EntityResolver`), community persistence behind the
-graph-store capability, and a new `rag.System.AskGlobal` method. v0.7's
-`GraphRetriever` and `HybridRetriever` are untouched.
+**Incremental community maintenance** — the third v0.8 deferral — is
+**deferred again** (KG4-5): v0.8's full re-detection on re-ingest is
+correct and fast at this SDK's scale; incremental Louvain is a large,
+subtle second algorithm solving a performance problem the SDK does not
+have. It is documented with an explicit profiling trigger for a later
+milestone.
 
-Reference: `.planning/research/v0.8-graphrag-tier3-SUMMARY.md` — the
-GraphRAG Tier-3 domain research and the KG3-1..KG3-8 keystone decisions
-this milestone ratifies.
+The milestone is **additive**: no existing seam changes shape. A new
+`rag.System.AskDrift` answer method, new path-ranking types in `graph`, an
+opt-in path mode on `retrieve.GraphRetriever`, and a DRIFT eval harness.
+`AskGlobal`, `GraphRetriever`, `GraphStore`, `CommunityStore`, and
+`LouvainDetector` are untouched.
 
-## v0.8 Requirements
+Reference: `.planning/research/v0.9-graphrag-refinements-SUMMARY.md` — the
+domain research and the KG4-1..KG4-7 keystone decisions this milestone
+ratifies.
 
-### Community detection and persistence
+## v0.9 Requirements
 
-- [x] **RAG-GRAPH3-01**: the `graph` package gains a `Community` type and a
-      `CommunityDetector` seam; a pure-stdlib **Louvain** detector produces a
-      deterministic community hierarchy (sorted iteration, deterministic
-      tie-breaks, no randomness, native hierarchy via coarsening passes),
-      unit-tested with golden output. A `LabelPropagationDetector`
-      alternative ships behind the same seam (dual-mode, mirroring v0.7's
-      extractor pair). No LLM, no embedder, no new dependency.
-- [x] **RAG-GRAPH3-02**: community persistence sits behind the graph-store
-      capability (additive `GraphStore` methods or a sibling `CommunityStore`
-      capability — a plan-time call) — a pure-stdlib in-memory implementation
-      and a `postgres` implementation (`_communities` table in the existing
-      `Migrate()`); a shared conformance suite covers both. Community
-      detection runs in Go regardless of store and is wired into `Import` as
-      a post-`Canonicalize` stage; counts surface on `ImportResult`, and a
-      graph-changing `ReplaceSource` re-ingest re-detects communities for
-      that namespace.
+### Path-ranking and subgraph-as-evidence
 
-### Community summaries and global search
+- [x] **RAG-GRAPH4-01**: the `graph` package gains a `RankedPath` type and a
+      `PathRanker` seam; a pure-stdlib deterministic path ranker enumerates
+      simple multi-hop paths within a `Subgraph` (bounded DFS, depth cap 2)
+      and scores them by a composite of path length, `Relation.Weight`, and
+      provenance overlap, with a total tie-break on the path's entity-ID
+      sequence — golden-output unit-tested. No LLM, no new dependency.
+- [x] **RAG-GRAPH4-02**: `retrieve.GraphRetriever` gains an opt-in path
+      mode (an injectable `PathRanker`); `retrieve.GraphTrace` gains
+      additive `Paths` and `EvidenceSubgraph` fields surfaced through
+      `rag.Diagnostics`. `GraphRetriever.Retrieve`'s signature, chunk-hit
+      output, and RRF-fusion behavior — and all v0.7/v0.8 tests — are
+      byte-identical when path mode is off. A deterministic worked example
+      and docs ship.
 
-- [x] **RAG-GRAPH3-03**: the `graph` package gains a `CommunityReport` type
-      and a `CommunitySummarizer` seam; an `LLMCommunitySummarizer` over
-      `generate.Model` writes a community report with lenient parsing,
-      unit-tested against a scripted model (including malformed output).
-      Reports are generated **lazily** and held in a cache keyed by a
-      deterministic content hash of the community's membership; the cache is
-      persisted via the `postgres` `_community_reports` table when a
-      community-capable store is present, in-memory otherwise.
-- [x] **RAG-GRAPH3-04**: `rag.System.AskGlobal` answers whole-corpus
-      questions by map-reduce over community reports — community selection →
-      per-community map (partial answer + helpfulness score) → reduce
-      (synthesis). It does **not** implement `retrieve.Retriever` and does
-      **not** pass through `HybridRetriever`/rerank/pack; `Ask` is unchanged.
-      A global-search block surfaces in `Diagnostics` (communities consulted,
-      map scores, map/reduce token counts). An opt-in
-      `PrewarmCommunityReports` fills the cache eagerly. Scripted-model
-      tested on a fixed graph.
+### DRIFT search
 
-### Fuzzy resolution and evaluation
-
-- [x] **RAG-GRAPH3-05**: the `graph` package gains an `EntityResolver` seam;
-      an `EmbeddingEntityResolver` over `embed.Embedder` clusters
-      near-duplicate entities by cosine similarity (same-`Type` only,
-      conservative threshold, deterministic canonical-form pick) and rewrites
-      their names to a shared surface form **before** `graph.Canonicalize`
-      runs — `Canonicalize` and its v0.7 tests untouched. The `rag.System`
-      default is `NoopEntityResolver` (v0.7 behavior byte-identical);
-      unit-tested against a scripted embedder.
-- [x] **RAG-GRAPH3-06**: the `eval` package gains a global-search evaluation
-      harness over the RAG-Triad / `LLMJudge` path (comprehensiveness /
-      groundedness on whole-corpus questions — **not** `RunGraphAB`
-      recall@k); a deterministic scripted-model worked example ships, and
-      `docs/graphrag.md` is updated with Tier-3 usage, the lazy-vs-eager
-      tradeoff, the fuzzy-resolution false-positive caveat, and the v0.9
-      deferral list (DRIFT search, incremental community maintenance,
-      path-ranking).
+- [x] **RAG-GRAPH4-03**: `rag.System.AskDrift` answers by a global primer
+      pass (the v0.8 global path) followed by a hard-bounded local
+      follow-up loop (round cap — default 2, hard cap 3 — terminating on
+      no-new-entities) and a synthesis step. It is a separate answer path —
+      it does not implement `retrieve.Retriever` and is not a mode flag on
+      `Ask`/`AskGlobal`. `DriftOptions` and a `Diagnostics.Drift` block
+      ship; the orchestration is scripted-model golden-tested; an empty
+      primer degrades gracefully to a local-loop answer.
+- [x] **RAG-GRAPH4-04**: the `eval` package gains a `DriftEvaluator` — a
+      RAG-Triad / `LLMJudge` harness for DRIFT answers (groundedness,
+      answer-relevance — not chunk recall@k), mirroring `GlobalEvaluator`;
+      a deterministic scripted-model worked example ships, and
+      `docs/graphrag.md` is finalized with DRIFT usage, the primer/local
+      budget, and the deferral list (incremental community maintenance with
+      its trigger condition, claim extraction, graph DB).
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| DRIFT search (global primer → local follow-up loop) | A refinement on top of working global + local search; deferred to v0.9 once both are shipped and evaluated |
-| Incremental community *maintenance* (updating only changed communities) | v0.8 does full per-namespace re-detection on re-ingest — cheap stdlib; incremental maintenance is a documented deferred optimization |
-| Leiden community detection | Marginal quality gain over Louvain for this SDK's graph sizes does not justify the implementation/test surface; a documented future swap behind the `CommunityDetector` seam |
-| Path-ranking / structured subgraph-as-evidence output | Tier-2 path retrieval — orthogonal to Tier-3, a v0.9+ item |
+| Incremental community maintenance | v0.8's full re-detection is correct and fast at SDK scale; incremental Louvain is a large, subtle second algorithm — deferred with a documented profiling trigger (KG4-5) |
+| DRIFT loops beyond a small fixed round cap | Unbounded LLM recursion; v0.9 hard-caps rounds at 3 (KG4-3) |
 | Claim / covariate extraction | MS-GraphRAG's third primitive — out of scope |
-| A dedicated graph database (Neo4j etc.) | Community detection runs in Go regardless of store; `GraphStore` stays an interface so a graph-DB impl can be added later in isolation |
+| A dedicated graph database (Neo4j etc.) | Path ranking runs in Go over the existing `Subgraph`; DRIFT orchestrates existing seams |
 | Embedding or graph-store deps in core `llm-agent` | Violates the zero-dependency core value |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RAG-GRAPH3-01 | Phase 23 | Done |
-| RAG-GRAPH3-02 | Phase 23 | Done |
-| RAG-GRAPH3-03 | Phase 24 | Done |
-| RAG-GRAPH3-04 | Phase 24 | Done |
-| RAG-GRAPH3-05 | Phase 25 | Done |
-| RAG-GRAPH3-06 | Phase 25 | Done |
+| RAG-GRAPH4-01 | Phase 26 | Done |
+| RAG-GRAPH4-02 | Phase 26 | Done |
+| RAG-GRAPH4-03 | Phase 27 | Done |
+| RAG-GRAPH4-04 | Phase 27 | Done |
 
 **Coverage:**
-- v0.8 requirements: 6 total
-- Mapped to phases: 6
+- v0.9 requirements: 4 total
+- Mapped to phases: 4
 - Unmapped: 0
-- Delivered: 6/6 (audit PASS)
+- Delivered: 4/4 (audit PASS)
 
 ---
-*Requirements defined: 2026-05-19 — v0.8 GraphRAG Tier-3 milestone, scoped
-from `.planning/research/v0.8-graphrag-tier3-SUMMARY.md`. Shipped 2026-05-20
-(`llm-agent-rag v0.5.0`); frozen copy archived to
-`.planning/milestones/v0.8-REQUIREMENTS.md`. Previous milestone v0.7
-archived to `.planning/milestones/v0.7-REQUIREMENTS.md`.*
+*Requirements defined: 2026-05-20 — v0.9 GraphRAG refinements milestone,
+scoped from `.planning/research/v0.9-graphrag-refinements-SUMMARY.md`.
+Shipped 2026-05-20 (`llm-agent-rag v0.6.0`); frozen copy archived to
+`.planning/milestones/v0.9-REQUIREMENTS.md`. Previous milestone v0.8
+archived to `.planning/milestones/v0.8-REQUIREMENTS.md`.*
