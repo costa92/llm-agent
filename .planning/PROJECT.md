@@ -18,10 +18,11 @@ The project now spans four coordinated repos plus a standalone RAG SDK:
 `v0.3` shipped, `v0.4` closed the deprecation-removal cycle, `v0.5` turned
 the extracted RAG work into a production-oriented standalone SDK, `v0.6`
 deepened RAG retrieval quality, reranking, evaluation, observability, and
-safety, and `v0.7` added Tier-1 GraphRAG — knowledge-graph construction and
-relationship-traversal retrieval — to `llm-agent-rag`, all without violating
-the zero-dependency contract of the core module. The project is currently
-**between milestones**; the next milestone is not yet scoped.
+safety, `v0.7` added Tier-1 GraphRAG — knowledge-graph construction and
+relationship-traversal retrieval — to `llm-agent-rag`, and `v0.8` extended
+that to Tier-3: hierarchical community detection, lazy community summaries,
+map-reduce global search, and fuzzy entity resolution. The project is
+currently **between milestones**; the next milestone is not yet scoped.
 
 ## Core Value
 
@@ -60,6 +61,14 @@ module stays readable, portable, and cheap to adopt.
   fused as a fourth RRF signal. `llm-agent-rag` is tagged `v0.4.0`; 6/6
   requirements delivered (audit `.planning/v0.7-MILESTONE-AUDIT.md`); no
   new dependency, no graph database.
+- `v0.8` shipped on 2026-05-20: GraphRAG Tier-3 for `llm-agent-rag` —
+  hierarchical community detection (deterministic stdlib Louvain), a
+  `store.CommunityStore` capability, lazy community summaries, the
+  `rag.System.AskGlobal` map-reduce global-search answer path, and an
+  opt-in `EmbeddingEntityResolver` fuzzy entity-resolution pre-pass.
+  `llm-agent-rag` is tagged `v0.5.0`; 6/6 requirements delivered (audit
+  `.planning/v0.8-MILESTONE-AUDIT.md`); no new dependency, no graph
+  database.
 - The project is now between milestones; the next milestone is not yet
   scoped.
 
@@ -85,19 +94,26 @@ module stays readable, portable, and cheap to adopt.
   (stdlib in-memory + `postgres` recursive-CTE) with hard-bounded traversal
   and re-ingest reconciliation, and a `retrieve.GraphRetriever` fused as a
   fourth RRF signal — no graph database, no new dependency.
+- ✓ `llm-agent-rag` (`v0.5.0`) has Tier-3 GraphRAG: hierarchical community
+  detection (a deterministic pure-stdlib `graph.CommunityDetector` Louvain
+  seam), a `store.CommunityStore` capability, lazy LLM community summaries
+  (content-hash-cached), the `rag.System.AskGlobal` map-reduce
+  global-search answer path, and an opt-in `EmbeddingEntityResolver`
+  fuzzy-merge pre-pass — no graph database, no new dependency.
 
 ### Active
 
-None — the project is between milestones. v0.7 GraphRAG is shipped and
-archived; the next milestone is not yet scoped.
+None — the project is between milestones. v0.8 GraphRAG Tier-3 is shipped
+and archived; the next milestone is not yet scoped.
 
 ### Out of Scope
 
-- Microsoft-GraphRAG community detection, community summaries, and global /
-  DRIFT search are deferred to v0.8 — v0.7 is Tier-1 (LightRAG-end) GraphRAG.
-- A dedicated graph database (Neo4j etc.) — `GraphStore` stays an interface
-  so a graph-DB impl can be added later; v0.7 uses recursive-CTE traversal.
-- Embedding-similarity fuzzy entity resolution is deferred to v0.8.
+- DRIFT search, incremental community maintenance, and path-ranking /
+  subgraph-as-evidence are deferred to v0.9 — v0.8 shipped the rest of
+  Tier-3 GraphRAG.
+- A dedicated graph database (Neo4j etc.) — `GraphStore`/`CommunityStore`
+  stay interfaces so a graph-DB impl can be added later; the SDK uses
+  recursive-CTE traversal and in-Go community detection.
 - HTTP service layer, CLI, and caching for `llm-agent-rag` remain deferred.
 - PDF/OCR ingestion is out of scope.
 - Kubernetes packaging is still out of scope until a future milestone plans it
@@ -109,15 +125,15 @@ archived; the next milestone is not yet scoped.
 
 ## Active Milestone Goals
 
-None — the project is between milestones. v0.7 GraphRAG shipped 2026-05-19
-(`llm-agent-rag v0.4.0`).
+None — the project is between milestones. v0.8 GraphRAG Tier-3 shipped
+2026-05-20 (`llm-agent-rag v0.5.0`).
 
 Candidate next directions (not yet scoped):
 
-- **v0.8 GraphRAG Tier-3** — Microsoft-GraphRAG community detection,
-  community summaries, map-reduce global / DRIFT search, and fuzzy /
-  embedding-similarity entity resolution (deferred from v0.7 by keystone
-  KG-1 / KG-6).
+- **v0.9 GraphRAG refinements** — DRIFT search (global primer → local
+  follow-up loop), incremental community maintenance (vs v0.8's full
+  re-detection), path-ranking / subgraph-as-evidence (deferred from v0.8
+  by keystone KG3-1).
 - the `llm-agent-rag` **deployment layer** — HTTP service, CLI, caching —
   deferred since v0.6.
 - **live-Postgres CI wiring** — carried-forward infra debt.
@@ -129,11 +145,12 @@ Candidate next directions (not yet scoped):
 - The refsvc observability demo is intentionally demo-grade rather than
   production-billing-grade.
 - Live-Postgres CI wiring (testcontainers-go or GH Actions services) is still
-  pending from v0.5; the Phase 14 Postgres `tsvector` lexical path and the
-  Phase 21 `postgres` graph path (`entities`/`relations` tables,
-  recursive-CTE traversal) remain unverified against a live database.
-- Entity canonicalization (v0.7) is deterministic exact-match only; fuzzy /
-  embedding-similarity entity resolution is deferred to v0.8.
+  pending from v0.5; the Phase 14 Postgres `tsvector` lexical path, the
+  Phase 21 `postgres` graph path, and the Phase 23-24 `postgres`
+  `_communities`/`_community_reports` paths remain unverified against a live
+  database.
+- `EmbeddingEntityResolver` (v0.8) has documented false-positive risk; it
+  ships conservative (high threshold, same-type-only) and opt-in.
 - Regex-based content safety (`guard`) is best-effort — it catches known PII
   and injection patterns, not novel/obfuscated ones.
 
@@ -201,6 +218,25 @@ Candidate next directions (not yet scoped):
   on the stdlib plus existing seams — no graph database. The KG-1..KG-7
   keystone calls held in the delivered code; the `postgres` graph path is
   env-gated and joins the carried-forward live-DB verification debt.
+- 2026-05-19: `v0.8` opened — GraphRAG Tier-3 for `llm-agent-rag`, scoped
+  from `.planning/research/v0.8-graphrag-tier3-SUMMARY.md`. Keystone calls
+  (KG3-1..KG3-8): community report generation is **lazy by default**
+  (LazyGraphRAG — detect communities at ingest, summarize at query time and
+  cache; Microsoft's own ~0.1%-indexing-cost data drives this); community
+  detection is **pure stdlib** (a deterministic Louvain `CommunityDetector`
+  seam, store-agnostic — no graph database, no new dependency); global
+  search is a **separate `rag.System.AskGlobal` answer path**, not a
+  `Retriever`, and never passes through rerank/pack; fuzzy entity resolution
+  is an **opt-in pre-pass** before `Canonicalize` (`NoopEntityResolver`
+  default). DRIFT search is deferred to v0.9.
+- 2026-05-20: `v0.8` shipped — `llm-agent-rag` tagged `v0.5.0`, milestone
+  audit PASS (6/6 requirements). As with v0.6 and v0.7, v0.8 needed **no**
+  new dependency: community detection is pure stdlib (a deterministic
+  Louvain `CommunityDetector`), summarization reuses `generate.Model`,
+  fuzzy resolution reuses `embed.Embedder` — no graph database. The
+  KG3-1..KG3-8 keystone calls held in the delivered code; the `postgres`
+  `_communities`/`_community_reports` paths are env-gated and join the
+  carried-forward live-DB verification debt.
 
 ## Archived Milestone Definition
 
@@ -268,5 +304,32 @@ Archive references:
 - Roadmap: `.planning/milestones/v0.7-ROADMAP.md`
 - Requirements: `.planning/milestones/v0.7-REQUIREMENTS.md`
 - Audit: `.planning/v0.7-MILESTONE-AUDIT.md`
+
+</details>
+
+<details>
+<summary>v0.8 milestone snapshot</summary>
+
+`v0.8` was the "GraphRAG Tier-3 — communities, global search, fuzzy
+resolution" milestone — three phases (23-25) extending the v0.7 Tier-1
+graph:
+
+- Phase 23 — community detection: a deterministic stdlib Louvain
+  `CommunityDetector` seam, the `store.CommunityStore` capability, detection
+  wired into `Import`
+- Phase 24 — community summaries and global search: lazy
+  content-hash-cached community reports, the `rag.System.AskGlobal`
+  map-reduce global-search answer path
+- Phase 25 — fuzzy entity resolution and evaluation: the opt-in
+  `EmbeddingEntityResolver` pre-pass, the `eval.GlobalEvaluator` harness
+
+Shipped 2026-05-20; `llm-agent-rag` tagged `v0.5.0`; no new dependency, no
+graph database.
+
+Archive references:
+
+- Roadmap: `.planning/milestones/v0.8-ROADMAP.md`
+- Requirements: `.planning/milestones/v0.8-REQUIREMENTS.md`
+- Audit: `.planning/v0.8-MILESTONE-AUDIT.md`
 
 </details>

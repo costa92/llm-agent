@@ -1,106 +1,133 @@
-# Requirements: v0.7 GraphRAG — relationship-traversal retrieval
+# Requirements: v0.8 GraphRAG Tier-3 — communities, global search, fuzzy resolution
 
-**Defined:** 2026-05-18
-**Shipped:** 2026-05-19 — `llm-agent-rag` tagged `v0.4.0`; milestone audit
-PASS, 6/6 requirements (`.planning/v0.7-MILESTONE-AUDIT.md`).
+**Defined:** 2026-05-19
+**Shipped:** 2026-05-20 — `llm-agent-rag` tagged `v0.5.0`; milestone audit
+PASS, 6/6 requirements (`.planning/v0.8-MILESTONE-AUDIT.md`).
 **Core Value:** the core `llm-agent` module stays stdlib-only and zero-dep;
-`llm-agent-rag` adds knowledge-graph construction and relationship-traversal
-retrieval as additive seams — with no graph database and no new module
-dependency.
+`llm-agent-rag` extends its v0.7 GraphRAG with hierarchical community
+detection, lazy community summaries, a map-reduce global-search answer
+path, and embedding-similarity fuzzy entity resolution — all additive,
+with no graph database and no new module dependency.
 
 ## Milestone Scope
 
-v0.7 adds **Tier-1 lightweight GraphRAG** to `llm-agent-rag`: extract a
-knowledge graph (entities + typed relations) from ingested documents and
-retrieve by traversing it, fused as an additional signal alongside the
-existing dense / lexical / structure retrieval. It sits at the LightRAG end
-of the GraphRAG spectrum — entity/relation extraction plus
-neighborhood-expansion retrieval. Microsoft-GraphRAG-style community
-detection, community summaries, and global search are explicitly deferred to
-v0.8.
+v0.8 delivers the **Tier-3 GraphRAG** capabilities v0.7 explicitly deferred
+(v0.7 keystone calls KG-1 and KG-6). Building on the shipped v0.7 stack —
+the `graph` package, the `store.GraphStore` optional capability, and
+`retrieve.GraphRetriever` — v0.8 adds:
 
-The milestone is **additive**: no existing seam changes shape. New packages
-(`graph`), a new optional-capability interface (`store.GraphStore`), a new
-`retrieve.GraphRetriever`, and additive optional fields on
-`Trace`/`Diagnostics`/`ImportResult`.
+- **hierarchical community detection** — deterministic stdlib clustering of
+  the canonicalized entity graph into a nested community hierarchy;
+- **lazy community summaries** — LLM-written "community reports" generated
+  at query time and cached (LazyGraphRAG model), with eager pre-warming as
+  an opt-in;
+- **map-reduce global search** — a `rag.System.AskGlobal` answer path for
+  whole-corpus "sense-making" questions, distinct from chunk retrieval;
+- **fuzzy entity resolution** — an opt-in embedding-similarity pre-pass that
+  merges near-duplicate entities before `Canonicalize`.
 
-Reference: `.planning/research/v0.7-graphrag-SUMMARY.md` — the GraphRAG
-domain research and the KG-1..KG-7 keystone decisions this milestone
-ratifies.
+The milestone is **additive**: no existing seam changes shape. New `graph`
+types (`Community`, `CommunityReport`), new seams (`CommunityDetector`,
+`CommunitySummarizer`, `EntityResolver`), community persistence behind the
+graph-store capability, and a new `rag.System.AskGlobal` method. v0.7's
+`GraphRetriever` and `HybridRetriever` are untouched.
 
-## v0.7 Requirements
+Reference: `.planning/research/v0.8-graphrag-tier3-SUMMARY.md` — the
+GraphRAG Tier-3 domain research and the KG3-1..KG3-8 keystone decisions
+this milestone ratifies.
 
-### Knowledge-graph construction
+## v0.8 Requirements
 
-- [x] **RAG-GRAPH-01**: a `graph` package defines `Entity` / `Relation` and
-      an `EntityExtractor` seam; an `LLMEntityExtractor` over `generate.Model`
-      extracts entities and typed relations from chunk text with lenient
-      parsing, unit-tested against a scripted model (including malformed
-      output).
-- [x] **RAG-GRAPH-02**: a deterministic non-LLM `EntityExtractor` exists for
-      the zero-LLM path; entities are canonicalized by exact-match
-      `(name, type)` merge with source-chunk provenance; graph extraction
-      runs as a post-split ingest stage and its counts surface in
-      `ImportResult`.
+### Community detection and persistence
 
-### Graph storage
+- [x] **RAG-GRAPH3-01**: the `graph` package gains a `Community` type and a
+      `CommunityDetector` seam; a pure-stdlib **Louvain** detector produces a
+      deterministic community hierarchy (sorted iteration, deterministic
+      tie-breaks, no randomness, native hierarchy via coarsening passes),
+      unit-tested with golden output. A `LabelPropagationDetector`
+      alternative ships behind the same seam (dual-mode, mirroring v0.7's
+      extractor pair). No LLM, no embedder, no new dependency.
+- [x] **RAG-GRAPH3-02**: community persistence sits behind the graph-store
+      capability (additive `GraphStore` methods or a sibling `CommunityStore`
+      capability — a plan-time call) — a pure-stdlib in-memory implementation
+      and a `postgres` implementation (`_communities` table in the existing
+      `Migrate()`); a shared conformance suite covers both. Community
+      detection runs in Go regardless of store and is wired into `Import` as
+      a post-`Canonicalize` stage; counts surface on `ImportResult`, and a
+      graph-changing `ReplaceSource` re-ingest re-detects communities for
+      that namespace.
 
-- [x] **RAG-GRAPH-03**: a `store.GraphStore` optional-capability interface
-      (mirroring `store.LexicalSearcher`) is implemented by a pure-stdlib
-      in-memory adjacency graph and by `postgres.Store` via `entities` /
-      `relations` tables with recursive-CTE traversal; a shared conformance
-      suite covers both. Traversal is hard-bounded (depth cap 2, per-hop
-      fan-out cap). No graph database is added.
-- [x] **RAG-GRAPH-04**: re-ingesting a document reconciles the graph —
-      provenance-based removal of its old contributions, union-merge of the
-      re-extracted subgraph, and garbage-collection of entities/relations no
-      longer referenced — verified across both store implementations.
+### Community summaries and global search
 
-### Graph-traversal retrieval
+- [x] **RAG-GRAPH3-03**: the `graph` package gains a `CommunityReport` type
+      and a `CommunitySummarizer` seam; an `LLMCommunitySummarizer` over
+      `generate.Model` writes a community report with lenient parsing,
+      unit-tested against a scripted model (including malformed output).
+      Reports are generated **lazily** and held in a cache keyed by a
+      deterministic content hash of the community's membership; the cache is
+      persisted via the `postgres` `_community_reports` table when a
+      community-capable store is present, in-memory otherwise.
+- [x] **RAG-GRAPH3-04**: `rag.System.AskGlobal` answers whole-corpus
+      questions by map-reduce over community reports — community selection →
+      per-community map (partial answer + helpfulness score) → reduce
+      (synthesis). It does **not** implement `retrieve.Retriever` and does
+      **not** pass through `HybridRetriever`/rerank/pack; `Ask` is unchanged.
+      A global-search block surfaces in `Diagnostics` (communities consulted,
+      map scores, map/reduce token counts). An opt-in
+      `PrewarmCommunityReports` fills the cache eagerly. Scripted-model
+      tested on a fixed graph.
 
-- [x] **RAG-GRAPH-05**: an `EntityLinker` seam maps a query to seed
-      entities; `retrieve.GraphRetriever` expands a bounded neighborhood
-      (depth default 1, hard cap 2) and scores hits by proximity decay; it
-      fuses into `HybridRetriever` as a fourth RRF signal with `GraphRank`
-      attribution and graph data in `retrieve.Trace` / `rag.Diagnostics`.
-- [x] **RAG-GRAPH-06**: the `eval` package gains a graph-recall metric and a
-      graph-on/off A/B path through the RAG-Triad harness; a deterministic
-      scripted-model worked example and docs ship (including the
-      deferred-to-v0.8 list and the "Neo4j is a future `GraphStore` impl"
-      note).
+### Fuzzy resolution and evaluation
+
+- [x] **RAG-GRAPH3-05**: the `graph` package gains an `EntityResolver` seam;
+      an `EmbeddingEntityResolver` over `embed.Embedder` clusters
+      near-duplicate entities by cosine similarity (same-`Type` only,
+      conservative threshold, deterministic canonical-form pick) and rewrites
+      their names to a shared surface form **before** `graph.Canonicalize`
+      runs — `Canonicalize` and its v0.7 tests untouched. The `rag.System`
+      default is `NoopEntityResolver` (v0.7 behavior byte-identical);
+      unit-tested against a scripted embedder.
+- [x] **RAG-GRAPH3-06**: the `eval` package gains a global-search evaluation
+      harness over the RAG-Triad / `LLMJudge` path (comprehensiveness /
+      groundedness on whole-corpus questions — **not** `RunGraphAB`
+      recall@k); a deterministic scripted-model worked example ships, and
+      `docs/graphrag.md` is updated with Tier-3 usage, the lazy-vs-eager
+      tradeoff, the fuzzy-resolution false-positive caveat, and the v0.9
+      deferral list (DRIFT search, incremental community maintenance,
+      path-ranking).
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Leiden / hierarchical community detection | Tier-3 GraphRAG — deferred to v0.8 |
-| LLM community summaries, map-reduce global search, DRIFT search | Tier-3; a second large LLM pass; deferred to v0.8 |
-| A dedicated graph database (Neo4j etc.) | A heavyweight operational dependency; recursive-CTE traversal covers this SDK's scale. `GraphStore` stays an interface so a graph-DB impl can be added later in full isolation |
-| Embedding-similarity fuzzy entity resolution / coreference | v0.7 canonicalization is deterministic exact-match only; fuzzy resolution is a documented known limitation deferred to v0.8 |
-| Path-ranking / structured subgraph-as-evidence output | v0.7 scores nodes by proximity decay only |
+| DRIFT search (global primer → local follow-up loop) | A refinement on top of working global + local search; deferred to v0.9 once both are shipped and evaluated |
+| Incremental community *maintenance* (updating only changed communities) | v0.8 does full per-namespace re-detection on re-ingest — cheap stdlib; incremental maintenance is a documented deferred optimization |
+| Leiden community detection | Marginal quality gain over Louvain for this SDK's graph sizes does not justify the implementation/test surface; a documented future swap behind the `CommunityDetector` seam |
+| Path-ranking / structured subgraph-as-evidence output | Tier-2 path retrieval — orthogonal to Tier-3, a v0.9+ item |
 | Claim / covariate extraction | MS-GraphRAG's third primitive — out of scope |
+| A dedicated graph database (Neo4j etc.) | Community detection runs in Go regardless of store; `GraphStore` stays an interface so a graph-DB impl can be added later in isolation |
 | Embedding or graph-store deps in core `llm-agent` | Violates the zero-dependency core value |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RAG-GRAPH-01 | Phase 20 | Done |
-| RAG-GRAPH-02 | Phase 20 | Done |
-| RAG-GRAPH-03 | Phase 21 | Done |
-| RAG-GRAPH-04 | Phase 21 | Done |
-| RAG-GRAPH-05 | Phase 22 | Done |
-| RAG-GRAPH-06 | Phase 22 | Done |
+| RAG-GRAPH3-01 | Phase 23 | Done |
+| RAG-GRAPH3-02 | Phase 23 | Done |
+| RAG-GRAPH3-03 | Phase 24 | Done |
+| RAG-GRAPH3-04 | Phase 24 | Done |
+| RAG-GRAPH3-05 | Phase 25 | Done |
+| RAG-GRAPH3-06 | Phase 25 | Done |
 
 **Coverage:**
-- v0.7 requirements: 6 total
+- v0.8 requirements: 6 total
 - Mapped to phases: 6
 - Unmapped: 0
 - Delivered: 6/6 (audit PASS)
 
 ---
-*Requirements defined: 2026-05-18 — v0.7 GraphRAG milestone, scoped from
-`.planning/research/v0.7-graphrag-SUMMARY.md`. Shipped 2026-05-19
-(`llm-agent-rag v0.4.0`); frozen copy archived to
-`.planning/milestones/v0.7-REQUIREMENTS.md`. Previous milestone v0.6
-archived to `.planning/milestones/v0.6-REQUIREMENTS.md`.*
+*Requirements defined: 2026-05-19 — v0.8 GraphRAG Tier-3 milestone, scoped
+from `.planning/research/v0.8-graphrag-tier3-SUMMARY.md`. Shipped 2026-05-20
+(`llm-agent-rag v0.5.0`); frozen copy archived to
+`.planning/milestones/v0.8-REQUIREMENTS.md`. Previous milestone v0.7
+archived to `.planning/milestones/v0.7-REQUIREMENTS.md`.*
