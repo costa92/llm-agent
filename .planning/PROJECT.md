@@ -22,11 +22,16 @@ safety, `v0.7` added Tier-1 GraphRAG — knowledge-graph construction and
 relationship-traversal retrieval — to `llm-agent-rag`, and `v0.8` extended
 that to Tier-3: hierarchical community detection, lazy community summaries,
 map-reduce global search, and fuzzy entity resolution, and `v0.9` refined
-it with DRIFT hybrid search and path-ranked subgraph evidence. The active
-`v1.0` stabilized the `llm-agent-rag` public API and committed it to a
+it with DRIFT hybrid search and path-ranked subgraph evidence. `v1.0`
+stabilized the `llm-agent-rag` public API and committed it to a
 Go-module compatibility promise — a quality milestone, no new features.
-The project is currently **between milestones**; the next milestone is not
-yet scoped.
+`v1.1` is **ecosystem alignment — shipped and closed 2026-05-20** (audit
+PASS 5/5): the core `llm-agent` and the three sister repos brought
+current with `llm-agent-rag v1.0.0` and each cut a coherent, tagged
+baseline (`llm-agent v0.5.1`, `llm-agent-rag v1.0.1`, sisters
+`v0.2.1`/`v0.2.1`/`v0.2.2`); an umbrella dependency-currency CI gate
+shipped to prevent future drift. Alignment / housekeeping milestone — no
+new features, no new dependency.
 
 ## Core Value
 
@@ -92,8 +97,30 @@ module stays readable, portable, and cheap to adopt.
   `.planning/v1.0-MILESTONE-AUDIT.md`); no new dependency, no behavior
   change. Scope was `llm-agent-rag` only — the core module and sister
   repos stay on their own version tracks.
-- The project is now between milestones; the next milestone is not yet
-  scoped.
+- `v1.1` opened on 2026-05-21: an ecosystem-alignment milestone — the core
+  `llm-agent` `go.mod` pinned `llm-agent-rag v0.1.4` (8 minors + a major
+  stale) and three sister repos lagged too. v1.1 repaired the core RAG
+  facade against rag `v1.0.0` (a 7-test `vector dimension mismatch`
+  regression), landed two stranded sister-repo branches, walked a
+  coordinated dependency-bump + re-tag wave, and added an umbrella
+  dependency-currency CI gate. Scoped from
+  `.planning/research/v1.1-ecosystem-alignment-SUMMARY.md`; 5 requirements
+  (`ECO-01..05`) across 4 phases (31-34). `llm-agent-rag` is the untouched
+  fixed point; no new features, no new dependency.
+- `v1.1` shipped and closed on 2026-05-20: audit PASS 5/5 (`ECO-01..05`,
+  `KE-1..KE-7`). Final coordinated tag set: `llm-agent v0.5.1`,
+  `llm-agent-rag v1.0.1`, `llm-agent-otel v0.2.1`,
+  `llm-agent-providers v0.2.1`, `llm-agent-customer-support v0.2.2`.
+  Phase 34 expanded from 3 slices to 9 slices mid-flight to honor the
+  strict dep-currency gate (cascade of patch tags through the back-edge)
+  and to correct a topological-order miss in Phase 33's cascade (cs sink
+  re-tagged once providers was in place). Three architectural trade-offs
+  documented honestly in `.planning/v1.1-MILESTONE-AUDIT.md`: the
+  `v1.0.0 → v1.0.1` freeze-day-after re-tag (KE-2 holds — chore-only patch,
+  no exported-symbol move), the topological-order miss (future cascades
+  must `tsort` against the dep DAG), and the rag↔core cycle exemption
+  (the one auditable strict-equality exemption in the gate, narrowly
+  scoped). Audit: `.planning/v1.1-MILESTONE-AUDIT.md`.
 
 ## Requirements
 
@@ -131,11 +158,24 @@ module stays readable, portable, and cheap to adopt.
   global primer + bounded local loop + synthesis — with
   `eval.DriftEvaluator`) — no graph database, no new dependency.
 
-### Active
+### Shipped (v1.1) — 2026-05-20
 
-None — the project is between milestones. v1.0 API stabilization is
-shipped and archived (`.planning/milestones/v1.0-ROADMAP.md`); the next
-milestone has not been scoped.
+- ✓ `ECO-01`: core `llm-agent` RAG facade repaired against
+  `llm-agent-rag v1.0.0` (and subsequently `v1.0.1` via the back-edge
+  cascade); the 7 facade-test failures fixed inside the facade adapters;
+  the core proven stdlib-only.
+- ✓ `ECO-02`: every sister repo's `main` reflects reality — stranded
+  branches merged, stale branches pruned.
+- ✓ `ECO-03`: coordinated dependency-ordered re-tag wave shipped — final
+  post-cascade tags: `llm-agent v0.5.1`, `llm-agent-rag v1.0.1`,
+  `llm-agent-otel v0.2.1`, `llm-agent-providers v0.2.1`,
+  `llm-agent-customer-support v0.2.2`. Zero `replace` directives.
+- ✓ `ECO-04`: umbrella dependency-currency CI gate shipped
+  (`scripts/dep-currency-check.sh` + `.github/workflows/umbrella.yml`),
+  with one auditable rag↔core cycle exemption.
+- ✓ `ECO-05`: full 5-repo coherence verification PASS
+  (`34-08-RESULTS.md`); milestone audited
+  (`.planning/v1.1-MILESTONE-AUDIT.md`).
 
 ### Out of Scope
 
@@ -154,15 +194,14 @@ milestone has not been scoped.
 
 ## Active Milestone Goals
 
-None — the project is between milestones. v1.0 API stabilization shipped
-2026-05-21 (`llm-agent-rag v1.0.0`, audit PASS 6/6): the exported surface
-is audited, frozen, fully documented, and protected by a stdlib
-API-snapshot gate; `docs/compatibility.md` records the Go-module
-compatibility promise. The next milestone has not been scoped — candidate
-directions are listed in `.planning/ROADMAP.md` "Active Forward Work".
-Still deferred: the `llm-agent-rag` deployment layer (HTTP service, CLI,
-caching), incremental community maintenance, PDF/OCR ingestion,
-claim/covariate extraction, a dedicated graph database.
+**Between milestones.** v1.1 shipped and closed 2026-05-20 (audit PASS
+5/5). No active milestone is open; the next milestone is unscoped.
+
+Still deferred (carried forward through v1.1, candidates for a future
+milestone): the `llm-agent-rag` deployment layer (HTTP service, CLI,
+caching), incremental community maintenance, live-Postgres CI wiring,
+PDF/OCR ingestion, claim/covariate extraction, a dedicated graph
+database, productionizing the customer-support demo.
 
 ## Known Tech Debt
 
@@ -293,6 +332,37 @@ claim/covariate extraction, a dedicated graph database.
   new dependency. The audit found a clean codebase — no `TODO`/`replace`/
   dead code — so "cleanup" is light and the risk is *inventing* refactor
   work, which v1.0 explicitly resists.
+- 2026-05-21: `v1.0` shipped — `llm-agent-rag` tagged `v1.0.0`, audit PASS
+  6/6 (`RAG-API-01..06`, KS-1..KS-8). The public API is frozen and
+  committed to the Go import-compatibility promise; breaking changes from
+  here require a `/v2` import path.
+- 2026-05-21: `v1.1` opened — ecosystem alignment, scoped from
+  `.planning/research/v1.1-ecosystem-alignment-SUMMARY.md`. An alignment /
+  housekeeping milestone, not a feature one. Keystone calls (KE-1..KE-7):
+  scope is the core `llm-agent` + the three sister repos; `llm-agent-rag`
+  is the **untouched fixed point** (KE-2 — no rag re-tag, the back-edge
+  `require llm-agent v0.4.0` left as-is); the core RAG facade is repaired
+  against rag `v1.0.0` and **proven stdlib-only** (KE-3 — never fix by
+  adding a dependency); branches land before tags (KE-4); a coordinated
+  dependency-ordered re-tag wave with no `replace` directives (KE-5); the
+  umbrella gains a dependency-currency CI gate (KE-6); live-Postgres CI
+  wiring stays deferred (KE-7). No new feature, no new dependency.
+- 2026-05-20: `v1.1` shipped and closed — audit PASS 5/5
+  (`ECO-01..05`, `KE-1..KE-7`). Final coordinated tag set: `llm-agent
+  v0.5.1`, `llm-agent-rag v1.0.1`, `llm-agent-otel v0.2.1`,
+  `llm-agent-providers v0.2.1`, `llm-agent-customer-support v0.2.2`.
+  Phase 34 expanded from 3 slices to 9 mid-flight to satisfy the strict
+  dep-currency gate (cascade of patch tags through the back-edge refresh)
+  and to correct a topological-order miss in Phase 33's cascade. Three
+  architectural trade-offs documented honestly in the audit: the v1.0.0 →
+  v1.0.1 freeze-day-after re-tag (KE-2 holds — chore-only patch, no
+  exported-symbol move); the topological-order miss (future cascades must
+  `tsort` against the dep DAG, not intuition); the rag↔core cycle
+  exemption (the one auditable strict-equality exemption — narrow on
+  purpose). Umbrella dep-currency gate
+  (`scripts/dep-currency-check.sh` + `umbrella.yml` step) is shipped and
+  runs green against the live state. Audit:
+  `.planning/v1.1-MILESTONE-AUDIT.md`.
 
 ## Archived Milestone Definition
 
@@ -413,6 +483,45 @@ Archive references:
 - Roadmap: `.planning/milestones/v0.8-ROADMAP.md`
 - Requirements: `.planning/milestones/v0.8-REQUIREMENTS.md`
 - Audit: `.planning/v0.8-MILESTONE-AUDIT.md`
+
+</details>
+
+<details>
+<summary>v1.1 milestone snapshot</summary>
+
+`v1.1` was the "ecosystem alignment" milestone — four phases (31-34)
+bringing the core `llm-agent` + three sister repos current with
+`llm-agent-rag v1.0.0` and each to a coherent tagged baseline:
+
+- Phase 31 — core RAG facade re-alignment to `llm-agent-rag v1.0.0`
+  (the 7-test `vector dimension mismatch` regression fixed inside the
+  facade adapters; an additive `*InMemoryStore.ListDocuments` + a
+  `lister` interface + an id-index fallback; core proven stdlib-only)
+- Phase 32 — sister-repo branch landing & hygiene (the stranded
+  `otel`/`customer-support` branches merged; `providers` confirmed clean
+  on `main`; stale branches pruned)
+- Phase 33 — coordinated dependency-bump + re-tag wave (`llm-agent
+  v0.5.0`, sisters `v0.2.0`)
+- Phase 34 — umbrella coherence gate + milestone close (expanded
+  mid-flight from 3 to 9 slices to accommodate the strict dep-currency
+  gate's cascade-through-the-back-edge requirement and a
+  topological-order correction; final coordinated tag set
+  `llm-agent v0.5.1`, `llm-agent-rag v1.0.1`,
+  `llm-agent-otel v0.2.1`, `llm-agent-providers v0.2.1`,
+  `llm-agent-customer-support v0.2.2`;
+  `scripts/dep-currency-check.sh` + umbrella CI gate with one auditable
+  rag↔core cycle exemption)
+
+Shipped 2026-05-20; 5/5 requirements delivered (`ECO-01..05`); audit PASS
+5/5 (`.planning/v1.1-MILESTONE-AUDIT.md`). No new dependency, no new
+feature. `llm-agent-rag`'s frozen v1.0.0 API untouched (KE-2); v1.0.1 is
+chore-only patch (back-edge refresh, no exported-symbol move).
+
+Archive references:
+
+- Roadmap: `.planning/milestones/v1.1-ROADMAP.md`
+- Requirements: `.planning/milestones/v1.1-REQUIREMENTS.md`
+- Audit: `.planning/v1.1-MILESTONE-AUDIT.md`
 
 </details>
 
