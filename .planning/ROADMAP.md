@@ -1,10 +1,14 @@
 # Roadmap: llm-agent
 
 **Last updated:** 2026-05-20
-**Current state:** `v1.1` Ecosystem Alignment milestone — **shipped and
-closed 2026-05-20** (audit ✅ PASS 5/5). Pending operator milestone-close
-commit + `/gsd-transition`. Between-milestones state.
-**Active scope:** none — v1.1 closed; next milestone unscoped
+**Current state:** `v1.2` Core Capability Deepening milestone — opened
+2026-05-20; Phases 35-38 not yet planned. The umbrella's first
+**core-feature** milestone since v0.3. v1.1 (ecosystem alignment)
+shipped and closed 2026-05-20 (audit ✅ PASS 5/5).
+**Active scope:** `v1.2` — Core Capability Deepening (theme: **Core
+v0.6** — capability additions to core `llm-agent`; memory tiering
+deferred to v1.3). Core module bump: `v0.5.1 → v0.6.0` (minor —
+additive).
 
 ## Archived Milestones
 
@@ -62,6 +66,160 @@ commit + `/gsd-transition`. Between-milestones state.
   - Archive: `.planning/milestones/v1.0-ROADMAP.md`
   - Requirements archive: `.planning/milestones/v1.0-REQUIREMENTS.md`
   - Audit: `.planning/v1.0-MILESTONE-AUDIT.md`
+- [x] **v1.1: Ecosystem Alignment** — shipped and closed 2026-05-20.
+  Four phases (31-34, Phase 34 expanded to 9 slices mid-flight): core
+  RAG facade re-alignment to `llm-agent-rag v1.0.0` (the 7-test
+  `vector dimension mismatch` regression fixed inside the facade
+  adapters); sister-repo branch landing (`otel`'s `otelrag` feature +
+  `customer-support`'s CI-fix); coordinated dependency-bump + re-tag
+  wave; umbrella dep-currency CI gate. Final coordinated tag set
+  (post-cascade): `llm-agent v0.5.1`, `llm-agent-rag v1.0.1`,
+  `llm-agent-otel v0.2.1`, `llm-agent-providers v0.2.1`,
+  `llm-agent-customer-support v0.2.2`. Zero `replace` directives. 5/5
+  requirements (`ECO-01..05`); audit ✅ PASS.
+  - Archive: `.planning/milestones/v1.1-ROADMAP.md`
+  - Requirements archive: `.planning/milestones/v1.1-REQUIREMENTS.md`
+  - Audit: `.planning/v1.1-MILESTONE-AUDIT.md`
+
+## Milestone v1.2: Core Capability Deepening
+
+**Goal**: take core `llm-agent` to **v0.6.0** with three additive
+agent-runtime governance primitives — budget/cancellation, policy/safety
+middleware, and a multi-agent `Supervisor` — all stdlib-only, all
+purely additive (no `/v2` import path, no edit to validated public
+types). The umbrella's first **core-feature** milestone since v0.3.
+
+**Theme**: **Core v0.6** — capability additions to core `llm-agent`;
+memory tiering deferred to v1.3 per KC-2.
+
+**Repos**: `llm-agent` (core only). `llm-agent-rag` stays a fixed point
+(KS-5 freeze); the three sister repos stay on their v0.2.x tracks
+(post-v1.2 ecosystem-alignment task will bump them).
+
+**Requirements in scope**: `CC-1..04`
+
+**Keystone decisions** (ratified from
+`.planning/research/v1.2-core-capability-deepening-SUMMARY.md`):
+
+- **KC-1** — Multi-agent coordination lives in `orchestrate/` as
+  `orchestrate.Supervisor` — a thin facade over `StateGraph[S]`. Not a
+  new `agents/coord` package; workers are `agents.Agent` (composable).
+- **KC-2** — Memory tiering is **OUT of v1.2 scope** — deferred to
+  v1.3. The reframed shape (`ScopedMemory` decorator + ctx-keyed scope
+  propagation via `memory.WithScope`) is pre-decided in the v1.2
+  research so v1.3 doesn't relitigate.
+- **KC-3** — Policy middleware is a `policy` package — a
+  capability-preserving `policy.Wrap(model) ChatModel` decorator
+  mirroring `otelmodel.Wrap` (K3); typed `Gate` event union; sentinel
+  `ErrBlocked`; 3 built-in regex gates (PII redaction, injection
+  detection, max-input-length); documented stack
+  `policy.Wrap(otelmodel.Wrap(provider))`.
+- **KC-4** — Budget/cancellation is **ctx-keyed for propagation + a
+  `budget.Tracker` interface for enforcement**; single integration
+  chokepoint at `generateFromPrompt` in `agents/`; built-in trackers
+  `NewStrict` (deny on exhaustion) and `NewSoft` (warn-only);
+  `Budget.Cost` plumbing only — provider→$ cost-table is **opt-in /
+  outside core**. `MaxSteps` etc. coexist with `Budget.Calls`.
+- **KC-5** — Breaking-change avoidance: every new surface is in a
+  *new* package or a *new* optional interface; no edit to
+  `llm.ChatModel`, `agents.Agent`, `memory.Memory`, or
+  `orchestrate.NodeFunc[S]`; **no `/v2` import path**; v0.5.1 → v0.6.0
+  is a **minor (additive)** bump — existing v0.5.1 callers compile
+  unchanged against v0.6.0.
+
+### Phase 35: Budget / cancellation context
+
+**Status**: not started
+
+**Goal**: `budget` package exists, propagates through `ctx`, and
+enforces token/call/wall-clock/cost budgets at the
+`generateFromPrompt` chokepoint; every existing agent paradigm honors
+it with zero behavior change when no budget is set. Cost-table is
+opt-in / outside core.
+
+**Depends on**: Phase 34 complete (v1.1 audit PASS)
+
+**Repos**: `llm-agent` (core only)
+
+**Requirements covered**: `CC-1`
+
+**Planned work**:
+
+- `35-01..05` — `budget` package skeleton (`Budget`, `Tracker`,
+  `WithBudget`, `From`, `NewStrict`, `NewSoft`); integrate into
+  `generateFromPrompt` (charge before + after every LLM call; honor
+  `ctx.Err()`; preserve `MaxSteps`/`MaxTurns`); streaming integration
+  (per `EventDone.Usage`); example + docs; exit gate (core stdlib-only,
+  no edit to `llm.ChatModel` / `agents.Agent`).
+
+### Phase 36: Policy / safety middleware
+
+**Status**: not started
+
+**Goal**: `policy` package ships as a capability-preserving
+`llm.ChatModel` decorator (mirrors `otelmodel.Wrap`); 3 built-in gates
+(PII redaction, injection detection, max-input-length); audit log via
+`OnDecision`; composes with `otelmodel.Wrap`.
+
+**Depends on**: Phase 35
+
+**Repos**: `llm-agent` (core only)
+
+**Requirements covered**: `CC-2`
+
+**Planned work**:
+
+- `36-01..05` — `policy` package skeleton (`Wrap`, typed `Gate` event
+  union, `Decision`, `ErrBlocked`); 3 built-in gates lifted from
+  `llm-agent-rag/guard` regex patterns (separate file, no rag import);
+  compose-with-otel integration test; example; exit gate
+  (capability-preserving assertions pass, core stdlib-only).
+
+### Phase 37: Multi-agent coordination (`orchestrate.Supervisor`)
+
+**Status**: not started
+
+**Goal**: iterative supervisor↔worker primitive ships as
+`orchestrate.Supervisor` — a thin facade over `StateGraph[S]` — honoring
+budget (CC-1) and policy (CC-2). Workers are `agents.Agent`
+(composable).
+
+**Depends on**: Phase 35 + Phase 36
+
+**Repos**: `llm-agent` (core only)
+
+**Requirements covered**: `CC-3`
+
+**Planned work**:
+
+- `37-01..04` — `Supervisor` design + skeleton (`NewSupervisor`,
+  `SupervisorOptions{ Planner, Workers, MaxRounds, ParseDispatch,
+  BuildAggregate }`); budget + policy integration (rounds against
+  `Budget.Calls`; ctx-propagation to workers; documented policy-wrapping
+  pattern); example (`examples/supervisor/`) + compose-with-`StateGraph`
+  tests; exit gate (core stdlib-only, no edit to `agents.Agent`).
+
+### Phase 38: v1.2 milestone audit + close
+
+**Status**: not started
+
+**Goal**: core `v0.6.0` tagged; CHANGELOG entry; planning docs archived
+to `.planning/milestones/v1.2-*.md`; milestone audited
+(`.planning/v1.2-MILESTONE-AUDIT.md`); PROJECT/STATE/ROADMAP/REQUIREMENTS
+refreshed to between-milestones.
+
+**Depends on**: Phase 35 + Phase 36 + Phase 37 all green
+
+**Repos**: `llm-agent` (core `.planning/` tree)
+
+**Requirements covered**: `CC-4`
+
+**Planned work**:
+
+- `38-01..04` — verification (`go vet ./... && go test ./... && go
+  list -deps ./...`); tag `llm-agent v0.6.0`; CHANGELOG; milestone
+  audit; archive v1.2 ROADMAP/REQUIREMENTS; refresh active planning
+  artifacts. Close commit is operator-gated.
 
 ## Milestone v1.1: Ecosystem Alignment — ✅ shipped 2026-05-20 (audit PASS)
 
@@ -275,6 +433,17 @@ documented honestly in `.planning/v1.1-MILESTONE-AUDIT.md` §Trade-offs.
   re-detection stays.
 - The `llm-agent-rag` deployment layer (HTTP service, CLI, caching) remains
   a deliberate non-goal, deferred since v0.6.
-- Regex-based content safety (`guard`, v0.6) is best-effort.
+- Regex-based content safety (`guard`, v0.6) is best-effort. **v1.2
+  inherits this limitation** in the core `policy` package (KC-3) — same
+  regex approach, same fundamental limit.
 - `EmbeddingEntityResolver` (v0.8) has documented false-positive risk.
 - The refsvc demo remains intentionally demo-grade.
+- **Memory scoping (session / project / user) — deferred to v1.3 per
+  KC-2.** The reframed shape (`ScopedMemory` decorator + ctx-keyed
+  scope propagation via `memory.WithScope`) is pre-decided in the v1.2
+  research; v1.3 implements without relitigating the design.
+- **Sister-repo follow-up (post-v1.2)**: when v1.2 closes with
+  `llm-agent v0.6.0`, the umbrella dep-currency gate will fail green
+  against `llm-agent-otel` / `llm-agent-providers` /
+  `llm-agent-customer-support` (all pin core `v0.5.1`). A future
+  ecosystem-alignment milestone (v1.3-style) bumps them.

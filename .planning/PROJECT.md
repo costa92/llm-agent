@@ -121,6 +121,29 @@ module stays readable, portable, and cheap to adopt.
   must `tsort` against the dep DAG), and the rag↔core cycle exemption
   (the one auditable strict-equality exemption in the gate, narrowly
   scoped). Audit: `.planning/v1.1-MILESTONE-AUDIT.md`.
+- `v1.2` opened on 2026-05-20: **Core Capability Deepening** milestone
+  — the umbrella's first **core-feature** milestone since v0.3. Theme:
+  **Core v0.6** — capability additions to core `llm-agent`; memory
+  tiering deferred to v1.3 per KC-2. Core module bump: `v0.5.1 →
+  v0.6.0` (minor — additive only). Three capability additions:
+  `budget` (ctx-keyed budget + `Tracker` interface enforcement at the
+  `generateFromPrompt` chokepoint — CC-1, Phase 35), `policy`
+  (capability-preserving `llm.ChatModel` decorator mirroring
+  `otelmodel.Wrap` (K3); 3 built-in gates — PII redaction, injection
+  detection, max-input-length — CC-2, Phase 36), and
+  `orchestrate.Supervisor` (iterative supervisor↔worker primitive as a
+  `StateGraph[S]` facade; honors budget + policy — CC-3, Phase 37).
+  Phase 38 closes the milestone (tag `llm-agent v0.6.0`, archive, audit
+  — CC-4). Memory tiering / scoping (session/project/user) is **OUT of
+  v1.2 scope** per KC-2 — deferred to v1.3 with the `ScopedMemory`
+  decorator shape pre-decided in research. Scoped from
+  `.planning/research/v1.2-core-capability-deepening-SUMMARY.md`. Scope
+  is the core repo only; sister repos stay on v0.2.x. Core stdlib-only
+  **preserved**: every new gate uses stdlib `regexp`; every new test
+  uses `ScriptedLLM`; no edit to validated public types
+  (`llm.ChatModel`, `agents.Agent`, `memory.Memory`,
+  `orchestrate.NodeFunc[S]`); no `/v2` import path (KC-5). Cost-table
+  is **opt-in / outside core** (KC-4).
 
 ## Requirements
 
@@ -194,14 +217,55 @@ module stays readable, portable, and cheap to adopt.
 
 ## Active Milestone Goals
 
-**Between milestones.** v1.1 shipped and closed 2026-05-20 (audit PASS
-5/5). No active milestone is open; the next milestone is unscoped.
+**v1.2 — Core Capability Deepening (active, opened 2026-05-20).** The
+first **core-feature** milestone since v0.3. Theme: **Core v0.6** —
+capability additions to core `llm-agent`; memory tiering deferred to
+v1.3. Core module bump: `v0.5.1 → v0.6.0` (minor — additive only).
 
-Still deferred (carried forward through v1.1, candidates for a future
-milestone): the `llm-agent-rag` deployment layer (HTTP service, CLI,
-caching), incremental community maintenance, live-Postgres CI wiring,
-PDF/OCR ingestion, claim/covariate extraction, a dedicated graph
-database, productionizing the customer-support demo.
+Phases 35-38 ship three new agent-runtime governance primitives:
+
+- **Phase 35 — Budget / cancellation context (`CC-1`)**: a `budget`
+  package; ctx-keyed propagation via `budget.WithBudget(ctx, *Tracker)`
+  + `budget.From(ctx)`; built-in `NewStrict`/`NewSoft` trackers;
+  integration at the `generateFromPrompt` chokepoint so every existing
+  agent paradigm honors it. Cost-table is **opt-in / outside core**.
+
+- **Phase 36 — Policy / safety middleware (`CC-2`)**: a `policy`
+  package; capability-preserving `policy.Wrap(model) ChatModel`
+  decorator mirroring `otelmodel.Wrap` (K3); typed `Gate` event union;
+  3 built-in gates (PII redaction, injection detection,
+  max-input-length); documented composition stack
+  `policy.Wrap(otelmodel.Wrap(provider))`.
+
+- **Phase 37 — Multi-agent coordination (`CC-3`)**:
+  `orchestrate.Supervisor` shipped as a thin `StateGraph[S]` facade;
+  iterative supervisor↔worker primitive; honors **CC-1**'s budget and
+  attaches **CC-2**'s policy gates to workers; workers are
+  `agents.Agent` (composable — a Supervisor can supervise another
+  Supervisor).
+
+- **Phase 38 — Milestone close (`CC-4`)**: tag `llm-agent v0.6.0`;
+  CHANGELOG entry; archive `v1.2-ROADMAP.md`/`v1.2-REQUIREMENTS.md` to
+  `.planning/milestones/v1.2-*.md`; ship
+  `.planning/v1.2-MILESTONE-AUDIT.md`; refresh PROJECT/STATE/ROADMAP/
+  REQUIREMENTS to between-milestones.
+
+**Core stdlib-only preserved** — every new gate uses stdlib `regexp`;
+every new test uses `ScriptedLLM`; no edit to the four validated
+public types (`llm.ChatModel`, `agents.Agent`, `memory.Memory`,
+`orchestrate.NodeFunc[S]`); no `/v2` import path (KC-5). Scope is the
+core repo only; sister repos stay on v0.2.x — the umbrella dep-currency
+gate (KE-6) will fire when they bump core from `v0.5.1 → v0.6.0`, but
+that's a future ecosystem-alignment milestone (v1.3-style), not v1.2's
+work.
+
+Still deferred (carried forward through v1.1 + v1.2, candidates for a
+future milestone): memory tiering / scoping (deferred to v1.3 per
+KC-2; `ScopedMemory` decorator shape pre-decided), the `llm-agent-rag`
+deployment layer (HTTP service, CLI, caching), incremental community
+maintenance, live-Postgres CI wiring, PDF/OCR ingestion,
+claim/covariate extraction, a dedicated graph database, productionizing
+the customer-support demo.
 
 ## Known Tech Debt
 
@@ -363,6 +427,36 @@ database, productionizing the customer-support demo.
   (`scripts/dep-currency-check.sh` + `umbrella.yml` step) is shipped and
   runs green against the live state. Audit:
   `.planning/v1.1-MILESTONE-AUDIT.md`.
+- 2026-05-20: `v1.2` opened — Core Capability Deepening (theme: **Core
+  v0.6** — capability additions to core `llm-agent`; memory tiering
+  deferred to v1.3). Scoped from
+  `.planning/research/v1.2-core-capability-deepening-SUMMARY.md`. The
+  umbrella's first **core-feature** milestone since v0.3. Keystone
+  calls (KC-1..KC-5): Supervisor lives in `orchestrate/` as a
+  `StateGraph[S]` facade — not a new `agents/coord` package (KC-1);
+  memory tiering is OUT of v1.2 scope and deferred to v1.3 with the
+  `ScopedMemory` decorator shape + ctx-keyed scope propagation
+  pre-decided (KC-2); policy middleware mirrors `otelmodel.Wrap`'s
+  capability-preserving decorator pattern (K3), lives at the model
+  boundary, with typed `Gate` event union + sentinel `ErrBlocked` and
+  3 built-in regex-based gates (KC-3); budget is **ctx-keyed for
+  propagation + a `Tracker` interface for enforcement** with the
+  cost-table opt-in / outside core, integrated at the
+  `generateFromPrompt` chokepoint (KC-4); every new surface is
+  additive — no edit to validated public types, no `/v2` import path
+  (KC-5). Core module bumps `v0.5.1 → v0.6.0` (minor, additive).
+  Core stdlib-only **preserved**; 4 requirements (`CC-1..04`) across
+  4 phases (35-38).
+
+### v1.2 Keystone Decisions (KC-1..KC-5)
+
+| ID | Decision | Phase |
+|----|----------|-------|
+| KC-1 | Multi-agent coordination lives in `orchestrate/` as `orchestrate.Supervisor` (thin `StateGraph[S]` facade); workers are `agents.Agent` (composable). | Phase 37 |
+| KC-2 | Memory tiering is OUT of v1.2 scope — deferred to v1.3 with the `ScopedMemory` decorator + ctx-keyed scope shape pre-decided. | (deferred, v1.3 target) |
+| KC-3 | Policy middleware is a `policy` package — capability-preserving `policy.Wrap(model) ChatModel` decorator (mirrors `otelmodel.Wrap`); typed `Gate` event union; sentinel `ErrBlocked`; built-in gates use stdlib `regexp`. | Phase 36 |
+| KC-4 | Budget is ctx-keyed for propagation + a `budget.Tracker` interface for enforcement; integrated at `generateFromPrompt` chokepoint; cost-table is opt-in / outside core. | Phase 35 |
+| KC-5 | Every new surface is additive — no edit to `llm.ChatModel` / `agents.Agent` / `memory.Memory` / `orchestrate.NodeFunc[S]`; no `/v2` import path; `v0.5.1 → v0.6.0` is a minor bump. | Phases 35-37 |
 
 ## Archived Milestone Definition
 

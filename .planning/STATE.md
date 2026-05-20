@@ -1,17 +1,18 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Ecosystem Alignment
-status: between-milestones
-stopped_at: Phase 34 complete — v1.1 audit PASS 5/5; pending operator milestone-close commit + /gsd-transition (2026-05-20)
-last_updated: "2026-05-20T06:10:00.000Z"
-last_activity: 2026-05-20 — Phase 34 closed (9-slice expansion); v1.1 audit PASS
+milestone: v1.2
+milestone_name: Core Capability Deepening
+status: active
+current_milestone: v1.2
+stopped_at: Phase 34 complete (v1.1 audit PASS); v1.2 milestone artifacts laid down 2026-05-20; ready for /gsd-plan-phase 35
+last_updated: "2026-05-20T07:30:00.000Z"
+last_activity: 2026-05-20 — v1.2 ROADMAP/REQUIREMENTS authored; STATE flipped to v1.2 active
 progress:
   total_phases: 4
-  completed_phases: 4
-  total_plans: 19
-  completed_plans: 19
-  percent: 100
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,61 +22,74 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** **between milestones.** v1.1 (ecosystem alignment) shipped and closed 2026-05-20 (audit PASS 5/5); pending the operator milestone-close commit + `/gsd-transition`. Next milestone unscoped.
+**Current focus:** **v1.2 Core Capability Deepening (active).** The first **core-feature** milestone since v0.3. Theme: **Core v0.6** — capability additions to core `llm-agent`; memory tiering deferred to v1.3 per KC-2. Three new packages/types: `budget` (CC-1, Phase 35), `policy` (CC-2, Phase 36), `orchestrate.Supervisor` (CC-3, Phase 37). Core module bump: `v0.5.1 → v0.6.0` (additive). Milestone artifacts laid down 2026-05-20; next concrete action `/gsd-plan-phase 35`.
 
 ## Current Position
 
-Milestone: `v1.1` Ecosystem Alignment — **shipped and closed 2026-05-20**
-(audit PASS 5/5).
-Previous milestone: `v1.0` API stabilization — shipped and closed
+Milestone: **`v1.2` Core Capability Deepening — active, opened 2026-05-20.**
+The first **core-feature** milestone since v0.3. Theme: **Core v0.6**
+— capability additions to core `llm-agent`; memory tiering deferred to
+v1.3 per KC-2. Core module bump: `v0.5.1 → v0.6.0` (minor — additive
+only). 4 requirements (`CC-1..04`) across 4 phases (35-38):
+
+- **Phase 35 — Budget / cancellation context (`CC-1`)** — `budget`
+  package; ctx-keyed propagation + `budget.Tracker` enforcement;
+  integration at the `generateFromPrompt` chokepoint; cost-table
+  opt-in / outside core (KC-4).
+- **Phase 36 — Policy / safety middleware (`CC-2`)** — `policy`
+  package; capability-preserving `policy.Wrap(model) ChatModel`
+  decorator mirroring `otelmodel.Wrap` (K3); 3 built-in regex gates
+  (PII redaction, injection detection, max-input-length); documented
+  composition stack `policy.Wrap(otelmodel.Wrap(provider))` (KC-3).
+- **Phase 37 — Multi-agent coordination (`CC-3`)** —
+  `orchestrate.Supervisor` shipped as a thin `StateGraph[S]` facade;
+  iterative supervisor↔worker; honors **CC-1**'s budget + **CC-2**'s
+  policy (KC-1).
+- **Phase 38 — v1.2 milestone audit + close (`CC-4`)** — tag
+  `llm-agent v0.6.0`; CHANGELOG entry; archive v1.2 ROADMAP/REQUIREMENTS
+  to `.planning/milestones/`; ship `v1.2-MILESTONE-AUDIT.md`; refresh
+  PROJECT/STATE/ROADMAP/REQUIREMENTS to between-milestones.
+
+Keystone calls KC-1..KC-5 (research doc + v1.2 ROADMAP): Supervisor in
+`orchestrate/` as a `StateGraph[S]` facade (KC-1); memory tiering OUT
+of v1.2 scope, deferred to v1.3 with `ScopedMemory` decorator
+pre-decided (KC-2); policy middleware as capability-preserving model
+decorator (KC-3); budget ctx-keyed propagation + `Tracker` interface
+enforcement with cost-table opt-in (KC-4); every new surface additive,
+no `/v2` (KC-5). Core stdlib-only **preserved**.
+
+Scope is the core repo only — `llm-agent-rag` stays a fixed point
+(KS-5); sister repos stay on v0.2.x (the umbrella dep-currency gate
+will fire when they bump core to v0.6.0, but that's a future
+ecosystem-alignment task — not v1.2's job).
+
+Previous milestone: `v1.1` Ecosystem Alignment — shipped and closed
+2026-05-20 (audit PASS 5/5; `ECO-01..05`, `KE-1..KE-7`). Final
+coordinated tag set: `llm-agent v0.5.1`, `llm-agent-rag v1.0.1`,
+`llm-agent-otel v0.2.1`, `llm-agent-providers v0.2.1`,
+`llm-agent-customer-support v0.2.2`.
+Previous milestone (rag): `v1.0` API stabilization — shipped and closed
 2026-05-21 (`llm-agent-rag v1.0.0`, audit PASS 6/6, fully archived).
-Plan: `v1.1` Ecosystem Alignment scoped 2026-05-21 from
-`.planning/research/v1.1-ecosystem-alignment-SUMMARY.md`. 5 requirements
-(`ECO-01..05`) across 4 phases:
-Phase 31 — core RAG facade re-alignment to `llm-agent-rag v1.0.0` (the dep
-is 8 minors + a major stale; bumping it surfaces a 7-test
-`vector dimension mismatch` regression in the facade adapters).
-Phase 32 — sister-repo branch landing & hygiene (merge `otel`'s stranded
-4-commit `otelrag` feature branch and `customer-support`'s 2-commit CI-fix
-branch to `main`; prune stale branches).
-Phase 33 — coordinated dependency-bump & re-tag wave (core `v0.5.0`,
-`otel`/`providers`/`customer-support` `v0.2.0`, dependency-ordered, no
-`replace` directives).
-Phase 34 — umbrella dependency-currency CI gate, 5-repo coherence
-verification, milestone close.
-Keystone calls KE-1..KE-7 (research doc + ROADMAP): alignment not features;
-`llm-agent-rag` is the untouched fixed point (no rag re-tag, back-edge
-left as-is); the core facade is repaired and proven stdlib-only; branches
-land before tags; a coordinated no-`replace` tag wave; the umbrella gains
-a drift-detection gate; live-Postgres CI stays deferred.
-Status: **all 4 phases (31-34) are complete; v1.1 audit PASS 5/5.**
-Phases 31-33 shipped the original alignment arc (core facade repair,
-sister-repo branch landing, coordinated base-line re-tag wave); Phase 34
-expanded from 3 to 9 slices mid-flight to satisfy the strict
-dep-currency gate (cascade of patch tags through the back-edge refresh)
-and to correct a topological-order miss in Phase 33's cascade
-(`customer-support` re-tagged once `providers` was in place).
+Plan: `v1.2` Core Capability Deepening scoped 2026-05-20 from
+`.planning/research/v1.2-core-capability-deepening-SUMMARY.md`. 4
+requirements (`CC-1..04`) across 4 phases (35-38). See ROADMAP /
+REQUIREMENTS / phase-block above for the per-phase shape.
 
-**Final coordinated v1.1 tag set** (post-cascade): `llm-agent v0.5.1`,
-`llm-agent-rag v1.0.1`, `llm-agent-otel v0.2.1`,
-`llm-agent-providers v0.2.1`, `llm-agent-customer-support v0.2.2`. All
-pushed. Zero `replace` directives across all tagged branches. Umbrella
-dep-currency CI gate shipped at `acb3253` (the core HEAD is 1 commit
-past `v0.5.1`; gate is build-system infrastructure, no new tag).
+Status: **v1.2 milestone artifacts laid down 2026-05-20** (this commit).
+ROADMAP / REQUIREMENTS authored, PROJECT.md updated with v1.2 active
+block + KC-1..KC-5 keystones table, STATE.md flipped from
+between-milestones to v1.2 active. **No code/CI YAML changes yet** —
+that begins in Phase 35.
 
-Three architectural trade-offs documented honestly in the audit
-(`.planning/v1.1-MILESTONE-AUDIT.md` §Trade-offs): (i) the v1.0.0 →
-v1.0.1 freeze-day-after re-tag — chore-only patch, KE-2 holds; (ii)
-the topological-order miss in the cascade — future cascades must `tsort`
-against the dep DAG, not intuition; (iii) the rag↔core cycle exemption
-— the one auditable strict-equality exemption in the gate, narrow on
-purpose.
+Next step: operator commits the v1.2 setup
+(`docs(planning): open v1.2 core capability deepening milestone`),
+then runs `/gsd-plan-phase 35` to plan the budget package.
+Last activity: 2026-05-20 — v1.2 ROADMAP/REQUIREMENTS authored;
+STATE flipped to v1.2 active; ready for /gsd-plan-phase 35.
 
-Next step: operator runs `git add .planning/ && git commit -m 'docs(planning): close v1.1 ecosystem alignment milestone (audit PASS 5/5)' && git push origin main` (mirrors v1.0 close `48cbbc9`), then `/gsd-transition`.
-Last activity: 2026-05-20 — Phase 34 closed (9 slices); v1.1 audit PASS.
-
-Progress: [██████████████] v1.1 Ecosystem Alignment — 4/4 phases
-complete. v1.0 shipped (`llm-agent-rag v1.0.0`), v0.9 (`v0.6.0`), v0.8
+Progress: [░░░░░░░░░░░░░░] v1.2 Core Capability Deepening — 0/4 phases
+complete (just opened). v1.1 shipped (`llm-agent v0.5.1` + 4 sister
+tags), v1.0 (`llm-agent-rag v1.0.0`), v0.9 (`v0.6.0`), v0.8
 (`v0.5.0`).
 
 ## Performance Metrics
@@ -172,8 +186,21 @@ Recent decisions affecting current work:
   chore-only patch, no exported-symbol move); topological-order miss in
   the cascade (future cascades must `tsort` against the dep DAG); the
   rag↔core cycle exemption in the dep-currency gate (one narrow
-  auditable strict-equality exemption). Pending the operator
-  milestone-close commit.
+  auditable strict-equality exemption).
+
+- 2026-05-20: `v1.2` Core Capability Deepening opened — the umbrella's
+  first **core-feature** milestone since v0.3. Operator-chosen
+  direction: take the core to **v0.6.0** with three additive
+  capabilities (budget + policy + Supervisor); memory-tiering
+  candidate **deferred to v1.3** per KC-2. Keystone calls KC-1..KC-5
+  ratified: Supervisor as `StateGraph[S]` facade in `orchestrate/`
+  (KC-1); memory tiering OUT of v1.2 (KC-2); policy middleware mirrors
+  `otelmodel.Wrap` (KC-3); budget is ctx-keyed propagation +
+  `Tracker` interface enforcement, cost-table opt-in (KC-4); every new
+  surface additive, no `/v2` (KC-5). Core stdlib-only **preserved**:
+  every new gate uses stdlib `regexp`; every new test uses
+  `ScriptedLLM`; no edit to validated public types. Scope is the core
+  repo only (sister repos stay on v0.2.x).
 
 ### Pending Todos
 
@@ -191,9 +218,28 @@ Recent decisions affecting current work:
   coordinated tags pushed (final post-cascade set: `llm-agent v0.5.1`,
   `llm-agent-rag v1.0.1`, `llm-agent-otel v0.2.1`,
   `llm-agent-providers v0.2.1`, `llm-agent-customer-support v0.2.2`).
-  Umbrella dep-currency CI gate shipped (commit `acb3253`). Pending the
-  operator milestone-close commit (mirrors v1.0 `48cbbc9`) and
-  `/gsd-transition` to between-milestones state.
+  Umbrella dep-currency CI gate shipped (commit `acb3253`). Milestone
+  close was committed by the operator after the slice authored this
+  STATE.md edit.
+
+- v1.2 milestone artifacts laid down 2026-05-20: `v1.2-ROADMAP.md`,
+  `v1.2-REQUIREMENTS.md`, plus PROJECT.md / STATE.md / ROADMAP.md /
+  REQUIREMENTS.md updates. **No code/CI YAML changes** — pure
+  `.planning/` writes. Next concrete action: operator commits the v1.2
+  setup, then runs `/gsd-plan-phase 35` (budget package).
+
+- Sister-repo dep-currency follow-up (post-v1.2): when v1.2 closes
+  with `llm-agent v0.6.0`, the umbrella dep-currency gate will fail
+  green against the sister repos (`llm-agent-otel`,
+  `llm-agent-providers`, `llm-agent-customer-support` all pin core
+  `v0.5.1`). That's a future ecosystem-alignment milestone (v1.3?),
+  **not v1.2's job**. Surfaced as a *known* follow-up, not a blocker.
+
+- Memory tiering / scoping (session / project / user) — **deferred to
+  v1.3** per KC-2. The reframed shape (`ScopedMemory` decorator +
+  `memory.WithScope(ctx, scope)` ctx-keyed propagation) is pre-decided
+  in the v1.2 research; v1.3 will implement without relitigating the
+  design call.
 
 - Operator-authorized environment changes during Phase 33:
   `llm-agent-rag` repo visibility flipped to **public** to unblock
@@ -222,66 +268,88 @@ Recent decisions affecting current work:
 
 ### Blockers/Concerns
 
-- No immediate blocker — v1.0 is fully closed; v1.1 is defined and ready
-  to plan. The research confirmed all five repos build/test green and
-  every cross-repo bump resolves.
+- No immediate blocker — v1.1 is closed; v1.2 ROADMAP / REQUIREMENTS
+  are laid down and ready to plan. The research
+  (`.planning/research/v1.2-core-capability-deepening-SUMMARY.md`)
+  confirmed all four candidate capabilities are stdlib-feasible at HIGH
+  confidence; design proposals (the keystone calls) are MEDIUM
+  confidence — first-slice prototypes will refine field-level details.
 
-- One known v1.1 code fix: bumping the core `llm-agent` to `llm-agent-rag
-  v1.0.0` surfaces 7 facade-test `vector dimension mismatch` failures — a
-  real regression in the compatibility facade (preliminary root cause:
-  the facade adapter wires a mismatched store/query embedding dimension).
-  Phase 31 owns the exact dimension-contract diff and the fix. It must be
-  fixed inside the facade — never by adding a dependency (KE-3).
+- KC-1 (Supervisor as `StateGraph[S]` facade) is MEDIUM confidence:
+  the pattern is sound but the first-slice prototype (Phase 37-01) will
+  refine whether StateGraph is the right substrate or if Supervisor
+  needs its own state shape. Planner may go separate.
 
-- Post-v1.0 discipline (`llm-agent-rag`): the API is frozen — additive-only
-  within `v1.x`, breaking ⇒ `/v2`. v1.1 does not touch rag (KE-2).
+- KC-4 (ctx-keyed + `Tracker` hybrid) has a few unknowns at the
+  streaming boundary — Phase 35-03 will pin down how partial-stream
+  cancellation surfaces (`ctx.Err()` vs `budget.ErrExhausted`).
+
+- Post-v1.0 discipline (`llm-agent-rag`): the API is frozen —
+  additive-only within `v1.x`, breaking ⇒ `/v2`. v1.2 does not touch
+  rag (KS-5).
+
+- v1.2 stays under the breaking-change ceiling for core (KC-5): every
+  new surface is in a new package or a new optional interface; no edit
+  to validated public types; no `/v2` import path.
 
 ## Session Continuity
 
 Last session: 2026-05-20
-Stopped at: Phase 34 complete — v1.1 audit PASS 5/5; pending operator milestone-close commit + `/gsd-transition` (between-milestones)
+Stopped at: Phase 34 complete (v1.1 audit PASS); v1.2 milestone
+artifacts laid down 2026-05-20; ready for `/gsd-plan-phase 35`
 
-v1.0 is fully shipped and closed — `llm-agent-rag` tagged `v1.0.0`, audit
-PASS 6/6, committed (`a76896d` feat + `170b944` changelog), pushed,
-transitioned and archived; the core repo `.planning/` close commit
-(`48cbbc9`) is committed and pushed. `llm-agent-rag` now has a frozen,
-fully-documented, gate-protected `v1.0.0` public API and a written
-compatibility promise.
+v1.1 (Ecosystem Alignment) shipped and closed 2026-05-20 — audit PASS
+5/5 (`ECO-01..05`, `KE-1..KE-7`); final coordinated tag set: `llm-agent
+v0.5.1`, `llm-agent-rag v1.0.1`, `llm-agent-otel v0.2.1`,
+`llm-agent-providers v0.2.1`, `llm-agent-customer-support v0.2.2`. One
+auditable finding documented: the rag↔core cycle exemption in the
+dep-currency gate (narrow strict-equality exemption — KE-2 holds).
+Three architectural trade-offs documented honestly in the audit:
+v1.0.0 → v1.0.1 freeze-day-after re-tag (chore-only patch);
+topological-order miss in Phase 33's cascade (future cascades must
+`tsort` against the dep DAG); the rag↔core cycle exemption itself.
 
-The **`v1.1` Ecosystem Alignment milestone is shipped and closed**
-(audit PASS 5/5, 2026-05-20). All 4 phases (31-34) complete; 19 slices
-executed total (Phase 34 expanded from 3 to 9 mid-flight).
+**`v1.2` Core Capability Deepening milestone opened 2026-05-20** (this
+slice). Theme: **Core v0.6** — capability additions to core
+`llm-agent`; memory tiering deferred to v1.3 per KC-2. Core module
+bump: `v0.5.1 → v0.6.0` (minor — additive only). Operator-chosen
+direction: take the three picks (budget + policy + Supervisor) deeply
+finished over four shallow. 4 phases (35-38), 4 requirements
+(`CC-1..04`).
 
-**Final coordinated v1.1 tag set** (post-cascade, all pushed):
+v1.2 scope:
 
-- `llm-agent v0.5.1` @ `88db43e` (HEAD on `main` is `acb3253` — the
-  Wave 7 umbrella-gate commit, build-system infrastructure, no new tag)
-- `llm-agent-rag v1.0.1` @ `09697ca`
-- `llm-agent-otel v0.2.1` @ `c7ebda7`
-- `llm-agent-providers v0.2.1` @ `efdef5a`
-- `llm-agent-customer-support v0.2.2` @ `ca62e5b`
+- **Phase 35 — Budget / cancellation context (`CC-1`)**: `budget`
+  package; ctx-keyed propagation via `budget.WithBudget(ctx, *Tracker)`
+  + `budget.From(ctx)`; built-in `NewStrict`/`NewSoft` trackers;
+  integration at the `generateFromPrompt` chokepoint. Cost-table is
+  opt-in / outside core (KC-4).
+- **Phase 36 — Policy / safety middleware (`CC-2`)**: `policy`
+  package; capability-preserving `policy.Wrap(model) ChatModel`
+  decorator mirroring `otelmodel.Wrap` (K3); typed `Gate` event union;
+  3 built-in regex gates; documented stack
+  `policy.Wrap(otelmodel.Wrap(provider))` (KC-3).
+- **Phase 37 — Multi-agent coordination (`CC-3`)**:
+  `orchestrate.Supervisor` shipped as a thin `StateGraph[S]` facade;
+  honors **CC-1**'s budget + **CC-2**'s policy (KC-1).
+- **Phase 38 — Milestone close (`CC-4`)**: tag `llm-agent v0.6.0`;
+  CHANGELOG entry; archive `v1.2-*.md` to `.planning/milestones/`;
+  audit; refresh planning artifacts to between-milestones.
 
-Zero `replace` directives across all tagged branches. Dep-currency gate
-exit 0. 5/5 vet/build/test -short green. 4/4 sister working trees
-clean. Audit: `.planning/v1.1-MILESTONE-AUDIT.md` — verdict ✅ PASS.
+**v1.1 closed (audit PASS 5/5, cycle-exemption finding documented);
+v1.2 scope = Budget → Policy → Supervisor (4 phases); next concrete
+action = `/gsd-plan-phase 35`; memory tiering deferred to v1.3 per
+operator decision 2026-05-20.**
 
-Three trade-offs surfaced and documented honestly: (i) the v1.0.0 →
-v1.0.1 freeze-day-after re-tag (KE-2 holds — chore-only patch, no
-exported-symbol move); (ii) the topological-order miss in Phase 33's
-cascade (Wave 6 follow-up re-tagged `cs v0.2.2` once `providers v0.2.1`
-existed; future cascades must `tsort` against the dep DAG); (iii) the
-rag↔core cycle exemption in the dep-currency gate (the one auditable
-strict-equality exemption — narrow on purpose).
-
-**Pending operator action — milestone-close commit.** The planning-tree
-edits authored by slice 34-09 are staged (`.planning/v1.1-MILESTONE-AUDIT.md`,
-`.planning/PROJECT.md`, `.planning/STATE.md`, `.planning/ROADMAP.md`,
-`.planning/REQUIREMENTS.md`, `.planning/milestones/v1.1-ROADMAP.md`,
-`.planning/milestones/v1.1-REQUIREMENTS.md`, plus the 34-09 PLAN/SUMMARY).
-The slice does not run `git commit` — that move mirrors the v1.0 close
-commit `48cbbc9` and is the operator's explicit action.
+**Pending operator action — milestone-setup commit.** This slice
+authored the v1.2 setup artifacts (`v1.2-ROADMAP.md`,
+`v1.2-REQUIREMENTS.md`, `PROJECT.md`, `STATE.md`, `ROADMAP.md`,
+`REQUIREMENTS.md`, plus
+`.planning/phases/34-…/34-NEXT-MILESTONE-SETUP-SUMMARY.md`). The slice
+does not run `git commit` — that move is the operator's explicit
+action.
 
 Next step: operator runs
-`git add .planning/ && git commit -m 'docs(planning): close v1.1 ecosystem alignment milestone (audit PASS 5/5)' && git push origin main`,
-then `/gsd-transition` to between-milestones state.
-Resume file: .planning/v1.1-MILESTONE-AUDIT.md
+`git add .planning/ && git commit -m 'docs(planning): open v1.2 core capability deepening milestone' && git push origin main`,
+then `/gsd-plan-phase 35` to plan the budget package.
+Resume file: .planning/v1.2-ROADMAP.md
