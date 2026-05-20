@@ -3,7 +3,10 @@ package agents
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
+
+	"github.com/costa92/llm-agent/budget"
 )
 
 func TestReflectionAgent_RevisesAcrossRounds(t *testing.T) {
@@ -45,6 +48,43 @@ func TestReflectionAgent_EmptyInput(t *testing.T) {
 	_, err := a.Run(context.Background(), "")
 	if !errors.Is(err, ErrEmptyInput) {
 		t.Errorf("err = %v", err)
+	}
+}
+
+// TestReflection_BudgetExhaustion proves Reflection's gen→critique→revise
+// cycle honors a MaxCalls budget at the chokepoint (35-04 / CC-1).
+//
+// Reflection makes 3 calls in a full round (initial draft, critique, revise).
+// With Budget{MaxCalls: 2} the third pre-call charge — the revise — is denied,
+// so the agent returns zero Result + ErrCallsExceeded. We deliberately script
+// a non-APPROVED critique so the loop does not break before revise.
+func TestReflection_BudgetExhaustion(t *testing.T) {
+	ctx, _ := budget.WithBudget(context.Background(), budget.Budget{MaxCalls: 2})
+
+	llmMock := newScriptedLLM(
+		textResp("initial draft"),                  // call 1 — gen
+		textResp("CRITIQUE: needs more punch"),     // call 2 — critique (not APPROVED)
+		textResp("revised draft (would be third)"), // call 3 — DENIED at pre-call charge
+	)
+	a := NewReflectionAgent(llmMock, ReflectionOptions{MaxRounds: 1})
+
+	result, err := a.Run(ctx, "task")
+	if !errors.Is(err, budget.ErrCallsExceeded) {
+		t.Fatalf("err = %v, want ErrCallsExceeded", err)
+	}
+	if !errors.Is(err, budget.ErrBudgetExceeded) {
+		t.Fatalf("err = %v, want ErrBudgetExceeded (umbrella)", err)
+	}
+	if !reflect.DeepEqual(result, Result{}) {
+		t.Fatalf("expected zero Result on chokepoint error (reflection.go:81/94/110), got %+v", result)
+	}
+
+	tr, ok := budget.From(ctx)
+	if !ok {
+		t.Fatalf("budget.From(ctx) returned ok=false")
+	}
+	if got := tr.Snapshot().Calls; got != 2 {
+		t.Errorf("tracker Snapshot().Calls = %d, want 2 (cap; denied revise did not mutate)", got)
 	}
 }
 

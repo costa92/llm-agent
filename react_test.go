@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 
+	"github.com/costa92/llm-agent/budget"
 	"github.com/costa92/llm-agent/llm"
 )
 
@@ -200,6 +202,52 @@ func TestReActAgent_OnStep_Invoked(t *testing.T) {
 	want := []StepKind{StepThought, StepAction, StepObservation, StepThought, StepFinal}
 	if !equalSlice(got, want) {
 		t.Errorf("OnStep kinds = %v, want %v", got, want)
+	}
+}
+
+// TestReAct_BudgetExhaustion proves the ReAct scratchpad loop honors a MaxCalls
+// budget at the chokepoint (35-04 / CC-1).
+//
+// ReAct typically needs ≥3 LLM calls in a scratchpad cycle (action → observe
+// → action → observe → final). With Budget{MaxCalls: 2} we expect the third
+// pre-call charge to be denied, so the loop returns zero Result + the
+// dim-specific sentinel. The first two LLM calls successfully run a tool
+// each (recordingTool); the denied 3rd attempt does NOT mutate the tracker
+// (check-before-commit), so Snapshot().Calls == 2.
+func TestReAct_BudgetExhaustion(t *testing.T) {
+	ctx, _ := budget.WithBudget(context.Background(), budget.Budget{MaxCalls: 2})
+
+	tool := &recordingTool{name: "echo", out: "ok"}
+	reg := NewRegistry(tool)
+
+	// Script 4 turns — all Action+Args, never Final — so the loop keeps
+	// driving past MaxSteps. With MaxCalls=2 the 3rd pre-call charge denies
+	// before MaxSteps can fire (MaxSteps=8 default).
+	llmMock := newScriptedLLM(
+		textResp("Thought: t1\nAction: echo\nArgs: {\"i\":1}"),
+		textResp("Thought: t2\nAction: echo\nArgs: {\"i\":2}"),
+		textResp("Thought: t3\nAction: echo\nArgs: {\"i\":3}"),
+		textResp("Thought: t4\nAction: echo\nArgs: {\"i\":4}"),
+	)
+	a := NewReActAgent(llmMock, ReActOptions{Registry: reg, MaxSteps: 5})
+
+	result, err := a.Run(ctx, "go")
+	if !errors.Is(err, budget.ErrCallsExceeded) {
+		t.Fatalf("err = %v, want ErrCallsExceeded", err)
+	}
+	if !errors.Is(err, budget.ErrBudgetExceeded) {
+		t.Fatalf("err = %v, want ErrBudgetExceeded (umbrella)", err)
+	}
+	if !reflect.DeepEqual(result, Result{}) {
+		t.Fatalf("expected zero Result on chokepoint error (react.go:106), got %+v", result)
+	}
+
+	tr, ok := budget.From(ctx)
+	if !ok {
+		t.Fatalf("budget.From(ctx) returned ok=false")
+	}
+	if got := tr.Snapshot().Calls; got != 2 {
+		t.Errorf("tracker Snapshot().Calls = %d, want 2 (cap; denied 3rd attempt did not mutate)", got)
 	}
 }
 

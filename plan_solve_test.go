@@ -3,7 +3,10 @@ package agents
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
+
+	"github.com/costa92/llm-agent/budget"
 )
 
 func TestPlanAndSolveAgent_PlanThenExec(t *testing.T) {
@@ -77,6 +80,47 @@ func TestPlanAndSolveAgent_TruncatesAtMaxSteps(t *testing.T) {
 	}
 	if res.Usage.LLMCalls != 5 {
 		t.Errorf("LLMCalls = %d, want 5 (truncated to MaxSteps=3)", res.Usage.LLMCalls)
+	}
+}
+
+// TestPlanSolve_BudgetExhaustion proves Plan-and-Solve's
+// plan → per-step exec → synthesize cycle honors a MaxCalls budget at the
+// chokepoint (35-04 / CC-1).
+//
+// With a 2-step plan PlanSolve uses 4 LLM calls (1 plan + 2 steps + 1 synth).
+// Budget{MaxCalls: 2} lets the plan (call 1) and the first step exec (call 2)
+// succeed; the second step exec (call 3) is denied at its pre-call charge.
+// Zero Result is returned per plan_solve.go:81/102/119.
+func TestPlanSolve_BudgetExhaustion(t *testing.T) {
+	ctx, _ := budget.WithBudget(context.Background(), budget.Budget{MaxCalls: 2})
+
+	llmMock := newScriptedLLM(
+		// call 1 — plan with 2 steps
+		textResp("PLAN:\n1. greet\n2. answer"),
+		// call 2 — execute step 1
+		textResp("hi"),
+		// call 3 — execute step 2 — DENIED at pre-call charge
+		textResp("forty-two"),
+	)
+	a := NewPlanAndSolveAgent(llmMock, PlanAndSolveOptions{MaxSteps: 5})
+
+	result, err := a.Run(ctx, "task")
+	if !errors.Is(err, budget.ErrCallsExceeded) {
+		t.Fatalf("err = %v, want ErrCallsExceeded", err)
+	}
+	if !errors.Is(err, budget.ErrBudgetExceeded) {
+		t.Fatalf("err = %v, want ErrBudgetExceeded (umbrella)", err)
+	}
+	if !reflect.DeepEqual(result, Result{}) {
+		t.Fatalf("expected zero Result on chokepoint error (plan_solve.go:81/102/119), got %+v", result)
+	}
+
+	tr, ok := budget.From(ctx)
+	if !ok {
+		t.Fatalf("budget.From(ctx) returned ok=false")
+	}
+	if got := tr.Snapshot().Calls; got != 2 {
+		t.Errorf("tracker Snapshot().Calls = %d, want 2 (cap; denied 3rd attempt did not mutate)", got)
 	}
 }
 
