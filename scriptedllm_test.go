@@ -8,39 +8,25 @@ import (
 	"github.com/costa92/llm-agent/llm"
 )
 
-// scriptedLLM is a test helper that returns pre-set llm.Response
-// values in order on each Generate call. After the script is exhausted
-// it returns errScriptExhausted. Concurrent-safe via mu.
-//
-// As of v0.3 (Phase 3), this type is a thin shim that re-uses the
-// canonical sentinel error from the new llm package while satisfying
-// llm.ChatModel for the legacy package-local tests that still prefer a
-// lightweight scripted helper.
-//
-// Deprecated: New tests should use llm.NewScriptedLLM directly. Retained
-// until Phase 3 refactors agent paradigms.
+// scriptedLLM is the agents-package test helper that returns pre-set
+// llm.Response values in order on each Generate call. After the script
+// is exhausted it wraps llm.ErrScriptExhausted. Concurrent-safe via mu.
 type scriptedLLM struct {
 	mu    sync.Mutex
 	calls int
 	resps []llm.Response
 }
 
-// errScriptExhausted aliases llm.ErrScriptExhausted so existing tests
-// matching with errors.Is(err, errScriptExhausted) continue to work.
-var errScriptExhausted = llm.ErrScriptExhausted
-
 func newScriptedLLM(resps ...llm.Response) *scriptedLLM {
 	return &scriptedLLM{resps: resps}
 }
 
-// Generate returns the next scripted Response or wraps errScriptExhausted
-// when the script is exhausted.
 func (s *scriptedLLM) Generate(_ context.Context, _ llm.Request) (llm.Response, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.calls >= len(s.resps) {
 		s.calls++
-		return llm.Response{}, fmt.Errorf("scriptedLLM: %w", errScriptExhausted)
+		return llm.Response{}, fmt.Errorf("scriptedLLM: %w", llm.ErrScriptExhausted)
 	}
 	r := s.resps[s.calls]
 	s.calls++
@@ -65,8 +51,7 @@ func (s *scriptedLLM) Info() llm.ProviderInfo {
 	}
 }
 
-// callCount returns how many times Generate was invoked. Preserved for
-// backwards-compat with existing tests that assert on call count.
+// callCount returns how many times Generate was invoked.
 func (s *scriptedLLM) callCount() int {
 	s.mu.Lock()
 	defer s.mu.Unlock()

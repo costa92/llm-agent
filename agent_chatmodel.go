@@ -19,7 +19,8 @@ func generateFromPrompt(ctx context.Context, model llm.ChatModel, systemPrompt, 
 	// Pre-call charge: MaxCalls counts attempts (Q2 — operator-confirmed
 	// 2026-05-20). A denied call never reaches the network. When no
 	// tracker is installed on ctx, budget.From returns (nil, false) and
-	// this branch is a no-op — the load-bearing backwards-compat guarantee.
+	// this branch is a no-op — the KC-4 opt-in design (budget is
+	// ctx-keyed; callers opt in by installing a Tracker on ctx).
 	t, hasBudget := budget.From(ctx)
 	if hasBudget {
 		if err := t.Charge(budget.Usage{Calls: 1}); err != nil {

@@ -59,11 +59,11 @@ func (s *slowScriptedLLM) Info() llm.ProviderInfo { return s.inner.Info() }
 
 var _ llm.ChatModel = (*slowScriptedLLM)(nil)
 
-// TestGenerateFromPrompt_NoBudget_Passthrough proves zero behavior
-// change when no budget is installed on ctx — the load-bearing
-// backwards-compat guarantee. The scriptedLLM call counter must advance
-// exactly N times and every response must be returned byte-identical to
-// what was scripted.
+// TestGenerateFromPrompt_NoBudget_Passthrough proves the budget
+// chokepoint is a no-op when no tracker is installed on ctx (KC-4
+// opt-in design). The scriptedLLM call counter must advance exactly N
+// times and every response must be returned byte-identical to what was
+// scripted.
 func TestGenerateFromPrompt_NoBudget_Passthrough(t *testing.T) {
 	want := []llm.Response{
 		tokenResp("one", 10),
@@ -229,7 +229,7 @@ func TestGenerateFromPrompt_Concurrent_Race(t *testing.T) {
 	const total = goroutines * perGoroutine
 
 	// Each call needs an available scripted response or the LLM returns
-	// errScriptExhausted (which is itself an error). To avoid script
+	// llm.ErrScriptExhausted (which is itself an error). To avoid script
 	// exhaustion swallowing the test signal, pre-load total responses.
 	resps := make([]llm.Response, total)
 	for i := range resps {
