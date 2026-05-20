@@ -71,6 +71,14 @@ jobs:
             echo "$repo scripts/workspace.sh sha256 matches core: OK"
           done
 
+      - name: Dependency-currency gate (ECO-04 / KE-6)
+        # Fails when any sister go.mod pins a sibling at a version older than
+        # that sibling's latest published release tag. Closes the test.yml vs
+        # umbrella.yml blind spot (RESEARCH 34, "The blind spot the gate closes").
+        # Single source of truth lives in scripts/dep-currency-check.sh — CI and
+        # local runs invoke the same script.
+        run: bash llm-agent/scripts/dep-currency-check.sh
+
       - name: Initialize go.work pointing all 5 modules at this PR's llm-agent
         run: |
           go work init ./llm-agent ./llm-agent-providers ./llm-agent-otel ./llm-agent-customer-support ./llm-agent-rag
