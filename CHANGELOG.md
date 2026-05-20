@@ -11,12 +11,24 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
-Post-`v0.4` RAG compatibility maintenance while the standalone SDK advances
-through the `v0.5` retrieval productionization milestone.
+## [v0.5.0] - 2026-05-21
+
+Post-`v0.4` RAG compatibility maintenance plus the Phase-31 alignment to the
+standalone SDK's frozen `v1.0` API. The core stays stdlib-only; the public
+`rag` facade API is unchanged.
 
 ### Changed
 
-- bumped `github.com/costa92/llm-agent-rag` from `v0.1.2` to `v0.1.4`
+- bumped `github.com/costa92/llm-agent-rag` from `v0.1.4` to `v1.0.0`
+  (the standalone SDK's frozen `v1.0` API).
+- repaired the core `rag/` compatibility facade for the `v1.0.0` store
+  contract — `storeAdapter` now enumerates documents via a real list route
+  (`*InMemoryStore.ListDocuments` + an optional `lister` interface + an
+  id-index fallback) instead of a `nil`-vector similarity search, which
+  `v1.0.0`'s stricter `store.InMemoryStore.Search` rejects.
+- bumped `github.com/costa92/llm-agent-rag` from `v0.1.2` to `v0.1.4` (the
+  intermediate post-`v0.4` maintenance bump, superseded by the `v1.0.0`
+  bump above).
 - aligned the core `rag/` compatibility facade with the standalone retrieval
   policy path:
   - MQE / HyDE now delegate to standalone retrieval orchestration

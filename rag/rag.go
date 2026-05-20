@@ -84,7 +84,7 @@ func New(opts Options) *RAGSystem {
 	r.core = ragcore.New(ragcore.Options{
 		Splitter: splitterAdapter{inner: chunker},
 		Embedder: embedderAdapter{inner: embedder},
-		Store:    storeAdapter{inner: store},
+		Store:    newStoreAdapter(store),
 		Model:    modelAdapter{inner: opts.LLM},
 		Template: ragprompt.DefaultQATemplate{},
 		MaxChars: maxChunk,
@@ -238,8 +238,58 @@ func (a embedderAdapter) Dimension() int {
 	return a.inner.Dimension()
 }
 
+// lister is the optional enumeration capability a VectorStore may implement
+// so the facade can list stored documents via a real list route instead of a
+// similarity search. The default *InMemoryStore satisfies it via
+// ListDocuments. A custom VectorStore that does not implement it falls back
+// to the storeAdapter-maintained id index (see idIndex below).
+type lister interface {
+	ListDocuments(ctx context.Context) ([]Document, error)
+}
+
+// idIndex tracks the IDs the storeAdapter has observed through Upsert/Remove.
+// It is the enumeration fallback for a custom VectorStore that does not
+// implement the optional lister capability — storeAdapter.List walks the
+// index and fetches each document via VectorStore.Get, never a nil-vector
+// search. The storeAdapter is passed by value into the SDK, so the index is
+// held behind a pointer to keep Upsert/Remove mutations visible to List.
+type idIndex struct {
+	mu  sync.Mutex
+	ids map[string]struct{}
+}
+
+func (x *idIndex) add(id string) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	x.ids[id] = struct{}{}
+}
+
+func (x *idIndex) remove(id string) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	delete(x.ids, id)
+}
+
+func (x *idIndex) snapshot() []string {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	out := make([]string, 0, len(x.ids))
+	for id := range x.ids {
+		out = append(out, id)
+	}
+	return out
+}
+
 type storeAdapter struct {
 	inner VectorStore
+	index *idIndex
+}
+
+func newStoreAdapter(store VectorStore) storeAdapter {
+	return storeAdapter{
+		inner: store,
+		index: &idIndex{ids: make(map[string]struct{})},
+	}
 }
 
 func (a storeAdapter) Upsert(ctx context.Context, chunks []ragstore.StoredChunk) error {
@@ -256,6 +306,7 @@ func (a storeAdapter) Upsert(ctx context.Context, chunks []ragstore.StoredChunk)
 		}); err != nil {
 			return err
 		}
+		a.index.add(chunk.ID)
 	}
 	return nil
 }
@@ -310,34 +361,60 @@ func (a storeAdapter) Search(ctx context.Context, q ragstore.Query) ([]ragstore.
 	return out, nil
 }
 
+// List enumerates stored chunks via a real list route — never a nil-vector
+// similarity search. When the inner VectorStore implements the optional
+// lister capability (the default *InMemoryStore does, via ListDocuments) it
+// is used directly; otherwise the storeAdapter-maintained id index is walked
+// and each document fetched via VectorStore.Get. Namespace/filter/security
+// scoping is then applied with the facade's metadata-based matching.
 func (a storeAdapter) List(ctx context.Context, namespace string, filters ragstore.Filter, securityFilters ragstore.Filter) ([]ragstore.StoredChunk, error) {
-	stats := a.inner.Stats()
-	if stats.Count == 0 {
-		return nil, nil
-	}
-	// Compatibility facade has no direct list primitive, so emulate via a wide search.
-	hits, err := a.inner.Search(ctx, nil, stats.Count)
+	docs, err := a.enumerate(ctx)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ragstore.StoredChunk, 0, len(hits))
-	for _, hit := range hits {
-		if namespace != "" && namespaceFromMetadata(hit.Doc.Metadata) != namespace {
+	out := make([]ragstore.StoredChunk, 0, len(docs))
+	for _, doc := range docs {
+		if namespace != "" && namespaceFromMetadata(doc.Metadata) != namespace {
 			continue
 		}
-		if !metadataMatchesFilters(hit.Doc.Metadata, filters) {
+		if !metadataMatchesFilters(doc.Metadata, filters) {
 			continue
 		}
-		if !metadataMatchesFilters(hit.Doc.Metadata, securityFilters) {
+		if !metadataMatchesFilters(doc.Metadata, securityFilters) {
 			continue
 		}
 		out = append(out, ragstore.StoredChunk{
-			ID:        hit.Doc.ID,
-			Namespace: namespaceFromMetadata(hit.Doc.Metadata),
-			Content:   hit.Doc.Content,
-			Vector:    hit.Doc.Vector,
-			Metadata:  hit.Doc.Metadata,
+			ID:        doc.ID,
+			Namespace: namespaceFromMetadata(doc.Metadata),
+			Content:   doc.Content,
+			Vector:    doc.Vector,
+			Metadata:  doc.Metadata,
 		})
+	}
+	return out, nil
+}
+
+// enumerate returns every stored document without ever issuing a similarity
+// search: the optional lister capability when present, the id-index fallback
+// otherwise.
+func (a storeAdapter) enumerate(ctx context.Context) ([]Document, error) {
+	if l, ok := a.inner.(lister); ok {
+		return l.ListDocuments(ctx)
+	}
+	ids := a.index.snapshot()
+	out := make([]Document, 0, len(ids))
+	for _, id := range ids {
+		doc, err := a.inner.Get(ctx, id)
+		if err != nil {
+			if errors.Is(err, ErrStoreNotFound) {
+				// The index may lag a store mutated outside the facade;
+				// skip a vanished id rather than fail the whole enumeration.
+				a.index.remove(id)
+				continue
+			}
+			return nil, err
+		}
+		out = append(out, doc)
 	}
 	return out, nil
 }
@@ -357,7 +434,11 @@ func (a storeAdapter) Get(ctx context.Context, id string) (ragstore.StoredChunk,
 }
 
 func (a storeAdapter) Remove(ctx context.Context, id string) error {
-	return a.inner.Remove(ctx, id)
+	if err := a.inner.Remove(ctx, id); err != nil {
+		return err
+	}
+	a.index.remove(id)
+	return nil
 }
 
 func (a storeAdapter) RemoveByFilter(ctx context.Context, namespace string, filters ragstore.Filter) (int, error) {
@@ -367,7 +448,7 @@ func (a storeAdapter) RemoveByFilter(ctx context.Context, namespace string, filt
 	}
 	removed := 0
 	for _, chunk := range chunks {
-		if err := a.inner.Remove(ctx, chunk.ID); err != nil {
+		if err := a.Remove(ctx, chunk.ID); err != nil {
 			return removed, err
 		}
 		removed++

@@ -114,6 +114,35 @@ func (s *InMemoryStore) Stats() StoreStats {
 	return StoreStats{Count: stats.Count, Dim: stats.Dim}
 }
 
+// ListDocuments enumerates every stored document via the inner SDK store's
+// real List primitive — never a similarity search. It is an additive method
+// on the already-public *InMemoryStore (it is not part of the VectorStore
+// interface); the facade's storeAdapter type-asserts a VectorStore to the
+// optional lister capability and uses this when present, so enumeration
+// (namespace isolation, filtered search, structure-aware retrieval) never
+// degrades to a nil-vector wide search.
+//
+// Namespace/filter scoping is intentionally NOT delegated to the SDK List:
+// the facade tracks the namespace in document metadata, not the SDK
+// StoredChunk.Namespace field, so the storeAdapter applies its own
+// metadata-based matching to the full set returned here.
+func (s *InMemoryStore) ListDocuments(ctx context.Context) ([]Document, error) {
+	chunks, err := s.inner.List(ctx, "", nil, nil)
+	if err != nil {
+		return nil, mapStoreErr(err)
+	}
+	out := make([]Document, 0, len(chunks))
+	for _, chunk := range chunks {
+		out = append(out, Document{
+			ID:       chunk.ID,
+			Content:  chunk.Content,
+			Vector:   []float32(chunk.Vector),
+			Metadata: chunk.Metadata,
+		})
+	}
+	return out, nil
+}
+
 func mapStoreErr(err error) error {
 	switch {
 	case errors.Is(err, ragstore.ErrNotFound):

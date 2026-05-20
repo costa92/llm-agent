@@ -3,7 +3,7 @@
 //
 // The implementation source of truth now lives in the standalone SDK:
 //
-//   - github.com/costa92/llm-agent-rag
+//   - github.com/costa92/llm-agent-rag v1.0.0
 //
 // This package continues to expose the historical llm-agent API so existing
 // callers do not need to migrate immediately:
