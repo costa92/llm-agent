@@ -11,6 +11,12 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
+## [v0.5.1] - 2026-05-20
+
+### Changed
+
+- Bump `llm-agent-rag` to `v1.0.1` (back-edge refresh, no public-API change).
+
 ## [v0.5.0] - 2026-05-21
 
 Post-`v0.4` RAG compatibility maintenance plus the Phase-31 alignment to the
