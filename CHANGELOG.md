@@ -11,6 +11,61 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
+## [v0.6.1] - 2026-05-21
+
+Additive release: introduces a stdlib-only `policy` sub-package — a
+capability-preserving `llm.ChatModel` decorator that runs typed `Gate`
+events at request, response, and stream boundaries. No behavior changes
+to any existing package; consumers can stay on `v0.6.0` if they don't
+need policy enforcement. Strict-additive: callers compiling against
+`v0.6.0` compile unchanged against `v0.6.1` (KC-5 honored verbatim —
+`llm/`, paradigm files, `agent_chatmodel.go`, `memory/`, `orchestrate/`,
+`go.mod`, `go.sum` all byte-identical to the pre-Phase-36 state).
+
+### Added
+
+- New `policy` sub-package — capability-preserving `llm.ChatModel`
+  decorator. Mirrors `otelmodel.Wrap` shape (KC-3) with the 8-wrapper
+  type-switch tree + 21 compile-time interface assertions so
+  `ToolCaller` / `Embedder` / `StructuredOutputs` capabilities are
+  preserved through the wrap.
+  - `policy.Wrap(model, gates...)` — convenience entry point.
+  - `policy.WrapConfig(model, Config{Gates: ..., OnDecision: f})` —
+    structured entry with optional audit callback (synchronous,
+    nil-safe, panic-recovered).
+  - `policy.Gate` interface + `policy.Event` struct + `policy.EventKind`
+    enum with 5 kinds (`PreGenerate` / `PostGenerate` / `PreStream` /
+    `StreamDelta` / `PostStream`).
+  - `policy.Decision` struct + `policy.DecisionAction` enum with 4
+    actions (`Allow` / `Block` / `Redact` / `Replace`).
+  - `policy.ErrBlocked` sentinel + `policy.BlockedError` rich error
+    pair (`errors.Is` umbrella + `errors.As` detail with embedded
+    `Decision` copy).
+- Three built-in gates (all stdlib-only):
+  - `policy.NewPIIRedactor()` — redacts email / phone / IPv4 patterns
+    (US-locale ssn / credit_card deferred to a future
+    `NewUSLocalePIIRedactor` additive). `WithStreamRedaction` opt-in
+    enables per-delta scanning (default OFF per Q4 — per-delta regex
+    is expensive and cross-delta PII can leak by design).
+  - `policy.NewInjectionScanner()` — pre-call block on the 4 canonical
+    prompt-injection patterns (lifted from `llm-agent-rag/guard` by
+    copy, not import, per KS-5).
+  - `policy.NewMaxInputLen(n int)` — pre-call block when prompt size
+    exceeds n bytes (Q3 — bytes are the operative cap for provider
+    HTTP budgets; a future `MaxInputLenRunes` is a v1.3 additive
+    candidate).
+- Composition with `otelmodel.Wrap` is documented in
+  `examples/07-policy/README.md` — canonical v1.2+ stack is
+  `policy.Wrap(otelmodel.Wrap(provider), ...)`: outer denies before
+  observed, middle observes, inner calls. The example main.go
+  intentionally does NOT import the otel sister repo (Decision G —
+  the sister-repo example ships in v1.3 when `llm-agent-otel` bumps
+  to match core `v0.6.x`).
+- New `examples/07-policy/` — three deterministic demos
+  (`demoPIIRedaction`, `demoInjectionBlock`, `demoMaxInputLen`)
+  driven by `llm.ScriptedLLM` proving each gate's decision action
+  end-to-end. Run with `cd examples && go run ./07-policy`.
+
 ## [v0.6.0] - 2026-05-21
 
 Additive release: introduces a stdlib-only shared test-helper sub-package.
