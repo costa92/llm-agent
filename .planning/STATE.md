@@ -4,15 +4,15 @@ milestone: v1.2
 milestone_name: Core Capability Deepening
 status: active
 current_milestone: v1.2
-stopped_at: Phase 35 (CC-1 budget) complete; v0.6.0 partial cap cut 2026-05-21 (CC-1 + agentstest); ready for /gsd-plan-phase 36
-last_updated: "2026-05-21T00:00:00.000Z"
-last_activity: 2026-05-21 — Phase 35 4 waves executed and committed; agentstest sub-package added; v0.6.0 cut as partial v1.2 cap; v1.2 close target retargeted to v0.7.0
+stopped_at: Phase 36 (CC-2 policy) complete in 5 waves; v0.6.1 cut 2026-05-21 (additive policy sub-package, KC-5 honored verbatim); ready for /gsd-plan-phase 37
+last_updated: "2026-05-21T07:13:07.702Z"
+last_activity: 2026-05-21 — Phase 36 shipped in v0.6.1; 2/4 v1.2 phases complete; Phase 37 (orchestrate.Supervisor, CC-3) next
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 0
-  completed_plans: 4
-  percent: 25
+  completed_phases: 2
+  total_plans: 9
+  completed_plans: 9
+  percent: 50
 ---
 
 # Project State
@@ -22,10 +22,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** **v1.2 Core Capability Deepening (active, 1/4 phases shipped).** The first **core-feature** milestone since v0.3. Theme: **Core v0.6** — capability additions to core `llm-agent`; memory tiering deferred to v1.3 per KC-2. Three new packages/types: `budget` (CC-1, Phase 35) — **shipped 2026-05-21 in v0.6.0**; `policy` (CC-2, Phase 36) — **next, ready to plan**; `orchestrate.Supervisor` (CC-3, Phase 37). **v0.6.0 was cut as a partial v1.2 cap** (containing CC-1 + the additive `agentstest` test-helper sub-package). The **full v1.2 cap tag is retargeted to `v0.7.0`** — Phase 36 lands on `v0.6.1` (patch — additive sub-package), Phase 37 on `v0.6.2` (patch — additive sub-package), Phase 38 closes the milestone with `v0.7.0`. Next concrete action: `/gsd-plan-phase 36`.
+**Current focus:** **v1.2 (active, 2/4 shipped)** — Phase 35 CC-1 budget shipped in v0.6.0; Phase 36 CC-2 policy shipped in v0.6.1; Phase 37 CC-3 orchestrate.Supervisor next; Phase 38 milestone cap to v0.7.0.
 
 ## Current Position
 
+Phase: 36 — COMPLETE
 Milestone: **`v1.2` Core Capability Deepening — active, opened 2026-05-20.**
 The first **core-feature** milestone since v0.3. Theme: **Core v0.6**
 — capability additions to core `llm-agent`; memory tiering deferred to
@@ -36,15 +37,18 @@ only). 4 requirements (`CC-1..04`) across 4 phases (35-38):
   package; ctx-keyed propagation + `budget.Tracker` enforcement;
   integration at the `generateFromPrompt` chokepoint; cost-table
   opt-in / outside core (KC-4).
+
 - **Phase 36 — Policy / safety middleware (`CC-2`)** — `policy`
   package; capability-preserving `policy.Wrap(model) ChatModel`
   decorator mirroring `otelmodel.Wrap` (K3); 3 built-in regex gates
   (PII redaction, injection detection, max-input-length); documented
   composition stack `policy.Wrap(otelmodel.Wrap(provider))` (KC-3).
+
 - **Phase 37 — Multi-agent coordination (`CC-3`)** —
   `orchestrate.Supervisor` shipped as a thin `StateGraph[S]` facade;
   iterative supervisor↔worker; honors **CC-1**'s budget + **CC-2**'s
   policy (KC-1).
+
 - **Phase 38 — v1.2 milestone audit + close (`CC-4`)** — tag
   `llm-agent v0.6.0`; CHANGELOG entry; archive v1.2 ROADMAP/REQUIREMENTS
   to `.planning/milestones/`; ship `v1.2-MILESTONE-AUDIT.md`; refresh
@@ -70,12 +74,12 @@ coordinated tag set: `llm-agent v0.5.1`, `llm-agent-rag v1.0.1`,
 `llm-agent-customer-support v0.2.2`.
 Previous milestone (rag): `v1.0` API stabilization — shipped and closed
 2026-05-21 (`llm-agent-rag v1.0.0`, audit PASS 6/6, fully archived).
-Plan: `v1.2` Core Capability Deepening scoped 2026-05-20 from
+Plan: 1 of 5
 `.planning/research/v1.2-core-capability-deepening-SUMMARY.md`. 4
 requirements (`CC-1..04`) across 4 phases (35-38). See ROADMAP /
 REQUIREMENTS / phase-block above for the per-phase shape.
 
-Status: **v1.2 milestone artifacts laid down 2026-05-20** (this commit).
+Status: Phase 36 complete
 ROADMAP / REQUIREMENTS authored, PROJECT.md updated with v1.2 active
 block + KC-1..KC-5 keystones table, STATE.md flipped from
 between-milestones to v1.2 active. **No code/CI YAML changes yet** —
@@ -84,7 +88,7 @@ that begins in Phase 35.
 Next step: run `/gsd-plan-phase 36` to plan the `policy` package
 (CC-2 — capability-preserving model decorator with PII / injection /
 max-input gates).
-Last activity: 2026-05-21 — Phase 35 executed in 4 waves (commits
+Last activity: 2026-05-21 -- Phase 36 marked complete
 `581caea`/`d141bf6`/`39950e2`/`535375f`); v0.6.0 partial cap cut
 (also includes additive `agentstest` test-helper sub-package);
 v1.2 cap retargeted to v0.7.0.
@@ -100,8 +104,10 @@ v0.9 (core `v0.6.0` legacy nomenclature), v0.8 (`v0.5.0`).
 
 - Total plans completed: 105 (40 through v0.5 + 14 in v0.6 phases 14-19 +
   8 in v0.7 phases 20-22 + 9 in v0.8 phases 23-25 + 6 in v0.9 phases 26-27
+
   + 9 in v1.0 phases 28-30 + 19 in v1.1 phases 31-34 — Phase 34 expanded
   from 3 to 9 slices mid-flight)
+
 - Average duration: -
 - Total execution time: -
 
@@ -336,17 +342,21 @@ v1.2 scope:
 
 - **Phase 35 — Budget / cancellation context (`CC-1`)**: `budget`
   package; ctx-keyed propagation via `budget.WithBudget(ctx, *Tracker)`
+
   + `budget.From(ctx)`; built-in `NewStrict`/`NewSoft` trackers;
   integration at the `generateFromPrompt` chokepoint. Cost-table is
   opt-in / outside core (KC-4).
+
 - **Phase 36 — Policy / safety middleware (`CC-2`)**: `policy`
   package; capability-preserving `policy.Wrap(model) ChatModel`
   decorator mirroring `otelmodel.Wrap` (K3); typed `Gate` event union;
   3 built-in regex gates; documented stack
   `policy.Wrap(otelmodel.Wrap(provider))` (KC-3).
+
 - **Phase 37 — Multi-agent coordination (`CC-3`)**:
   `orchestrate.Supervisor` shipped as a thin `StateGraph[S]` facade;
   honors **CC-1**'s budget + **CC-2**'s policy (KC-1).
+
 - **Phase 38 — Milestone close (`CC-4`)**: tag `llm-agent v0.6.0`;
   CHANGELOG entry; archive `v1.2-*.md` to `.planning/milestones/`;
   audit; refresh planning artifacts to between-milestones.
