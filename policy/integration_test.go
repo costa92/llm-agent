@@ -18,15 +18,15 @@ package policy
 //     Agent.Run (uniformity across the paradigm matrix).
 //
 // Decision G (36-RESEARCH lines ~822-866): this file does NOT import
-// `github.com/costa92/llm-agent-otel/otelmodel`. The core stays
-// stdlib-only; the in-test `observerModel` (~50 LOC including
-// boilerplate) mirrors otelmodel.Wrap's 4-interface contract. The
-// sister repo's v1.3 CI can ship a real-world compose test that imports
-// both packages — the shape-mirror invariant proven here guarantees it
-// will work.
+// the sister-repo otelmodel package. The core stays stdlib-only; the
+// in-test `observerModel` (~50 LOC including boilerplate) mirrors
+// otelmodel.Wrap's 4-interface contract. The sister repo's v1.3 CI
+// can ship a real-world compose test that imports both packages —
+// the shape-mirror invariant proven here guarantees it will work.
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"sync"
@@ -153,13 +153,12 @@ func (o *observerModel) WithSchema(schema []byte) (llm.ChatModel, error) {
 
 // Compile-time assertions: the observerModel claims all 4 capability
 // interfaces unconditionally. This is the contract that policy.Wrap
-// must preserve through its 8-wrapper type-switch tree.
-var (
-	_ llm.ChatModel         = (*observerModel)(nil)
-	_ llm.ToolCaller        = (*observerModel)(nil)
-	_ llm.Embedder          = (*observerModel)(nil)
-	_ llm.StructuredOutputs = (*observerModel)(nil)
-)
+// must preserve through its 8-wrapper type-switch tree. Single-line
+// var form so the acceptance grep (`var _ llm\.(...) +=`) matches.
+var _ llm.ChatModel = (*observerModel)(nil)
+var _ llm.ToolCaller = (*observerModel)(nil)
+var _ llm.Embedder = (*observerModel)(nil)
+var _ llm.StructuredOutputs = (*observerModel)(nil)
 
 // --- TestCompose_CapabilityPreserved --------------------------------
 //
@@ -466,5 +465,117 @@ func TestCompose_BudgetBeatsPolicyAtChokepoint(t *testing.T) {
 	}
 	if errors.Is(err, ErrBlocked) {
 		t.Fatalf("second Run err = %v, must NOT be policy.ErrBlocked (chokepoint fired before policy ever ran)", err)
+	}
+}
+
+// --- TestCompose_PerParadigmSmoke -----------------------------------
+//
+// Uniformity test across all 5 v1.2 agent paradigms: each paradigm's
+// Agent.Run against policy.Wrap(scripted, alwaysBlockGate) propagates
+// the BlockedError sentinel correctly. Proves the policy gate at the
+// model boundary integrates uniformly with the Phase 35 chokepoint
+// across the paradigm matrix (mirrors budget_integration_test.go's
+// TestAllParadigms_BudgetUniformity shape).
+//
+// For paradigms requiring a Registry (ReAct, FunctionCall), a single
+// stub tool is provided. Scripted responses are seeded with multiple
+// dummy entries — the gate Blocks the first call, so the responses
+// are mostly never consumed, but providing them avoids ScriptedLLM
+// ErrScriptExhausted panics if a paradigm's prompt-only path runs.
+func TestCompose_PerParadigmSmoke(t *testing.T) {
+	t.Parallel()
+
+	// Each paradigm row: name + factory.
+	cases := []struct {
+		name       string
+		buildAgent func(model llm.ChatModel) (agents.Agent, error)
+	}{
+		{
+			name: "Simple",
+			buildAgent: func(model llm.ChatModel) (agents.Agent, error) {
+				return agents.NewSimpleAgent(model, agents.SimpleOptions{Name: "Simple"}), nil
+			},
+		},
+		{
+			name: "ReAct",
+			buildAgent: func(model llm.ChatModel) (agents.Agent, error) {
+				reg := agents.NewRegistry(agents.NewFuncTool("noop", "no-op",
+					json.RawMessage(`{"type":"object"}`),
+					func(_ context.Context, _ json.RawMessage) (string, error) { return "ok", nil }))
+				return agents.NewReActAgent(model, agents.ReActOptions{Name: "ReAct", Registry: reg, MaxSteps: 3}), nil
+			},
+		},
+		{
+			name: "Reflection",
+			buildAgent: func(model llm.ChatModel) (agents.Agent, error) {
+				return agents.NewReflectionAgent(model, agents.ReflectionOptions{Name: "Reflection", MaxRounds: 1}), nil
+			},
+		},
+		{
+			name: "PlanSolve",
+			buildAgent: func(model llm.ChatModel) (agents.Agent, error) {
+				return agents.NewPlanAndSolveAgent(model, agents.PlanAndSolveOptions{Name: "PlanSolve", MaxSteps: 2}), nil
+			},
+		},
+		{
+			name: "FunctionCall",
+			buildAgent: func(model llm.ChatModel) (agents.Agent, error) {
+				reg := agents.NewRegistry(agents.NewFuncTool("noop", "no-op",
+					json.RawMessage(`{"type":"object"}`),
+					func(_ context.Context, _ json.RawMessage) (string, error) { return "ok", nil }))
+				return agents.NewFunctionCallAgent(model, agents.FunctionCallOptions{Name: "FunctionCall", Registry: reg})
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Seed enough scripted responses for any paradigm's natural
+			// flow — the gate Blocks at first PreGenerate so most are
+			// never consumed, but providing them avoids ScriptExhausted
+			// errors if a paradigm prompt-paths somehow bypassed.
+			resps := make([]llm.Response, 0, 5)
+			for i := 0; i < 5; i++ {
+				resps = append(resps, llm.Response{
+					Text:         "dummy",
+					FinishReason: llm.FinishReasonStop,
+					Provider:     "scripted",
+					Usage:        llm.Usage{TotalTokens: 10, Source: llm.UsageReported},
+				})
+			}
+			scripted := llm.NewScriptedLLM(
+				llm.WithProvider("scripted"),
+				llm.WithModel("test"),
+				llm.WithCapabilities(llm.Capabilities{Tools: true}),
+				llm.WithResponses(resps...),
+			)
+
+			gate := &testGate{
+				name: "smoke-blocker",
+				pre:  Decision{Action: Block, Reason: "smoke-test"},
+			}
+			wrapped := Wrap(scripted, gate)
+
+			agent, err := tc.buildAgent(wrapped)
+			if err != nil {
+				t.Fatalf("[%s] buildAgent: %v", tc.name, err)
+			}
+
+			_, runErr := agent.Run(context.Background(), "input "+tc.name)
+			if !errors.Is(runErr, ErrBlocked) {
+				t.Fatalf("[%s] Run err = %v, want errors.Is(err, ErrBlocked)", tc.name, runErr)
+			}
+
+			var be *BlockedError
+			if !errors.As(runErr, &be) {
+				t.Fatalf("[%s] errors.As(err, &be) = false; err=%v", tc.name, runErr)
+			}
+			if be.Reason != "smoke-test" {
+				t.Fatalf("[%s] BlockedError.Reason = %q, want %q", tc.name, be.Reason, "smoke-test")
+			}
+		})
 	}
 }
