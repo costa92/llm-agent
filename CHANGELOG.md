@@ -11,6 +11,12 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
+## [v0.6.0] - 2026-05-21
+
+Additive release: introduces a stdlib-only shared test-helper sub-package.
+No behavior changes to any existing package; consumers can stay on
+`v0.5.1` if they don't need the new helpers.
+
 ### Added
 
 - New `agentstest` sub-package — stdlib-only shared test helpers for
