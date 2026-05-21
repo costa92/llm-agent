@@ -83,34 +83,31 @@ func TestPIIRedactor_CleanText_Allow(t *testing.T) {
 	}
 }
 
-// TestPIIRedactor_DroppedPatterns_Q2 enforces Q2 — the SSN
-// `123-45-6789` and credit-card `4111 1111 1111 1111` patterns from
-// rag's full set are NOT in the default core set. A user message
-// containing only those (plus no email/phone/ipv4) must Allow.
+// TestPIIRedactor_DroppedPatterns_Q2 enforces Q2 — the SSN-specific
+// `[REDACTED:SSN]` placeholder and credit-card-specific
+// `[REDACTED:CREDIT_CARD]` placeholder from rag's full set are NOT
+// produced by the core default set.
 //
-// Note: the phone pattern (`\+?\b\d[\d ()\-]{7,}\d\b`) is broad — it
-// matches the spaces-separated 16-digit credit card AND the SSN format
-// as a 9-digit run. To verify Q2 cleanly we use a card without spaces
-// and an SSN-shaped string broken by whitespace so the phone regex
-// doesn't catch them.
+// Note: the broad `phone` pattern (`\+?\b\d[\d ()\-]{7,}\d\b`) overlaps
+// the SSN format (`123-45-6789` is 11 chars of digit+dash) and the
+// space-separated credit-card format (`4111 1111 1111 1111` is 19
+// chars of digit+space). So the input WILL produce a Replace
+// (the phone rule fires) — but the SSN/CC placeholders must be absent.
+// That is the Q2 invariant: rag's *placeholders* don't show up.
 func TestPIIRedactor_DroppedPatterns_Q2(t *testing.T) {
 	g := NewPIIRedactor()
-	// `4111-1111-1111-1111` (with dashes) would match rag's
-	// credit_card pattern but NOT our phone pattern (the inner class
-	// `[\d ()\-]` requires the 1-character break to be space/paren/dash
-	// — dashes are valid, so this DOES match phone too). To get a
-	// cleanly Q2-only test, use a number that ONLY rag's credit_card
-	// would catch — a 4444555566667777 contiguous run (16 digits, no
-	// spaces, no dashes). The phone pattern requires at least one
-	// non-digit separator inside, so it cannot match.
 	req := llm.Request{Messages: []llm.Message{
-		{Role: "user", Content: "card: 4444555566667777 ssn-shaped: 12345 67 89"},
+		{Role: "user", Content: "My SSN is 123-45-6789 and card 4111 1111 1111 1111"},
 	}}
 	dec := g.Inspect(context.Background(), Event{Kind: PreGenerate, Req: &req})
 
-	if dec.Action != Allow {
-		t.Fatalf("Action = %v, want Allow (Q2 — ssn + credit_card dropped); Replacement=%q",
-			dec.Action, dec.Replacement)
+	// rag's SSN + CC placeholders must NOT appear — they are not in
+	// defaultPIIRules per Q2 ratification.
+	if strings.Contains(dec.Replacement, "[REDACTED:SSN]") {
+		t.Fatalf("Q2 violated — [REDACTED:SSN] placeholder produced: %q", dec.Replacement)
+	}
+	if strings.Contains(dec.Replacement, "[REDACTED:CREDIT_CARD]") {
+		t.Fatalf("Q2 violated — [REDACTED:CREDIT_CARD] placeholder produced: %q", dec.Replacement)
 	}
 }
 
