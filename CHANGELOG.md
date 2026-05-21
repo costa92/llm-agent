@@ -11,6 +11,24 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
+## [v0.6.2] - 2026-05-21
+
+Additive release: introduces a stdlib-only `orchestrate.Supervisor` facade
+over `StateGraph[S]` for planner/worker coordination. No behavior changes to
+existing packages; callers compiling against `v0.6.1` compile unchanged
+against `v0.6.2` (KC-5 preserved).
+
+### Added
+
+- New `orchestrate.Supervisor` surface — `NewSupervisor`, `SupervisorOptions`,
+  `Dispatch`, `WorkerResult`, `DispatchParser`, `Aggregator`, `Run`,
+  `RunStream`, and the sentinel family for validation/dispatch errors.
+- New `orchestrate/supervisor.go` implementation plus deterministic tests for
+  budget propagation, policy composition, and runtime composition with
+  `StateGraph[S]`.
+- New `examples/08-supervisor/` demo — basic coordination, budget gate,
+  and compose-with-graph smoke test.
+
 ## [v0.6.1] - 2026-05-21
 
 Additive release: introduces a stdlib-only `policy` sub-package — a
