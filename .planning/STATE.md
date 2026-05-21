@@ -4,15 +4,15 @@ milestone: v1.2
 milestone_name: Core Capability Deepening
 status: active
 current_milestone: v1.2
-stopped_at: Phase 34 complete (v1.1 audit PASS); v1.2 milestone artifacts laid down 2026-05-20; ready for /gsd-plan-phase 35
-last_updated: "2026-05-20T07:30:00.000Z"
-last_activity: 2026-05-20 — v1.2 ROADMAP/REQUIREMENTS authored; STATE flipped to v1.2 active
+stopped_at: Phase 35 (CC-1 budget) complete; v0.6.0 partial cap cut 2026-05-21 (CC-1 + agentstest); ready for /gsd-plan-phase 36
+last_updated: "2026-05-21T00:00:00.000Z"
+last_activity: 2026-05-21 — Phase 35 4 waves executed and committed; agentstest sub-package added; v0.6.0 cut as partial v1.2 cap; v1.2 close target retargeted to v0.7.0
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 0
-  completed_plans: 0
-  percent: 0
+  completed_plans: 4
+  percent: 25
 ---
 
 # Project State
@@ -22,7 +22,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** **v1.2 Core Capability Deepening (active).** The first **core-feature** milestone since v0.3. Theme: **Core v0.6** — capability additions to core `llm-agent`; memory tiering deferred to v1.3 per KC-2. Three new packages/types: `budget` (CC-1, Phase 35), `policy` (CC-2, Phase 36), `orchestrate.Supervisor` (CC-3, Phase 37). Core module bump: `v0.5.1 → v0.6.0` (additive). Milestone artifacts laid down 2026-05-20; next concrete action `/gsd-plan-phase 35`.
+**Current focus:** **v1.2 Core Capability Deepening (active, 1/4 phases shipped).** The first **core-feature** milestone since v0.3. Theme: **Core v0.6** — capability additions to core `llm-agent`; memory tiering deferred to v1.3 per KC-2. Three new packages/types: `budget` (CC-1, Phase 35) — **shipped 2026-05-21 in v0.6.0**; `policy` (CC-2, Phase 36) — **next, ready to plan**; `orchestrate.Supervisor` (CC-3, Phase 37). **v0.6.0 was cut as a partial v1.2 cap** (containing CC-1 + the additive `agentstest` test-helper sub-package). The **full v1.2 cap tag is retargeted to `v0.7.0`** — Phase 36 lands on `v0.6.1` (patch — additive sub-package), Phase 37 on `v0.6.2` (patch — additive sub-package), Phase 38 closes the milestone with `v0.7.0`. Next concrete action: `/gsd-plan-phase 36`.
 
 ## Current Position
 
@@ -81,16 +81,18 @@ block + KC-1..KC-5 keystones table, STATE.md flipped from
 between-milestones to v1.2 active. **No code/CI YAML changes yet** —
 that begins in Phase 35.
 
-Next step: operator commits the v1.2 setup
-(`docs(planning): open v1.2 core capability deepening milestone`),
-then runs `/gsd-plan-phase 35` to plan the budget package.
-Last activity: 2026-05-20 — v1.2 ROADMAP/REQUIREMENTS authored;
-STATE flipped to v1.2 active; ready for /gsd-plan-phase 35.
+Next step: run `/gsd-plan-phase 36` to plan the `policy` package
+(CC-2 — capability-preserving model decorator with PII / injection /
+max-input gates).
+Last activity: 2026-05-21 — Phase 35 executed in 4 waves (commits
+`581caea`/`d141bf6`/`39950e2`/`535375f`); v0.6.0 partial cap cut
+(also includes additive `agentstest` test-helper sub-package);
+v1.2 cap retargeted to v0.7.0.
 
-Progress: [░░░░░░░░░░░░░░] v1.2 Core Capability Deepening — 0/4 phases
-complete (just opened). v1.1 shipped (`llm-agent v0.5.1` + 4 sister
-tags), v1.0 (`llm-agent-rag v1.0.0`), v0.9 (`v0.6.0`), v0.8
-(`v0.5.0`).
+Progress: [███░░░░░░░░░░░] v1.2 Core Capability Deepening — 1/4 phases
+complete (Phase 35 shipped, Phase 36 next). v1.1 shipped
+(`llm-agent v0.5.1` + 4 sister tags), v1.0 (`llm-agent-rag v1.0.0`),
+v0.9 (core `v0.6.0` legacy nomenclature), v0.8 (`v0.5.0`).
 
 ## Performance Metrics
 
@@ -202,6 +204,17 @@ Recent decisions affecting current work:
   `ScriptedLLM`; no edit to validated public types. Scope is the core
   repo only (sister repos stay on v0.2.x).
 
+- 2026-05-21: **v0.6.0 cut as partial v1.2 cap** — contains Phase 35
+  (CC-1 budget package, integrated at the `generateFromPrompt`
+  chokepoint) plus the additive `agentstest` test-helper sub-package
+  (stdlib-only, intended for sister-repo `*_test.go` consumption). Per
+  semver, an additive new sub-package warrants a minor bump; v0.6.0
+  was the natural name. **v1.2 milestone cap is retargeted from v0.6.0
+  to v0.7.0** — Phase 36 lands on v0.6.1 (patch, additive `policy`
+  sub-package), Phase 37 on v0.6.2 (patch, additive
+  `orchestrate.Supervisor`), Phase 38 closes v1.2 with v0.7.0. KC-5
+  (additive only, no `/v2`) preserved unchanged.
+
 ### Pending Todos
 
 - Live-Postgres CI wiring (testcontainers-go or GH Actions services) —
@@ -222,18 +235,18 @@ Recent decisions affecting current work:
   close was committed by the operator after the slice authored this
   STATE.md edit.
 
-- v1.2 milestone artifacts laid down 2026-05-20: `v1.2-ROADMAP.md`,
-  `v1.2-REQUIREMENTS.md`, plus PROJECT.md / STATE.md / ROADMAP.md /
-  REQUIREMENTS.md updates. **No code/CI YAML changes** — pure
-  `.planning/` writes. Next concrete action: operator commits the v1.2
-  setup, then runs `/gsd-plan-phase 35` (budget package).
+- v1.2 milestone artifacts laid down 2026-05-20; **Phase 35 shipped
+  2026-05-21** in v0.6.0 partial cap. Next concrete action: operator
+  runs `/gsd-plan-phase 36` (policy package, CC-2).
 
 - Sister-repo dep-currency follow-up (post-v1.2): when v1.2 closes
-  with `llm-agent v0.6.0`, the umbrella dep-currency gate will fail
-  green against the sister repos (`llm-agent-otel`,
-  `llm-agent-providers`, `llm-agent-customer-support` all pin core
-  `v0.5.1`). That's a future ecosystem-alignment milestone (v1.3?),
-  **not v1.2's job**. Surfaced as a *known* follow-up, not a blocker.
+  with `llm-agent v0.7.0`, the umbrella dep-currency gate will fail
+  against the sister repos (`llm-agent-otel`, `llm-agent-providers`,
+  `llm-agent-customer-support` all pin core `v0.5.1`). That's a future
+  ecosystem-alignment milestone (v1.3?), **not v1.2's job**. Surfaced
+  as a *known* follow-up, not a blocker. The gate will already fail
+  against core v0.6.0 (sisters trail by one minor); a brief grace
+  window during v1.2 mid-flight is acceptable.
 
 - Memory tiering / scoping (session / project / user) — **deferred to
   v1.3** per KC-2. The reframed shape (`ScopedMemory` decorator +
@@ -294,9 +307,11 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-05-20
-Stopped at: Phase 34 complete (v1.1 audit PASS); v1.2 milestone
-artifacts laid down 2026-05-20; ready for `/gsd-plan-phase 35`
+Last session: 2026-05-21
+Stopped at: Phase 35 (CC-1 budget) complete in 4 waves; v0.6.0 partial
+v1.2 cap cut (also includes additive `agentstest`); ready for
+`/gsd-plan-phase 36` (policy package, CC-2). v1.2 cap retargeted to
+v0.7.0.
 
 v1.1 (Ecosystem Alignment) shipped and closed 2026-05-20 — audit PASS
 5/5 (`ECO-01..05`, `KE-1..KE-7`); final coordinated tag set: `llm-agent
@@ -337,19 +352,14 @@ v1.2 scope:
   audit; refresh planning artifacts to between-milestones.
 
 **v1.1 closed (audit PASS 5/5, cycle-exemption finding documented);
-v1.2 scope = Budget → Policy → Supervisor (4 phases); next concrete
-action = `/gsd-plan-phase 35`; memory tiering deferred to v1.3 per
-operator decision 2026-05-20.**
+v1.2 scope = Budget → Policy → Supervisor (4 phases); Phase 35
+shipped 2026-05-21 in v0.6.0 partial cap; next concrete action =
+`/gsd-plan-phase 36`; v1.2 milestone cap tag retargeted to v0.7.0;
+memory tiering still deferred to v1.3 per operator decision
+2026-05-20.**
 
-**Pending operator action — milestone-setup commit.** This slice
-authored the v1.2 setup artifacts (`v1.2-ROADMAP.md`,
-`v1.2-REQUIREMENTS.md`, `PROJECT.md`, `STATE.md`, `ROADMAP.md`,
-`REQUIREMENTS.md`, plus
-`.planning/phases/34-…/34-NEXT-MILESTONE-SETUP-SUMMARY.md`). The slice
-does not run `git commit` — that move is the operator's explicit
-action.
-
-Next step: operator runs
-`git add .planning/ && git commit -m 'docs(planning): open v1.2 core capability deepening milestone' && git push origin main`,
-then `/gsd-plan-phase 35` to plan the budget package.
+Next step: operator runs `/gsd-plan-phase 36` to plan the `policy`
+package (CC-2 — capability-preserving `policy.Wrap(model) ChatModel`
+decorator with PII redaction, injection-detection, and max-input-length
+gates).
 Resume file: .planning/v1.2-ROADMAP.md
