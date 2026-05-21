@@ -11,6 +11,17 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
+### Added
+
+- New `agentstest` sub-package — stdlib-only shared test helpers for
+  `agents.Tool`. Provides `StubTool` / `NewStubTool` / `NewErrorTool` for
+  building fake tools and `RecordingTool` (a thread-safe decorator that
+  records every Execute call). Intended for sister-repo `*_test.go`
+  consumption (analogous to `net/http/httptest` for `net/http`); avoids
+  the previous pattern where each repo locally re-stubbed `agents.Tool`.
+  See `agentstest/doc.go` for the bridging note (use
+  `flow.FromAgentTool` to adapt to the narrower `flow.Tool` interface).
+
 ## [v0.5.1] - 2026-05-20
 
 ### Changed
