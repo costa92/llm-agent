@@ -2,11 +2,11 @@
 //
 // This file is the canonical core copy of the PII + injection regex
 // tables. The pattern bodies (regex source strings) are lifted verbatim
-// from llm-agent-rag/guard/redact.go (PII) and inject.go (injection) —
-// see the citation block at the bottom. They are COPIED, not imported:
-// KC-3 mirrors the otelmodel decorator pattern (per-repo source of
-// truth, not a shared upstream); KS-5 keeps llm-agent-rag a frozen
-// fixed point (no re-tag, no symbol move).
+// from the sister rag repo's guard/redact.go (PII) and guard/inject.go
+// (injection) — see the citation block at the bottom. They are COPIED,
+// not imported: KC-3 mirrors the otelmodel decorator pattern (per-repo
+// source of truth, not a shared upstream); KS-5 keeps the rag repo a
+// frozen fixed point (no re-tag, no symbol move).
 //
 // Q2 ratification — ssn + credit_card omitted from default set
 // (US-locale-specific; see policy/doc.go + 36-RESEARCH.md Decision E).
@@ -55,8 +55,8 @@ type injectionRule struct {
 // A v1.3 follow-up will ship NewUSLocalePIIRedactor as the additive
 // path for callers who want the full rag-parity set.
 //
-// Pattern bodies are VERBATIM from llm-agent-rag/guard/redact.go:67-94
-// (see citation block at end of file).
+// Pattern bodies are VERBATIM from the sister rag repo's
+// guard/redact.go lines 67-94 (see citation block at end of file).
 func defaultPIIRules() []piiRule {
 	return []piiRule{
 		{
@@ -82,10 +82,10 @@ func defaultPIIRules() []piiRule {
 // preserved verbatim (no Q2-style drop — these are language-agnostic
 // English-prompt signatures and the rag-parity policy applies).
 //
-// Pattern bodies are VERBATIM from llm-agent-rag/guard/inject.go:49-68
-// (see citation block at end of file). Names preserved exactly so
-// user-facing audit logs (BlockedError.Reason) remain stable across
-// the rag/core split.
+// Pattern bodies are VERBATIM from the sister rag repo's
+// guard/inject.go lines 49-68 (see citation block at end of file).
+// Names preserved exactly so user-facing audit logs
+// (BlockedError.Reason) remain stable across the rag/core split.
 func defaultInjectionRules() []injectionRule {
 	return []injectionRule{
 		{
@@ -109,12 +109,13 @@ func defaultInjectionRules() []injectionRule {
 
 // --- citation block ---------------------------------------------------
 //
-// Upstream source files (lifted by copy, NOT imported — KC-3 + KS-5):
+// Upstream source files (lifted by copy, NOT imported — KC-3 + KS-5).
+// Path is the sister rag repo:
 //
-//   - llm-agent-rag/guard/redact.go:67-94 — PII regex bodies (rag's
+//   - guard/redact.go lines 67-94 — PII regex bodies (rag's
 //     NewPIIRedactor returns 5 rules; we copy email/phone/ipv4 and
 //     drop ssn/credit_card per Q2).
-//   - llm-agent-rag/guard/inject.go:49-68 — injection regex bodies
+//   - guard/inject.go lines 49-68 — injection regex bodies
 //     (rag's NewPatternScanner returns 4 rules; we copy all 4).
 //
 // A future maintainer comparing this file against the upstream rag
