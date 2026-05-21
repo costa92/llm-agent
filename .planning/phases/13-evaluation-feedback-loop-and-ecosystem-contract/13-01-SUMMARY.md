@@ -1,3 +1,7 @@
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Phase 13-01 Summary
 
 Date: 2026-05-15

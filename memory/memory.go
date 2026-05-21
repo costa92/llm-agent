@@ -3,8 +3,9 @@
 // and Forget. Each type satisfies the Memory interface so a single
 // Agent can route writes/reads by Kind.
 //
-// Backend dependency: pkg/llm/agents/rag.Embedder for vector scoring.
-// Phase 2 ships HashEmbedder (zero-deps); Phase 3 adds real backends.
+// Backend dependency: llm.Embedder for vector scoring.
+// The bundled tests use ScriptedLLM; production callers can pass any
+// llm.Embedder implementation.
 //
 // # Portability
 //
@@ -16,6 +17,8 @@ import (
 	"context"
 	"errors"
 	"time"
+
+	"github.com/costa92/llm-agent/llm"
 )
 
 // Kind identifies which of the three Memory types an item belongs to.
@@ -67,6 +70,9 @@ type Memory interface {
 	Remove(ctx context.Context, id string) error
 	Stats() Stats
 }
+
+// Embedder is the minimal vectorization dependency memory needs.
+type Embedder = llm.Embedder
 
 // --- sentinel errors ------------------------------------------------------
 

@@ -1,3 +1,7 @@
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Phase 4: Embeddings + RAG Regression - Context
 
 **Gathered:** 2026-05-11  

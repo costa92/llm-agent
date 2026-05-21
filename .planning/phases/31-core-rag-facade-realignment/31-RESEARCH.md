@@ -1,3 +1,7 @@
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Phase 31 Research: Core RAG facade re-alignment to `llm-agent-rag v1.0.0`
 
 **Researched:** 2026-05-21

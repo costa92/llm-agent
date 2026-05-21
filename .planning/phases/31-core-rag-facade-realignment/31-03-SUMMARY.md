@@ -12,6 +12,10 @@ files_modified:
   - rag/doc.go
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Summary: 31-03 — Phase 31 exit gate: verify the core against `llm-agent-rag v1.0.0`
 
 ## Objective

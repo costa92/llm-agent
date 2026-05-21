@@ -3,8 +3,6 @@ package memory
 import (
 	"context"
 	"strings"
-
-	"github.com/costa92/llm-agent/rag"
 )
 
 // SemanticMemory is K-V style with tag-aware ranking. Score formula
@@ -26,7 +24,7 @@ type SemanticOptions struct {
 }
 
 // NewSemantic constructs a SemanticMemory.
-func NewSemantic(e rag.Embedder, opts SemanticOptions) (*SemanticMemory, error) {
+func NewSemantic(e Embedder, opts SemanticOptions) (*SemanticMemory, error) {
 	if e == nil {
 		return nil, ErrEmbedderRequired
 	}

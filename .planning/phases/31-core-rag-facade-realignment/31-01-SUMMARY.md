@@ -8,6 +8,10 @@ repo: llm-agent
 requirements: [ECO-01]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Summary: 31-01 — bump core to `llm-agent-rag v1.0.0` + diagnose the facade break
 
 ## Objective

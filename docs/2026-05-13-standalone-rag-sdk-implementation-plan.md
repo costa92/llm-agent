@@ -1,5 +1,11 @@
 # Standalone RAG SDK Implementation Plan
 
+> Archived record only.
+> This implementation plan is historical project record and must not be used
+> as a current development guide.
+> Current development must follow the live code and current docs in
+> `github.com/costa92/llm-agent-rag`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Design and scaffold a standalone Go RAG SDK with abstract import, retrieval, custom LLM generation, and custom prompt-template seams, while keeping `llm-agent` integration isolated behind adapters.

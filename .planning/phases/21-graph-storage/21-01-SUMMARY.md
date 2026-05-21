@@ -8,6 +8,11 @@ repo: llm-agent-rag
 requirements: [RAG-GRAPH-03]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
+
 # Summary: 21-01 GraphStore interface + in-memory implementation
 
 ## Objective

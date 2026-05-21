@@ -6,12 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/costa92/llm-agent/rag"
+	"github.com/costa92/llm-agent/llm"
 )
 
 func newWorking(t *testing.T) *WorkingMemory {
 	t.Helper()
-	w, err := NewWorking(rag.NewHashEmbedder(64), WorkingOptions{Capacity: 5, Decay: 24 * time.Hour})
+	w, err := NewWorking(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)), WorkingOptions{Capacity: 5, Decay: 24 * time.Hour})
 	if err != nil {
 		t.Fatalf("NewWorking: %v", err)
 	}
@@ -20,7 +20,7 @@ func newWorking(t *testing.T) *WorkingMemory {
 
 func newEpisodic(t *testing.T) *EpisodicMemory {
 	t.Helper()
-	m, err := NewEpisodic(rag.NewHashEmbedder(64), EpisodicOptions{})
+	m, err := NewEpisodic(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)), EpisodicOptions{})
 	if err != nil {
 		t.Fatalf("NewEpisodic: %v", err)
 	}
@@ -29,7 +29,7 @@ func newEpisodic(t *testing.T) *EpisodicMemory {
 
 func newSemantic(t *testing.T) *SemanticMemory {
 	t.Helper()
-	m, err := NewSemantic(rag.NewHashEmbedder(64), SemanticOptions{})
+	m, err := NewSemantic(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)), SemanticOptions{})
 	if err != nil {
 		t.Fatalf("NewSemantic: %v", err)
 	}

@@ -1,5 +1,11 @@
 # RAG Production Enhancement Plan
 
+> Archived record only.
+> This proposal is retained for historical planning traceability and must not
+> be used as an active development guide.
+> Current development must follow the live code and current docs in
+> `github.com/costa92/llm-agent-rag`.
+
 Date: 2026-05-14
 Planning repo: `github.com/costa92/llm-agent`
 Primary implementation repo: `github.com/costa92/llm-agent-rag`

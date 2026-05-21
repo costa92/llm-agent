@@ -20,7 +20,7 @@
 // # Plug points
 //
 //   - WithTokenCounter: swap SimpleCounter for tiktoken-go etc.
-//   - WithEmbedder:     swap Jaccard for cosine via rag.Embedder.
+//   - WithEmbedder:     swap Jaccard for cosine via llm.Embedder.
 //   - WithLLM:          enable LLM-backed Compress phase.
 //
 // # Naming caveat

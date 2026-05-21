@@ -1,6 +1,8 @@
 # API snapshot — github.com/costa92/llm-agent (Phase 7 v0.4 baseline)
 # Generated: 2026-05-12T13:52:50Z
 # Regenerated after removing the deprecated llm v0.2 compatibility surface
+# Archived snapshot only. This file is a historical API record, not a
+# development guide or current source of truth.
 
 ===================================================================
 PACKAGE: github.com/costa92/llm-agent
@@ -3447,4 +3449,3 @@ func (UnsupportedTrainer) LoadModel(_ string) (llm.ChatModel, error)
 
 func (UnsupportedTrainer) Train(_ context.Context, _ TrainConfig) (TrainResult, error)
     Train always returns ErrTrainingNotSupported.
-

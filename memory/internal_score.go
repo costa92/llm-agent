@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/costa92/llm-agent/rag"
+	"github.com/costa92/llm-agent/llm"
 )
 
 // scoredStore is the shared in-memory engine all 3 memory types share:
@@ -19,12 +19,12 @@ type scoredStore struct {
 	mu       sync.Mutex
 	items    map[string]MemoryItem
 	vectors  map[string][]float32
-	embedder rag.Embedder
+	embedder llm.Embedder
 	prefix   string
 	seq      int
 }
 
-func newScoredStore(prefix string, e rag.Embedder) *scoredStore {
+func newScoredStore(prefix string, e llm.Embedder) *scoredStore {
 	return &scoredStore{
 		items:    make(map[string]MemoryItem),
 		vectors:  make(map[string][]float32),
@@ -52,7 +52,7 @@ func (s *scoredStore) add(ctx context.Context, item MemoryItem) (string, error) 
 	if item.Importance > 1 {
 		item.Importance = 1
 	}
-	vec, err := s.embedder.Embed(ctx, item.Content)
+	vec, err := queryEmbedding(ctx, s.embedder, item.Content)
 	if err != nil {
 		return "", fmt.Errorf("memory: embed: %w", err)
 	}
@@ -96,7 +96,7 @@ func (s *scoredStore) update(ctx context.Context, id string, fn func(*MemoryItem
 	s.mu.Unlock()
 
 	if contentChanged {
-		vec, err := s.embedder.Embed(ctx, item.Content)
+		vec, err := queryEmbedding(ctx, s.embedder, item.Content)
 		if err != nil {
 			return fmt.Errorf("memory: re-embed: %w", err)
 		}
@@ -235,8 +235,15 @@ func splitTokens(s string) []string {
 }
 
 // queryEmbedding embeds query text once for use across one Search call.
-func queryEmbedding(ctx context.Context, e rag.Embedder, query string) ([]float32, error) {
-	return e.Embed(ctx, query)
+func queryEmbedding(ctx context.Context, e llm.Embedder, query string) ([]float32, error) {
+	vectors, _, err := e.Embed(ctx, []string{query})
+	if err != nil {
+		return nil, err
+	}
+	if len(vectors) == 0 {
+		return nil, nil
+	}
+	return vectors[0], nil
 }
 
 // vectorScore returns cosine similarity, but 0 for any nil/missing vector.
@@ -244,5 +251,23 @@ func vectorScore(qv, iv []float32) float64 {
 	if len(qv) == 0 || len(iv) == 0 {
 		return 0
 	}
-	return rag.CosineSimilarity(qv, iv)
+	return vectorCosineSimilarity(qv, iv)
+}
+
+func vectorCosineSimilarity(a, b []float32) float64 {
+	if len(a) == 0 || len(a) != len(b) {
+		return 0
+	}
+	var dot, normA, normB float64
+	for i := range a {
+		af := float64(a[i])
+		bf := float64(b[i])
+		dot += af * bf
+		normA += af * af
+		normB += bf * bf
+	}
+	if normA == 0 || normB == 0 {
+		return 0
+	}
+	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }

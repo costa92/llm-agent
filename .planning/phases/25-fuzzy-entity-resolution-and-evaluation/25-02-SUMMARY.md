@@ -8,6 +8,11 @@ repo: llm-agent-rag
 requirements: [RAG-GRAPH3-06]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
+
 # Summary: 25-02 eval global-search harness — Triad/Judge over AskGlobal
 
 ## Objective

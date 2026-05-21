@@ -2,10 +2,10 @@ package context
 
 import (
 	stdctx "context"
+	"math"
 
 	"github.com/costa92/llm-agent/llm"
 	"github.com/costa92/llm-agent/memory"
-	"github.com/costa92/llm-agent/rag"
 )
 
 // Builder runs the GSSC pipeline. Construct via New + functional Options.
@@ -13,7 +13,7 @@ type Builder struct {
 	cfg      Config
 	counter  TokenCounter
 	llm      llm.ChatModel
-	embedder rag.Embedder
+	embedder llm.Embedder
 }
 
 // Option mutates a Builder in New. Functional options keep New signature
@@ -32,7 +32,7 @@ func WithLLM(c llm.ChatModel) Option {
 
 // WithEmbedder swaps Jaccard relevance for embedding cosine similarity
 // during Select. The query is embedded once per Build call.
-func WithEmbedder(e rag.Embedder) Option {
+func WithEmbedder(e llm.Embedder) Option {
 	return func(b *Builder) { b.embedder = e }
 }
 
@@ -51,8 +51,17 @@ type BuildInput struct {
 	SystemPrompt string
 	History      []llm.Message
 	MemoryHits   []memory.SearchResult
-	RAGHits      []rag.SearchHit
+	RAGHits      []EvidenceHit
 	Custom       []Packet
+}
+
+// EvidenceHit is the minimal external-knowledge shape context assembly
+// needs. Callers adapt store/rag-specific hit types into this struct.
+type EvidenceHit struct {
+	ID       string
+	Content  string
+	Score    float64
+	Metadata map[string]any
 }
 
 // BuildOutput is the result of Build. Prompt is ready to feed
@@ -82,7 +91,7 @@ func (b *Builder) BuildCtx(ctx stdctx.Context, input BuildInput) BuildOutput {
 	// Pick relevance fn
 	scoreFn := relevanceFn(jaccardRelevance)
 	if b.embedder != nil && input.UserQuery != "" {
-		if qv, err := b.embedder.Embed(ctx, input.UserQuery); err == nil {
+		if qv, err := embedOne(ctx, b.embedder, input.UserQuery); err == nil {
 			scoreFn = embedderRelevance(b.embedder, qv)
 		}
 	}
@@ -102,4 +111,33 @@ func (b *Builder) BuildCtx(ctx stdctx.Context, input BuildInput) BuildOutput {
 		UsedTokens:   b.counter.Count(prompt),
 		DroppedCount: dropped,
 	}
+}
+
+func embedOne(ctx stdctx.Context, e llm.Embedder, text string) ([]float32, error) {
+	vectors, _, err := e.Embed(ctx, []string{text})
+	if err != nil {
+		return nil, err
+	}
+	if len(vectors) == 0 {
+		return nil, nil
+	}
+	return vectors[0], nil
+}
+
+func cosineSimilarity(a, b []float32) float64 {
+	if len(a) == 0 || len(a) != len(b) {
+		return 0
+	}
+	var dot, normA, normB float64
+	for i := range a {
+		af := float64(a[i])
+		bf := float64(b[i])
+		dot += af * bf
+		normA += af * af
+		normB += bf * bf
+	}
+	if normA == 0 || normB == 0 {
+		return 0
+	}
+	return dot / (math.Sqrt(normA) * math.Sqrt(normB))
 }

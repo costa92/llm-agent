@@ -15,6 +15,10 @@ artifacts:
   - "PUSH PENDING: git push origin main + git push origin v0.5.1 — operator-gated"
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # 34-02 — `llm-agent` cascade bump to `llm-agent-rag v1.0.1` + tag `v0.5.1` (paused at push gate)
 
 Wave 2 of Phase 34, slice 1/3 of the v1.1 cascade. Bumped core's

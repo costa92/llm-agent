@@ -9,7 +9,6 @@ import (
 
 	"github.com/costa92/llm-agent/llm"
 	"github.com/costa92/llm-agent/memory"
-	"github.com/costa92/llm-agent/rag"
 )
 
 // --- token counter ---------------------------------------------------------
@@ -248,8 +247,8 @@ func TestBuilder_FullPipelineRendersPrompt(t *testing.T) {
 		MemoryHits: []memory.SearchResult{
 			{Item: memory.MemoryItem{Content: "user prefers Go", CreatedAt: time.Now()}, Score: 0.8},
 		},
-		RAGHits: []rag.SearchHit{
-			{Doc: rag.Document{ID: "doc-1", Content: "go modules are go's dependency manager"}, Score: 0.9},
+		RAGHits: []EvidenceHit{
+			{ID: "doc-1", Content: "go modules are go's dependency manager", Score: 0.9},
 		},
 	})
 	if !strings.Contains(out.Prompt, "[Task]") || !strings.Contains(out.Prompt, "go modules") {
@@ -280,7 +279,7 @@ func TestBuilder_DropsLowRelevance(t *testing.T) {
 }
 
 func TestBuilder_WithEmbedderUsesCosine(t *testing.T) {
-	b := New(Config{MaxTokens: 1000}, WithEmbedder(rag.NewHashEmbedder(64)))
+	b := New(Config{MaxTokens: 1000}, WithEmbedder(llm.NewScriptedLLM(llm.WithEmbedDimensions(64))))
 	out := b.Build(BuildInput{
 		UserQuery: "go modules dependency",
 		MemoryHits: []memory.SearchResult{

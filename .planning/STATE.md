@@ -2,15 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Core Capability Deepening
-status: active
-current_milestone: v1.2
-stopped_at: Phase 36 (CC-2 policy) complete in 5 waves; v0.6.1 cut 2026-05-21 (additive policy sub-package, KC-5 honored verbatim); ready for /gsd-plan-phase 37
-last_updated: "2026-05-21T07:13:07.702Z"
-last_activity: 2026-05-21 — Phase 36 shipped in v0.6.1; 2/4 v1.2 phases complete; Phase 37 (orchestrate.Supervisor, CC-3) next
+status: executing
+stopped_at: Phase 35 (CC-1 budget) complete in 4 waves; v0.6.0 partial
+last_updated: "2026-05-21T08:27:17.737Z"
+last_activity: 2026-05-21 -- Phase 37 execution started
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 9
+  total_plans: 13
   completed_plans: 9
   percent: 50
 ---
@@ -22,11 +21,11 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** The core `llm-agent` module stays stdlib-only and zero-dep — anyone can `go get` it and read every line. Providers, telemetry, and reference services live in sister repos so users opt into deps one package at a time.
-**Current focus:** **v1.2 (active, 2/4 shipped)** — Phase 35 CC-1 budget shipped in v0.6.0; Phase 36 CC-2 policy shipped in v0.6.1; Phase 37 CC-3 orchestrate.Supervisor next; Phase 38 milestone cap to v0.7.0.
+**Current focus:** Phase 37 — orchestrate-supervisor
 
 ## Current Position
 
-Phase: 36 — COMPLETE
+Phase: 37 (orchestrate-supervisor) — EXECUTING
 Milestone: **`v1.2` Core Capability Deepening — active, opened 2026-05-20.**
 The first **core-feature** milestone since v0.3. Theme: **Core v0.6**
 — capability additions to core `llm-agent`; memory tiering deferred to
@@ -74,12 +73,12 @@ coordinated tag set: `llm-agent v0.5.1`, `llm-agent-rag v1.0.1`,
 `llm-agent-customer-support v0.2.2`.
 Previous milestone (rag): `v1.0` API stabilization — shipped and closed
 2026-05-21 (`llm-agent-rag v1.0.0`, audit PASS 6/6, fully archived).
-Plan: 1 of 5
+Plan: 1 of 4
 `.planning/research/v1.2-core-capability-deepening-SUMMARY.md`. 4
 requirements (`CC-1..04`) across 4 phases (35-38). See ROADMAP /
 REQUIREMENTS / phase-block above for the per-phase shape.
 
-Status: Phase 36 complete
+Status: Executing Phase 37
 ROADMAP / REQUIREMENTS authored, PROJECT.md updated with v1.2 active
 block + KC-1..KC-5 keystones table, STATE.md flipped from
 between-milestones to v1.2 active. **No code/CI YAML changes yet** —
@@ -88,7 +87,7 @@ that begins in Phase 35.
 Next step: run `/gsd-plan-phase 36` to plan the `policy` package
 (CC-2 — capability-preserving model decorator with PII / injection /
 max-input gates).
-Last activity: 2026-05-21 -- Phase 36 marked complete
+Last activity: 2026-05-21 -- Phase 37 execution started
 `581caea`/`d141bf6`/`39950e2`/`535375f`); v0.6.0 partial cap cut
 (also includes additive `agentstest` test-helper sub-package);
 v1.2 cap retargeted to v0.7.0.

@@ -8,6 +8,11 @@ repo: llm-agent-rag
 requirements: [RAG-GRAPH4-03]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
+
 # Summary: 27-01 `rag.System.AskDrift` — DRIFT hybrid search
 
 ## Objective

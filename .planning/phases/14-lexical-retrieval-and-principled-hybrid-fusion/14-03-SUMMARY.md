@@ -8,6 +8,10 @@ repo: llm-agent-rag
 requirements: [RAG-RETR2-02]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Summary: 14-03 Configurable RRF + per-signal fusion attribution
 
 ## Objective

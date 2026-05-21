@@ -8,6 +8,11 @@ repo: llm-agent-rag
 requirements: [RAG-GRAPH3-01]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
+
 # Summary: 23-01 Community detection in the graph package
 
 ## Objective

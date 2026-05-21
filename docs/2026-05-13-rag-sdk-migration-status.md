@@ -1,5 +1,11 @@
 # RAG SDK Migration Status
 
+> Archived record only.
+> This document is historical migration context and must not be used as a
+> development guide or implementation source of truth.
+> Current development must follow the live code and current docs in
+> `github.com/costa92/llm-agent-rag`.
+
 Date: 2026-05-13
 Project: `github.com/costa92/llm-agent`
 Historical in-repo staging path: `third_party/llm-agent-rag`

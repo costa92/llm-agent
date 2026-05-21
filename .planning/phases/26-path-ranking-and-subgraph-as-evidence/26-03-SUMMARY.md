@@ -8,6 +8,11 @@ repo: llm-agent-rag
 requirements: [RAG-GRAPH4-02]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
+
 # Summary: 26-03 path-ranked subgraph-as-evidence — worked example + docs
 
 ## Objective

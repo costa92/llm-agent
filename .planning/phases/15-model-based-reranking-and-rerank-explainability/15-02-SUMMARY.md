@@ -8,6 +8,10 @@ repo: llm-agent-rag
 requirements: [RAG-RERANK-01]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Summary: 15-02 ModelReranker + HTTPScoringModel
 
 ## Objective

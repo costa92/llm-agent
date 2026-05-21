@@ -8,6 +8,11 @@ repo: llm-agent-rag
 requirements: [RAG-AGENT-01]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
+
 # Summary: 19-01 MultiHopRetriever + query decomposers
 
 ## Objective

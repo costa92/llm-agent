@@ -7,12 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/costa92/llm-agent/rag"
+	"github.com/costa92/llm-agent/llm"
 )
 
 // relevanceFn computes packet relevance for a query. Two implementations:
 //   - jaccardRelevance — token-set overlap, no embedder required
-//   - embedderRelevance — cosine similarity via rag.Embedder
+//   - embedderRelevance — cosine similarity via llm.Embedder
 type relevanceFn func(ctx stdctx.Context, query string, packet Packet) float64
 
 // jaccardRelevance returns |query ∩ content| / |query ∪ content| over
@@ -38,13 +38,13 @@ func jaccardRelevance(_ stdctx.Context, query string, packet Packet) float64 {
 
 // embedderRelevance returns cosine similarity. Computed lazily — the
 // query is embedded once per Build call and reused via closure.
-func embedderRelevance(e rag.Embedder, queryVec []float32) relevanceFn {
+func embedderRelevance(e llm.Embedder, queryVec []float32) relevanceFn {
 	return func(ctx stdctx.Context, _ string, packet Packet) float64 {
-		v, err := e.Embed(ctx, packet.Content)
+		v, err := embedOne(ctx, e, packet.Content)
 		if err != nil {
 			return 0
 		}
-		return rag.CosineSimilarity(queryVec, v)
+		return cosineSimilarity(queryVec, v)
 	}
 }
 
@@ -117,12 +117,16 @@ func gather(input BuildInput, counter TokenCounter) []Packet {
 		})
 	}
 	for _, h := range input.RAGHits {
+		meta := map[string]any{"score": h.Score, "id": h.ID}
+		for k, v := range h.Metadata {
+			meta[k] = v
+		}
 		out = append(out, Packet{
-			Content:    h.Doc.Content,
+			Content:    h.Content,
 			Source:     SourceRAG,
 			Timestamp:  now,
-			TokenCount: counter.Count(h.Doc.Content),
-			Metadata:   map[string]any{"score": h.Score, "id": h.Doc.ID},
+			TokenCount: counter.Count(h.Content),
+			Metadata:   meta,
 		})
 	}
 	for _, p := range input.Custom {

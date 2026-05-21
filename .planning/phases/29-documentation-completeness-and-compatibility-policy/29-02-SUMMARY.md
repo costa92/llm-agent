@@ -8,6 +8,10 @@ repo: llm-agent-rag
 requirements: [RAG-API-03]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Summary: 29-02 — exported-symbol doc sweep + repo-wide gofmt freeze hygiene
 
 ## Objective

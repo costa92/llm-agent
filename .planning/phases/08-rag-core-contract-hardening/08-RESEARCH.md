@@ -1,3 +1,7 @@
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Phase 8: RAG Core Contract Hardening - Research
 
 **Researched:** 2026-05-14

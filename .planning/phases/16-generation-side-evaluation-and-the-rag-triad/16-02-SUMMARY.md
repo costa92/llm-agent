@@ -8,6 +8,10 @@ repo: llm-agent-rag
 requirements: [RAG-EVAL2-02]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Summary: 16-02 TriadEvaluator + RAG-Triad CI gate
 
 ## Objective

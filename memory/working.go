@@ -5,8 +5,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/costa92/llm-agent/rag"
 )
 
 // WorkingMemory holds the most recent / most active items. Capacity is
@@ -29,7 +27,7 @@ type WorkingOptions struct {
 
 // NewWorking constructs a WorkingMemory. Returns ErrEmbedderRequired
 // if e is nil.
-func NewWorking(e rag.Embedder, opts WorkingOptions) (*WorkingMemory, error) {
+func NewWorking(e Embedder, opts WorkingOptions) (*WorkingMemory, error) {
 	if e == nil {
 		return nil, ErrEmbedderRequired
 	}
@@ -122,7 +120,7 @@ func (w *WorkingMemory) evictIfOverCapacity(ctx context.Context, probe string) {
 	}
 	w.store.mu.Unlock()
 
-	qv, err := w.store.embedder.Embed(ctx, probe)
+	qv, err := queryEmbedding(ctx, w.store.embedder, probe)
 	if err != nil {
 		// On embedder failure, fall back to evicting oldest.
 		w.evictOldest()

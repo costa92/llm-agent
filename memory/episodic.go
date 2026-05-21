@@ -4,8 +4,6 @@ import (
 	"context"
 	"strings"
 	"time"
-
-	"github.com/costa92/llm-agent/rag"
 )
 
 // EpisodicMemory holds long-term events with NO capacity cap. Score
@@ -25,7 +23,7 @@ type EpisodicOptions struct {
 }
 
 // NewEpisodic constructs an EpisodicMemory.
-func NewEpisodic(e rag.Embedder, opts EpisodicOptions) (*EpisodicMemory, error) {
+func NewEpisodic(e Embedder, opts EpisodicOptions) (*EpisodicMemory, error) {
 	if e == nil {
 		return nil, ErrEmbedderRequired
 	}

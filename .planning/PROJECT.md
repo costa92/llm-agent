@@ -285,8 +285,10 @@ the customer-support demo.
 ## Operational Follow-ups
 
 - Run the next milestone through the standalone `llm-agent-rag` repo first
-  wherever possible, then keep `llm-agent/rag` aligned as a compatibility
-  facade.
+  wherever possible.
+- The removed core `llm-agent/rag` facade is not an active development target.
+  Any historical planning or research text that mentions it should be treated
+  as archival record only, not as implementation guidance.
 - Keep the core repo stdlib-only while expanding RAG through sister-repo-style
   opt-in dependencies.
 

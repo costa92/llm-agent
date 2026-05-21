@@ -8,6 +8,11 @@ repo: llm-agent-rag
 requirements: [RAG-GRAPH3-04]
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
+
 # Summary: 24-03 eager prewarm, local community attribution, global-search worked example
 
 ## Objective

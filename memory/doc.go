@@ -18,9 +18,9 @@
 //   Episodic  = (vec×0.8 + recency×0.2) ×              (0.8 + importance×0.4)
 //   Semantic  = (vec×0.7 + tag_overlap×0.3) ×          (0.8 + importance×0.4)
 //
-// Vector scoring uses pkg/llm/agents/rag.Embedder. Phase 2 ships
-// HashEmbedder (FNV bucket, deterministic, low-quality semantic). Real
-// embedders land in Phase 3 — drop them in via the same interface.
+// Vector scoring uses llm.Embedder. The bundled tests use ScriptedLLM's
+// deterministic embedding capability; production embedders drop in via
+// the same interface.
 //
 // # Portability
 //

@@ -18,6 +18,10 @@ files_modified:
   - "(git: llm-agent commit 6e82363 + tag v0.5.0, pushed)"
 ---
 
+> Archived planning record only.
+> Do not use as current development guide.
+> Current development follows live code and `llm-agent-rag` current docs.
+
 # Summary: 33-01 — core `llm-agent v0.5.0` cut + pushed
 
 ## Objective
