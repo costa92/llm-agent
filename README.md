@@ -28,7 +28,7 @@ See:
 - `github.com/costa92/llm-agent-rag`
 - `docs/2026-05-13-rag-sdk-migration-status.md`
 
-> **Runnable demos:** five end-to-end examples live in
+> **Runnable demos:** eight end-to-end examples live in
 > [`./examples/`](./examples) — each is a standalone `go run .`-able program
 > with a deterministic mock LLM, no API key required. See
 > [`examples/README.md`](./examples/README.md) for the menu.
@@ -76,7 +76,7 @@ func main() {
 | `agents/comm/mcp` | Model Context Protocol client/server (toy spec coverage) |
 | `agents/comm/a2a` | Agent-to-Agent task lifecycle |
 | `agents/comm/anp` | Agent Network Protocol (in-memory registry) |
-| `agents/orchestrate` | Pipeline, FanOutFanIn, RoundRobinChat, RolePlay, StateGraph, Termination |
+| `agents/orchestrate` | Pipeline, FanOutFanIn, RoundRobinChat, RolePlay, StateGraph, Supervisor, Termination |
 | `agents/rl` | Dataset, Trajectory, Reward, Evaluator, TrainerProxy (no training — Python TRL bridge) |
 | `agents/bench` | BFCL, GAIA, LLM-as-Judge, Win Rate, Reporter (mini fixtures only) |
 
@@ -87,12 +87,16 @@ func main() {
 - Use `RoundRobinChat` when several agents should converse until a termination rule fires.
 - Use `RolePlay` for a strict 2-agent task/delegate loop with a done marker.
 - Use `StateGraph` when the workflow must branch, loop, or route through shared typed state.
+- Use `Supervisor` when one planner must iteratively dispatch workers, observe results, and repeat until completion.
 
 - `Pipeline` 适合固定的线性交接，例如 `research -> summarize -> answer`。
 - `FanOutFanIn` 适合一个 planner 拆任务、多个 worker 并行执行、一个 aggregator 汇总结果。
 - `RoundRobinChat` 适合多个 agent 轮流对话，直到终止条件触发。
 - `RolePlay` 适合严格的双 agent 任务/委派循环，并且有 done marker。
 - `StateGraph` 适合需要分支、循环、或基于共享状态路由的工作流。
+- `Supervisor` 适合一个 planner 反复调度 worker、观察结果并循环直到完成的工作流。
+
+`Supervisor` details / 细节说明见 [`docs/SUPERVISOR.md`](./docs/SUPERVISOR.md).
 
 Minimal `FanOutFanIn` sketch:
 

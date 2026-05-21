@@ -14,9 +14,11 @@ working in production.
 | [`04-state-graph/`](./04-state-graph) | `orchestrate.StateGraph` | Branching workflow with conditional edges + a loop — customer-service triage |
 | [`05-fanout/`](./05-fanout) | `pkg/fanout.Run` | Bounded-parallelism task runner with order-preserving `Result[T].Index` |
 | [`06-budget/`](./06-budget) | `budget.WithBudget` + `agents.SimpleAgent` | Budget / cancellation context — `MaxCalls` pre-call deny, `MaxTokens` post-call deny, `MaxWall` ctx-deadline (ships a deterministic `main_test.go`) |
+| [`07-policy/`](./07-policy) | `policy.Wrap` + `agents.SimpleAgent` | Safety middleware — PII redaction, prompt-injection blocking, and max-input-length enforcement |
+| [`08-supervisor/`](./08-supervisor) | `orchestrate.Supervisor` | Iterative planner/worker loop with dispatch parsing, aggregation, and budget propagation |
 
 Shared helper: [`scriptedllm/`](./scriptedllm) — a ~60-line deterministic
-mock `llm.ChatModel`. Used by demos 01-03 and 06; demos 04-05 don't touch the LLM at
+mock `llm.ChatModel`. Used by demos 01-03 and 06-07; demos 04-05 don't touch the LLM at
 all (StateGraph runs pure node funcs; fanout is provider-agnostic).
 
 ## Run
@@ -29,15 +31,18 @@ cd examples/03-pipeline && go run .
 cd examples/04-state-graph && go run .
 cd examples/05-fanout && go run .
 cd examples/06-budget && go run .
+cd examples/07-policy && go run .
+cd examples && go run ./08-supervisor
 ```
 
 Or run them all in one go:
 
 ```bash
 cd examples
-for d in 01-* 02-* 03-* 04-* 05-* 06-*; do
+for d in 01-* 02-* 03-* 04-* 05-* 06-* 07-*; do
   echo "=== $d ==="; (cd "$d" && go run .)
 done
+echo "=== 08-supervisor ==="; go run ./08-supervisor
 ```
 
 ## Module layout
