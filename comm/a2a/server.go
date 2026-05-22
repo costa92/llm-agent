@@ -18,9 +18,10 @@ type SkillHandler func(ctx context.Context, input json.RawMessage) (json.RawMess
 //
 // Routes:
 //
-//   GET  /skills        — JSON array of SkillDescriptor
-//   POST /tasks         — create a task; body = {skill, input}; returns Task
-//   GET  /tasks/{id}    — fetch one task by ID
+//   GET    /skills      — JSON array of SkillDescriptor
+//   POST   /tasks       — create a task; body = {skill, input}; returns Task
+//   GET    /tasks/{id}  — fetch one task by ID
+//   DELETE /tasks/{id}  — cancel a running task (no-op if already terminal)
 type Server struct {
 	name        string
 	description string
@@ -60,7 +61,7 @@ func (s *Server) HTTPHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/skills", s.listSkills)
 	mux.HandleFunc("/tasks", s.createTask)
-	mux.HandleFunc("/tasks/", s.getTask)
+	mux.HandleFunc("/tasks/", s.handleTask)
 	return mux
 }
 
@@ -101,6 +102,13 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC()
 	taskID := fmt.Sprintf("task_%d", s.idSeq.Add(1))
+
+	// Wire the cancel funcval on the Task BEFORE put + before spawning the
+	// worker. This closes the worker-startup race window: if DELETE
+	// /tasks/{id} arrives between put and the worker actually starting,
+	// taskStore.cancelAndFail (lock-coupled) will still observe a non-nil
+	// cancel and trigger ctx.Done() the moment the worker calls handler.
+	ctx, cancel := context.WithCancel(context.Background())
 	task := &Task{
 		ID:        taskID,
 		Skill:     body.Skill,
@@ -108,6 +116,7 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 		State:     TaskPending,
 		CreatedAt: now,
 		UpdatedAt: now,
+		cancel:    cancel,
 	}
 	s.tasks.put(task)
 
@@ -117,46 +126,65 @@ func (s *Server) createTask(w http.ResponseWriter, r *http.Request) {
 	taskSnapshot := *task
 
 	// Run asynchronously — caller polls /tasks/{id}.
-	go s.runTask(taskID, handler, body.Input)
+	go s.runTask(ctx, taskID, handler, body.Input)
 
 	writeJSON(w, http.StatusCreated, &taskSnapshot)
 }
 
-func (s *Server) runTask(id string, handler SkillHandler, input json.RawMessage) {
-	s.tasks.update(id, func(t *Task) { t.State = TaskRunning })
-	// Use background ctx — the HTTP request already returned; future
-	// improvement: store cancel in taskStore and expose DELETE /tasks/{id}.
-	ctx := context.Background()
-	out, err := handler(ctx, input)
-	if err != nil {
+func (s *Server) runTask(ctx context.Context, id string, handler SkillHandler, input json.RawMessage) {
+	// Always release the cancel funcval on exit. Safe to call after
+	// cancelAndFail already invoked it — CancelFunc is idempotent.
+	defer func() {
 		s.tasks.update(id, func(t *Task) {
+			if t.cancel != nil {
+				t.cancel()
+				t.cancel = nil
+			}
+		})
+	}()
+	s.tasks.update(id, func(t *Task) { t.State = TaskRunning })
+	out, err := handler(ctx, input)
+	s.tasks.update(id, func(t *Task) {
+		// Honor the cancel — if DELETE already moved the task to
+		// TaskFailed, do NOT overwrite it (handler may have ignored
+		// ctx.Done() and completed anyway; the cancel still won).
+		if t.State == TaskFailed {
+			return
+		}
+		if err != nil {
 			t.State = TaskFailed
 			t.Error = err.Error()
-		})
-		return
-	}
-	s.tasks.update(id, func(t *Task) {
+			return
+		}
 		t.State = TaskCompleted
 		t.Artifact = out
 	})
 }
 
-func (s *Server) getTask(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+// handleTask dispatches /tasks/{id} by method: GET fetches, DELETE cancels.
+func (s *Server) handleTask(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/tasks/")
 	if id == "" || strings.Contains(id, "/") {
 		http.Error(w, "task id required", http.StatusBadRequest)
 		return
 	}
-	t, ok := s.tasks.get(id)
-	if !ok {
-		http.Error(w, ErrTaskNotFound.Error(), http.StatusNotFound)
-		return
+	switch r.Method {
+	case http.MethodGet:
+		t, ok := s.tasks.get(id)
+		if !ok {
+			http.Error(w, ErrTaskNotFound.Error(), http.StatusNotFound)
+			return
+		}
+		writeJSON(w, http.StatusOK, t)
+	case http.MethodDelete:
+		if !s.tasks.cancelAndFail(id, "canceled by DELETE") {
+			http.Error(w, ErrTaskNotFound.Error(), http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
-	writeJSON(w, http.StatusOK, t)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
