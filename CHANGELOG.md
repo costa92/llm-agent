@@ -11,6 +11,16 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
+### Fixed
+
+- `runStreamFromBlocking` and `Supervisor.RunStream` no longer silently close
+  the `StepEvent` channel when `ctx` is canceled mid-run. Both now emit a
+  terminal `StepEvent{Done: true, Err: ctx.Err()}` before close so SSE
+  handlers and any `for ev := range ch` consumer can distinguish a clean
+  finish from a mid-stream cancel. Terminal-event priority is
+  `err > ctx.Err > Final` to guarantee exactly one Done event even when
+  `runFn` races with cancel. (P1-4)
+
 ## [v0.6.2] - 2026-05-21
 
 Additive release: introduces a stdlib-only `orchestrate.Supervisor` facade

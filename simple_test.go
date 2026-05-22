@@ -66,6 +66,44 @@ func TestSimpleAgent_RunStream_CtxCancelClosesChannel(t *testing.T) {
 	}
 }
 
+// TestSimpleAgent_RunStream_CtxCancelEmitsDoneEvent (T4) is the end-to-end
+// regression guard for P1-4. After cancel, the channel must yield a terminal
+// StepEvent{Done: true, Err: ctx.Err()} so SSE handlers (and any
+// `for ev := range ch` consumer) can distinguish a mid-stream cancel from a
+// clean finish.
+func TestSimpleAgent_RunStream_CtxCancelEmitsDoneEvent(t *testing.T) {
+	llmMock := newScriptedLLM(textResp("ok"))
+	a := NewSimpleAgent(llmMock, SimpleOptions{})
+	ctx, cancel := context.WithCancel(context.Background())
+	ch, err := a.RunStream(ctx, "x")
+	if err != nil {
+		t.Fatalf("RunStream: %v", err)
+	}
+	cancel()
+
+	var events []StepEvent
+	for ev := range ch {
+		events = append(events, ev)
+	}
+	if len(events) < 1 {
+		t.Fatalf("got 0 events, want at least 1 terminal Done event")
+	}
+	last := events[len(events)-1]
+	if !last.Done {
+		t.Fatalf("last event Done = false, want true; events=%+v", events)
+	}
+	// Either the scripted LLM returned ok before cancel landed (Final set,
+	// Err nil), OR cancel fired first (Err = context.Canceled, Final nil).
+	// Both are valid end-states; what's NOT valid is a silent close with
+	// zero events.
+	if last.Err == nil && last.Final == nil {
+		t.Fatalf("last event has neither Err nor Final set: %+v", last)
+	}
+	if last.Err != nil && !errors.Is(last.Err, context.Canceled) {
+		t.Fatalf("last event Err = %v, want context.Canceled or nil-with-Final", last.Err)
+	}
+}
+
 func TestSimpleAgent_OnStep_Invoked(t *testing.T) {
 	llmMock := newScriptedLLM(textResp("hi"))
 	var got []Step

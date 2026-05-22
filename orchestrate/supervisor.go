@@ -422,6 +422,12 @@ func (s *Supervisor) runInternal(ctx context.Context, input string, onStep func(
 // that drives runInternal, pipes Step→StepEvent into a 16-buffer
 // channel, and emits a terminal {Done: true, Final|Err} before
 // closing.
+//
+// IMPORTANT: this is a deliberate lock-step copy of agents.runStreamFromBlocking
+// — when that helper's terminal-event policy changes (P1-4 introduced the
+// err > ctx.Err > Final priority + best-effort send), the same change MUST
+// land here. Otherwise Supervisor cancel behavior diverges from
+// agent.RunStream and nested Supervisors lose Done events.
 func (s *Supervisor) RunStream(ctx context.Context, input string) (<-chan agents.StepEvent, error) {
 	ch := make(chan agents.StepEvent, 16)
 	go func() {
@@ -433,16 +439,26 @@ func (s *Supervisor) RunStream(ctx context.Context, input string) (<-chan agents
 			}
 		}
 		res, err := s.runInternal(ctx, input, cb)
-		if err != nil {
-			select {
-			case ch <- agents.StepEvent{Done: true, Err: err}:
-			case <-ctx.Done():
-			}
-			return
+		// Build the single terminal event. Priority: err > ctx.Err > Final.
+		// Avoids emitting two Done events when runInternal races with ctx
+		// cancel (returns (res, nil) the same instant ctx is canceled).
+		final := agents.StepEvent{Done: true}
+		switch {
+		case err != nil:
+			final.Err = err
+		case ctx.Err() != nil:
+			final.Err = ctx.Err()
+		default:
+			final.Final = &res
 		}
+		// Best-effort send: buffer=16 means a sane consumer will accept
+		// this. If the consumer dropped the channel we fall through
+		// default rather than block. We do NOT select on ctx.Done() here
+		// — when ctx is canceled mid-run the consumer still needs the
+		// Done event to learn that.
 		select {
-		case ch <- agents.StepEvent{Done: true, Final: &res}:
-		case <-ctx.Done():
+		case ch <- final:
+		default:
 		}
 	}()
 	return ch, nil
