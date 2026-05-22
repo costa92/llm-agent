@@ -8,14 +8,15 @@
 - 读 review 状态
 - 请求 reviewer
 - 开启 auto-merge
+- 在 merge 确认后删除同仓库 head branch
 
 它不需要 checkout PR 分支，也不应该执行 PR 代码。
 
 因此 `pull_request_target` 更适合这个场景，因为：
 
-- 它运行的是 base branch 上的 workflow 定义
+- 它运行的是 default branch 上的 workflow 定义
 - 不需要信任 PR 分支内容
-- 可以安全拿到写权限去做 review routing 和 merge orchestration
+- 可以安全拿到写权限去做 review routing、merge orchestration 和 branch cleanup
 
 要让 owner auto-merge 真正生效，workflow permissions 至少要包含：
 
@@ -43,16 +44,17 @@
 
 第 3 步:
   合并现有 owner PR
-  -> governance workflow 进入 main
+  -> governance workflow 进入默认分支
 
 第 4 步:
-  把 main 的 required status checks 改成:
+  把默认分支的 required status checks 改成:
     - go
     - governance
 
 最终状态:
   owner PR 自动合并
   non-owner PR 必须经 costa92 审核
+  owner 同仓库分支在 merge 后被 workflow 显式删除
 ```
 
 ## 仓库落地矩阵
@@ -61,18 +63,23 @@
 
 | Repo | 角色 | 与其他项目关系 | 当前治理状态 |
 |---|---|---|---|
-| `llm-agent` | core framework | 上游核心契约源 | 本文档组作为规则说明与后续扩展基线 |
+| `llm-agent` | core framework | 上游核心契约源 | 已切到 `go + governance` |
+| `llm-agent-rag` | standalone RAG SDK | 独立版本的 RAG 固定点 | 已切到 `go + governance` |
+| `llm-agent-flow` | flow IR / executor | 依赖 `llm-agent` 的执行层 | 已切到 `go + governance` |
 | `llm-agent-providers` | provider layer | 消费 `llm-agent` API | 已切到 `go + governance` |
-| `llm-agent-otel` | observability layer | 消费 `llm-agent` API | 已切到 `go + governance` |
-| `llm-agent-customer-support` | reference application | 组合前 3 个项目 | 已切到 `go + governance` |
+| `llm-agent-otel` | observability layer | 消费 `llm-agent`、`rag`、`flow` API | 已切到 `go + governance` |
+| `llm-agent-customer-support` | reference application | 组合整个生态 | 已切到 `go + governance` |
 
 ### 实际落地矩阵
 
-| Repo | Workflow | Required checks | Auto-merge | 目标行为 |
-|---|---|---|---|---|
-| `llm-agent-providers` | `.github/workflows/pr-governance.yml` | `go`, `governance` | 开启 | owner PR 自动合并，external PR 需 owner 审核 |
-| `llm-agent-otel` | `.github/workflows/pr-governance.yml` | `go`, `governance` | 开启 | owner PR 自动合并，external PR 需 owner 审核 |
-| `llm-agent-customer-support` | `.github/workflows/pr-governance.yml` | `go`, `governance` | 开启 | owner PR 自动合并，external PR 需 owner 审核 |
+| Repo | Default branch | Workflow | Required checks | Auto-merge | `deleteBranchOnMerge` | 目标行为 |
+|---|---|---|---|---|---|---|
+| `llm-agent` | `main` | `.github/workflows/pr-governance.yml` | `go`, `governance` | 开启 | 开启 | owner PR 自动合并并删分支，external PR 需 owner 审核 |
+| `llm-agent-rag` | `master` | `.github/workflows/pr-governance.yml` | `go`, `governance` | 开启 | 开启 | owner PR 自动合并并删分支，external PR 需 owner 审核 |
+| `llm-agent-flow` | `main` | `.github/workflows/pr-governance.yml` | `go`, `governance` | 开启 | 开启 | owner PR 自动合并并删分支，external PR 需 owner 审核 |
+| `llm-agent-providers` | `main` | `.github/workflows/pr-governance.yml` | `go`, `governance` | 开启 | 开启 | owner PR 自动合并并删分支，external PR 需 owner 审核 |
+| `llm-agent-otel` | `main` | `.github/workflows/pr-governance.yml` | `go`, `governance` | 开启 | 开启 | owner PR 自动合并并删分支，external PR 需 owner 审核 |
+| `llm-agent-customer-support` | `main` | `.github/workflows/pr-governance.yml` | `go`, `governance` | 开启 | 开启 | owner PR 自动合并并删分支，external PR 需 owner 审核 |
 
 ## Workflow 结构
 
@@ -94,7 +101,7 @@
 - 如果作者不是 `costa92`
 - 自动 request review 给 `costa92`
 
-### Job 2: owner auto-merge
+### Job 2: `auto-merge-owner`
 
 触发条件：
 
@@ -104,54 +111,79 @@
 
 执行动作：
 
-- 调用 `gh pr merge --auto --merge --delete-branch`
-- 失败必须直接让 job 变红，不能用 `|| true` 吞掉
+1. 查询 `autoMergeRequest`
+2. 如未开启，则调用 `gh pr merge --auto --merge`
+3. 轮询 PR 是否已经真正进入 `MERGED`
+4. 如已 merged，则删除同仓库 head branch
 
-### owner auto-merge 幂等性
+最终稳定版本刻意没有把主删除路径写成：
 
-owner PR 的治理 workflow 不只会在 `opened` / `synchronize` 时触发，也会在
-review 事件上再次运行。
+- `gh pr merge --auto --merge --delete-branch`
+- 单独的 `delete-merged-branch.yml`
+
+因为这两种路径在这次实际治理链路里都不够稳定，尤其是 owner PR 由 `github.token` 驱动 auto-merge 时，下游 cleanup workflow 不是可靠触发源。
+
+### `auto-merge-owner` 幂等性
+
+owner PR 的治理 workflow 不只会在 `opened` / `synchronize` 时触发，也会在 review 事件上再次运行。
 
 因此 `auto-merge-owner` 不能假设自己只会执行一次。最终稳定版本必须满足：
 
 - `auto-merge-owner` job 单独声明：
   - `contents: write`
   - `pull-requests: write`
-- 在调用 `gh pr merge --auto --merge --delete-branch` 之前，先查询
-  `autoMergeRequest`
-- 如果 auto-merge 已经开启，则直接 `exit 0`
+- 在调用 `gh pr merge --auto --merge` 之前，先查询 `autoMergeRequest`
+- 如果 auto-merge 已经开启，则不再重复发起 enable 请求
 
 否则会出现一个非常隐蔽的假失败：
 
 - 第一次运行已经成功开启 auto-merge
-- 后续 review 事件再次触发同一 job
+- 后续事件再次触发同一 job
 - workflow 重新执行 `gh pr merge --auto`
-- GitHub CLI 返回非零，导致必需的 `governance` / `auto-merge-owner`
-  相关链路变红
+- GitHub CLI 返回非零，导致必需检查链路变红
 
 这不是权限错误，而是**幂等性错误**。
+
+## 为什么不依赖独立 cleanup workflow
+
+这次实际排障里，先后测试过两类独立 cleanup 方案：
+
+- `pull_request_target` 上的 `closed` 事件
+- default branch `push` 之后再删 merged branch
+
+它们的问题不是语法错误，而是**触发链路不可靠**：
+
+- owner PR 是由 `pr-governance.yml` 使用 `github.token` 开启 auto-merge
+- merge 发生后，下游 cleanup workflow 并不是稳定的最终触发源
+- 同样的 repo 设置在一次验证里可见，在另一次 auto-merge 链路里又可能不触发到预期步骤
+
+因此最终方案收敛为：
+
+- 仓库设置里保留 `deleteBranchOnMerge = true` 作为安全网
+- 真正依赖的删除逻辑内嵌在 `pr-governance.yml`
+- 也就是“谁发起 owner auto-merge，谁负责在 merge 确认后删同仓库分支”
 
 ## bootstrap 限制
 
 `pull_request_target` 的一个关键限制是：
 
-- PR 运行时使用的是 **base branch** 上的 workflow 定义
+- PR 运行时使用的是 **default branch** 上的 workflow 定义
 - 不是 PR head 分支里的 workflow 定义
 
 这意味着：
 
 - 你不能依赖“这个 PR 自己带的新 workflow”来修复“这个 PR 自己当前正在跑的旧 workflow”
-- 修治理 workflow 的 PR 在落到 `main` 之前，仍然会继续执行 `main` 上的旧版本
+- 修治理 workflow 的 PR 在落到默认分支之前，仍然会继续执行默认分支上的旧版本
 
 这次真实落地里就出现了这个 bootstrap 场景：
 
 1. `llm-agent-otel` 和 `llm-agent-customer-support` 的 owner PR 已经打开
 2. PR 分支里推入了修复后的 workflow
-3. 但 `pull_request_target` 仍执行 `main` 上旧 workflow
+3. 但 `pull_request_target` 仍执行默认分支上的旧 workflow
 4. 旧 workflow 只有 `contents: read`，日志继续报：
    `GraphQL: Resource not accessible by integration (enablePullRequestAutoMerge)`
-5. 只能先手动为当下 owner PR 开启/完成合并
-6. 等修复进入 `main` 后，后续 owner PR 才会自动受益
+5. 只能先手动为当下 owner PR 开启或完成合并
+6. 等修复进入默认分支后，后续 owner PR 才会自动受益
 
 运维上要接受这个事实：**bootstrap PR 可能需要一次人工托底**。
 
@@ -170,7 +202,7 @@ review 事件上再次运行。
 
 通常说明：
 
-- workflow 还没在 `main` 上落地
+- workflow 还没在默认分支上落地
 - branch protection 已经要求 `governance`
 - 或 workflow 文件名 / 触发条件被改坏了
 
@@ -184,11 +216,23 @@ review 事件上再次运行。
 2. PR 是否是 draft
 3. `governance` 是否通过
 4. `go` 是否通过
-5. workflow 是否成功执行了 `gh pr merge --auto`
+5. workflow 是否成功执行了 `gh pr merge --auto --merge`
 6. workflow permissions 是否同时包含 `contents: write` 和 `pull-requests: write`
 7. 日志里是否出现 `enablePullRequestAutoMerge` 权限错误
 
-### 4. non-owner PR 已经审过，但 `governance` 仍然失败
+### 4. owner PR 合并了，但分支没删掉
+
+排查顺序：
+
+1. head branch 是否来自同一个仓库，而不是 fork
+2. head branch 是否误等于默认分支
+3. `auto-merge-owner` 是否已经等到 `state == MERGED && mergedAt != ""`
+4. 日志里 `gh api -X DELETE` 是否真正执行
+5. 仓库级 `deleteBranchOnMerge` 是否仍保持开启
+
+如果第 3 步之前 workflow 就结束，说明这次 merge 完成时间超出了轮询窗口；当前推荐仍是保留 repo 级自动删分支作为安全网。
+
+### 5. non-owner PR 已经审过，但 `governance` 仍然失败
 
 最常见原因：
 
@@ -216,22 +260,25 @@ review 事件上再次运行。
 - 读 review metadata
 - 请求 reviewer
 - 开启 auto-merge
+- 在 merge 确认后删除同仓库 head branch
 
 `pull_request_target` 自带更高权限，所以这条边界必须保持清晰。
 
 ## 运维检查清单
 
 1. 仓库级 `allow_auto_merge` 仍为 `true`
-2. `main` 的 required status checks 仍为 `go` 和 `governance`
-3. `.github/workflows/pr-governance.yml` 仍在默认分支
-4. owner PR 能在 `go` 通过后自动进入 merge
-5. non-owner PR 会自动 request review 给 `costa92`
-6. non-owner PR 在未审批 current head 时，`governance` 保持失败
-7. non-owner PR 在审批 current head 后，`governance` 变绿
+2. 仓库级 `deleteBranchOnMerge` 仍为 `true`
+3. 默认分支的 required status checks 仍为 `go` 和 `governance`
+4. `.github/workflows/pr-governance.yml` 仍在默认分支
+5. owner PR 能在 `go` 通过后自动进入 merge
+6. owner PR 在 merge 完成后会删除同仓库分支
+7. non-owner PR 会自动 request review 给 `costa92`
+8. non-owner PR 在未审批 current head 时，`governance` 保持失败
+9. non-owner PR 在审批 current head 后，`governance` 变绿
 
 ## 真实变更记录
 
-### 合并记录
+### 2026-05-13 初次治理落地
 
 以下 3 个 sister repo PR 已在 2026-05-13 合并：
 
@@ -243,8 +290,7 @@ review 事件上再次运行。
 
 ### 2026-05-13 bootstrap 修复记录
 
-治理规则初次落地后，又补了一个 owner auto-merge 幂等性修复，避免 review
-事件重跑时把 required check 误打红。最终进入各仓库 `main` 的 PR 是：
+治理规则初次落地后，又补了一个 owner auto-merge 幂等性修复，避免 review 事件重跑时把 required check 误打红。最终进入各仓库默认分支的 PR 是：
 
 | Repo | PR | Merged at (UTC) | 作用 |
 |---|---|---|---|
@@ -252,20 +298,44 @@ review 事件上再次运行。
 | `llm-agent-otel` | `#3` | `2026-05-13T08:29:35Z` | bootstrap owner PR 手工托底后进入主线 |
 | `llm-agent-customer-support` | `#4` | `2026-05-13T08:29:35Z` | bootstrap owner PR 手工托底后进入主线 |
 
-最终统一后的 `main` 分支 workflow 具备这 3 个性质：
+### 2026-05-22 分支删除路径定稿
 
-1. `auto-merge-owner` job 有单独的 `contents: write` 与
-   `pull-requests: write`
-2. 先检查 `autoMergeRequest != null`
-3. 已启用 auto-merge 时直接成功退出，避免重复触发造成假失败
+在这一天，针对“owner PR 自动合并后没有稳定删分支”的问题，先后验证了多个方案，并最终收敛到把删除逻辑内嵌回 `pr-governance.yml`。
+
+关键事实：
+
+- 单独 cleanup workflow 方案经过测试，但不再作为主方案依赖
+- 最终验证样本是 `llm-agent-providers` PR `#15`
+- merged 时间为 `2026-05-22T02:13:35Z`
+- 分支名为 `test/final-pr-governance-delete-branch`
+- merge 后再次查询 GitHub API，返回 `404 Branch not found`
+
+这说明最终链路已经验证为：
+
+1. `pr-governance.yml` 开启 owner auto-merge
+2. 同一个 workflow 等待 merged 状态可见
+3. 同一个 workflow 删除同仓库 head branch
+
+### 2026-05-22 全仓推广
+
+这次最终版本随后补齐到另外 3 个仓库：
+
+| Repo | Commit | 说明 |
+|---|---|---|
+| `llm-agent` | `90e264d` | 新增统一 `pr-governance.yml` |
+| `llm-agent-rag` | `23b2f14` | 新增统一 `pr-governance.yml` |
+| `llm-agent-flow` | `1ef1feb` | 新增统一 `pr-governance.yml` |
 
 ### 最终 protection 快照
 
-| Repo | `allow_auto_merge` | Required checks | Required review gate |
-|---|---|---|---|
-| `llm-agent-providers` | `true` | `go`, `governance` | 已移除 |
-| `llm-agent-otel` | `true` | `go`, `governance` | 已移除 |
-| `llm-agent-customer-support` | `true` | `go`, `governance` | 已移除 |
+| Repo | `allow_auto_merge` | `deleteBranchOnMerge` | Required checks | Required review gate |
+|---|---|---|---|---|
+| `llm-agent` | `true` | `true` | `go`, `governance` | 已移除 |
+| `llm-agent-rag` | `true` | `true` | `go`, `governance` | 已移除 |
+| `llm-agent-flow` | `true` | `true` | `go`, `governance` | 已移除 |
+| `llm-agent-providers` | `true` | `true` | `go`, `governance` | 已移除 |
+| `llm-agent-otel` | `true` | `true` | `go`, `governance` | 已移除 |
+| `llm-agent-customer-support` | `true` | `true` | `go`, `governance` | 已移除 |
 
 ## 回滚思路
 

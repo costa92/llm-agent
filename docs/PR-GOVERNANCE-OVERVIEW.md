@@ -1,6 +1,6 @@
 # Multi-Repo PR Governance Overview
 
-这组文档记录 `llm-agent` 及其 3 个关联仓库的统一 PR 治理设计。目标不是描述某个单独仓库的 GitHub 设置，而是说明一个多仓库系统如何把变更入口规则统一起来。
+这组文档记录 `llm-agent` 及其 5 个关联仓库的统一 PR 治理设计。目标不是描述某个单独仓库的 GitHub 设置，而是说明一个多仓库系统如何把变更入口规则统一起来。
 
 ## 文档结构
 
@@ -16,7 +16,9 @@
 - owner PR 会自动通过 `governance` 并开启 auto-merge。
 - `pr-governance.yml` 需要 `contents: write` 和 `pull-requests: write`；只有 `pull-requests: write` 不足以启用 GitHub auto-merge。
 - non-owner PR 会自动 request review 给 `costa92`，且只有 `costa92` 对当前 head 审批后，`governance` 才通过。
-- 这套规则不是单仓库技巧，而是围绕 4 个关联项目建立的一致化多仓库治理策略。
+- owner 同仓库 PR 在合并完成后，会由同一个 `pr-governance.yml` 轮询 merged 状态并显式删除 head branch。
+- 单独的 post-merge branch cleanup workflow 曾经测试过，但在 `github.token` 驱动的 auto-merge 链路里不是可靠的最终方案，因此最终删除逻辑内嵌在 `pr-governance.yml`。
+- 这套规则不是单仓库技巧，而是围绕 6 个关联项目建立的一致化多仓库治理策略。
 
 ## 问题定义
 
@@ -60,4 +62,4 @@ GitHub 内建的 required approving review 无法直接表达这条 author-sensi
 
 ## 一句话总结
 
-这次设计的本质是：把“必须有一个 approval”改成“必须通过一个能理解作者身份的治理检查”。
+这次设计的本质是：把“必须有一个 approval”改成“必须通过一个能理解作者身份的治理检查”，并把 owner PR 的合并后删分支动作也放回同一条治理链路里完成。

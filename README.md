@@ -239,8 +239,10 @@ stay in sync with whatever is checked out in the parent directory.
 
 ## Operational notes
 
-- Multi-repo PR governance design across `llm-agent`, `llm-agent-providers`,
-  `llm-agent-otel`, and `llm-agent-customer-support`:
+- Multi-repo PR governance design across `llm-agent`, `llm-agent-rag`,
+  `llm-agent-flow`, `llm-agent-providers`, `llm-agent-otel`, and
+  `llm-agent-customer-support`, including the final owner auto-merge +
+  explicit branch cleanup path:
   [`docs/PR-GOVERNANCE-OVERVIEW.md`](./docs/PR-GOVERNANCE-OVERVIEW.md)
 
 ## License

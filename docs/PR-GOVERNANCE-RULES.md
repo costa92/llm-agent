@@ -12,7 +12,7 @@
 - 不引入第二个 GitHub 账号或额外 bot 账号
 - 不要求维护单独的审批 token
 - 不执行 PR 分支里的不可信代码来做治理判断
-- 方案要适配这 4 个项目的协作关系，并首先稳定落到 3 个下游 sister repos
+- 方案要适配这 6 个项目的协作关系，并最终稳定落到全部 6 个仓库
 
 ## 为什么不用 GitHub 内建 required review
 
@@ -63,7 +63,7 @@ governance:
 
 ### 2. `governance`
 
-在 3 个 sister repos 新增：
+在 6 个 repos 统一使用：
 
 - `.github/workflows/pr-governance.yml`
 
@@ -86,7 +86,7 @@ governance:
 
 - 如果作者是 `costa92`
 - `governance` 已通过
-- 则调用 `gh pr merge --auto --merge --delete-branch`
+- 则调用 `gh pr merge --auto --merge`
 
 这里有一个容易忽略的约束：
 
@@ -94,9 +94,30 @@ governance:
 - 如果只有 `pull-requests: write`，`gh pr merge --auto` 会返回 `Resource not accessible by integration`
 - 这个步骤不能用 `|| true` 吞掉失败，否则检查会显示成功，但 PR 不会真的进入 auto-merge
 
-这样 owner PR 在 `go` 和 `governance` 都绿时，会自动进入合并流程。
+这一步之后，最终稳定实现不是依赖 `--delete-branch` 或单独的 downstream cleanup workflow，而是继续在同一个 workflow 中：
 
-### 4. merge gate
+- 轮询 PR 是否已经真正进入 `MERGED`
+- 跳过 fork branch 与默认分支
+- 对同仓库 head branch 显式调用 `gh api -X DELETE "repos/$REPO/git/refs/heads/$head_ref"`
+
+这样 owner PR 在 `go` 和 `governance` 都绿时，会自动进入合并流程，并在合并完成后走同一条治理链路清理分支。
+
+### 4. 分支删除策略
+
+GitHub 仓库级 `deleteBranchOnMerge = true` 仍然建议保持开启，但在这次实际治理链路里，它不是唯一依赖项。
+
+原因是：
+
+- owner PR 由 `pr-governance.yml` 使用 `github.token` 开启 auto-merge
+- 单独的 post-merge cleanup workflow 曾经测试过
+- 但这个下游触发链路在实际 auto-merge 场景里并不稳定
+
+因此最终推荐方案是：
+
+- 仓库设置里保留 `deleteBranchOnMerge = true` 作为安全网
+- 真正的主删除路径放在 `pr-governance.yml` 里，在 merge 确认后立即删除分支
+
+### 5. merge gate
 
 最终 `main` 分支不再要求 GitHub 内建 approval，而是要求两个检查：
 
@@ -128,7 +149,7 @@ governance:
 - 你自己开的下游依赖升级 PR，不会再被 required review 卡死
 - 下游仓库仍然保留正常 CI 和治理门槛
 
-### 场景 2：在 `llm-agent-providers`、`llm-agent-otel` 或 `llm-agent-customer-support` 做日常维护
+### 场景 2：在 `llm-agent-rag`、`llm-agent-flow`、`llm-agent-providers`、`llm-agent-otel` 或 `llm-agent-customer-support` 做日常维护
 
 如果 PR 作者是 `costa92`：
 
@@ -148,9 +169,10 @@ governance:
 例如一次核心 API 调整，可能同时触发：
 
 1. `llm-agent` 改接口
-2. `llm-agent-providers` 跟进 provider adapter
-3. `llm-agent-otel` 跟进 wrapper
-4. `llm-agent-customer-support` 跟进 reference app
+2. `llm-agent-rag` 或 `llm-agent-flow` 跟进核心能力
+3. `llm-agent-providers` 跟进 provider adapter
+4. `llm-agent-otel` 跟进 wrapper
+5. `llm-agent-customer-support` 跟进 reference app
 
 统一治理规则的价值，就是让这类依赖链式变更保持可推进，而不是在多个仓库同时被 owner review gate 卡住。
 
@@ -158,7 +180,7 @@ governance:
 
 ### 1. 规则和真实协作关系对齐
 
-4 个项目本来就存在明显的上下游关系，这套规则让 PR 治理和这种关系保持一致。
+6 个项目本来就存在明显的上下游关系，这套规则让 PR 治理和这种关系保持一致。
 
 ### 2. owner PR 不再被平台原语反向阻塞
 
@@ -174,7 +196,7 @@ governance:
 
 ### 5. 适合跨仓库发布链路
 
-当一次核心变更要穿过 provider、otel 和 reference app 时，统一治理规则能减少发布收尾摩擦。
+当一次核心变更要穿过 rag、flow、provider、otel 和 reference app 时，统一治理规则能减少发布收尾摩擦。
 
 ## 确定性
 
