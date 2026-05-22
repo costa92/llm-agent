@@ -20,6 +20,13 @@ a standalone Go LLM agents framework module.
   finish from a mid-stream cancel. Terminal-event priority is
   `err > ctx.Err > Final` to guarantee exactly one Done event even when
   `runFn` races with cancel. (P1-4)
+- `comm/a2a` server-side worker goroutine now cancels via
+  `DELETE /tasks/{id}` instead of being unkillable. The worker previously
+  ran with `context.Background()`; it now uses a per-task `WithCancel`
+  whose cancel funcval lives on the Task and is invoked by the DELETE
+  handler. Cancel reuses `TaskFailed` with `Error="canceled by DELETE"`
+  to avoid adding a new enum state (clients that switch on `TaskState`
+  remain exhaustive). (P1-3)
 
 ## [v0.6.2] - 2026-05-21
 
