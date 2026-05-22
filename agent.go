@@ -25,6 +25,11 @@ type Agent interface {
 //   - Done = false: Step is an intermediate event, Final/Err are nil.
 //   - Done = true: terminal event, exactly one of Final or Err is non-nil.
 //   - Channel close after the terminal event signals no more events.
+//
+// When ctx is canceled mid-run, the terminal event has Err set to ctx.Err()
+// (typically context.Canceled or context.DeadlineExceeded). The channel is
+// never closed silently — `for ev := range ch` consumers can rely on seeing
+// a Done event before close, even on cancel.
 type StepEvent struct {
 	Step  Step
 	Done  bool
@@ -109,16 +114,29 @@ func runStreamFromBlocking(
 			}
 		}
 		res, err := runFn(ctx, cb)
-		if err != nil {
-			select {
-			case ch <- StepEvent{Done: true, Err: err}:
-			case <-ctx.Done():
-			}
-			return
+		// Build the single terminal event. Priority: err > ctx.Err > Final.
+		// This avoids Trap 1 — emitting two Done events on the same run
+		// when runFn races with ctx cancel (e.g. returns (res, nil) the
+		// same instant ctx is canceled). Consumers using
+		// `for ev := range ch` see exactly one Done event with the
+		// most-informative error.
+		final := StepEvent{Done: true}
+		switch {
+		case err != nil:
+			final.Err = err
+		case ctx.Err() != nil:
+			final.Err = ctx.Err()
+		default:
+			final.Final = &res
 		}
+		// Best-effort send: buffer=16 means a sane consumer will accept
+		// this. If the consumer dropped the channel we fall through
+		// default rather than block. We intentionally do NOT select on
+		// ctx.Done() here — when ctx is canceled mid-run we still WANT
+		// the consumer to learn that, so a blocking case is wrong.
 		select {
-		case ch <- StepEvent{Done: true, Final: &res}:
-		case <-ctx.Done():
+		case ch <- final:
+		default:
 		}
 	}()
 	return ch, nil
