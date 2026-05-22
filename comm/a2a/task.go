@@ -13,6 +13,7 @@
 package a2a
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"sync"
@@ -46,6 +47,13 @@ type Task struct {
 	Error      string          `json:"error,omitempty"`
 	CreatedAt  time.Time       `json:"created_at"`
 	UpdatedAt  time.Time       `json:"updated_at"`
+
+	// cancel cancels the worker goroutine running this task. Set in
+	// Server.createTask before the goroutine spawns; invoked by
+	// taskStore.cancelAndFail when DELETE /tasks/{id} arrives. Unexported
+	// so it stays off the JSON wire; cleared on the worker's exit path via
+	// defer cancel() in runTask.
+	cancel context.CancelFunc `json:"-"`
 }
 
 // Sentinel errors.
@@ -88,6 +96,34 @@ func (s *taskStore) update(id string, fn func(*Task)) bool {
 		return false
 	}
 	fn(t)
+	t.UpdatedAt = time.Now().UTC()
+	return true
+}
+
+// cancelAndFail attempts to cancel a running task. Returns false only when
+// the task does not exist (so the HTTP handler can surface a 404). A task
+// already in a terminal state (Completed or Failed) is a no-op and returns
+// true so the caller emits a successful no-op response.
+//
+// Performs cancel + state transition under the store mutex to close the
+// worker-startup race window: the cancel funcval was installed under this
+// same lock in Server.createTask, so taking the lock here guarantees we
+// observe the up-to-date funcval (never nil for a task that's been put).
+func (s *taskStore) cancelAndFail(id, errMsg string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.items[id]
+	if !ok {
+		return false
+	}
+	if t.State == TaskCompleted || t.State == TaskFailed {
+		return true // no-op; do not downgrade terminal state.
+	}
+	if t.cancel != nil {
+		t.cancel()
+	}
+	t.State = TaskFailed
+	t.Error = errMsg
 	t.UpdatedAt = time.Now().UTC()
 	return true
 }
