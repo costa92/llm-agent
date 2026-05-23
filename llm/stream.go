@@ -73,9 +73,41 @@ type ToolCallDelta struct {
 // streaming granularity — drains sr to completion and returns the
 // equivalent non-streaming Response. Closes sr on exit (caller need not
 // defer Close when using this helper).
+//
+// Per-tool-call merge contract (K1): streaming tool-call deltas are
+// joined by ToolCallDelta.Index — the stable per-tool-call key per the
+// K1 contract (see ToolCallDelta doc above). ID and Name are captured
+// on EventToolCallStart and preserved through subsequent
+// EventToolCallArgsDelta chunks, whose ID/Name fields are typically
+// empty in the OpenAI/Anthropic/Ollama wire shape. ArgsDelta strings
+// are concatenated in arrival order per Index to produce the final
+// Arguments JSON.
+//
+// Output ordering: Response.ToolCalls is ordered by first-Start
+// observation — the first EventToolCallStart for Index N fixes that
+// tool call's position in the output slice. Out-of-order
+// EventToolCallEnd events do NOT change output order.
+//
+// EventToolCallEnd is treated as a terminal signal for that Index but
+// does not mutate accumulator state. EventThinkingDelta is dropped (the
+// non-streaming Response shape has no thinking field; Phase 5 OTel
+// exporter captures thinking content on spans separately).
 func AccumulateStream(sr StreamReader) (Response, error) {
 	defer sr.Close()
 	var out Response
+	byIndex := map[int]*ToolCall{}
+	var order []int
+
+	ensure := func(idx int) *ToolCall {
+		if tc, ok := byIndex[idx]; ok {
+			return tc
+		}
+		tc := &ToolCall{}
+		byIndex[idx] = tc
+		order = append(order, idx)
+		return tc
+	}
+
 	for {
 		ev, err := sr.Next()
 		if err != nil {
@@ -84,6 +116,9 @@ func AccumulateStream(sr StreamReader) (Response, error) {
 			// nil so the typical caller treats clean termination as
 			// success.
 			if isEOF(err) {
+				for _, idx := range order {
+					out.ToolCalls = append(out.ToolCalls, *byIndex[idx])
+				}
 				return out, nil
 			}
 			return out, err
@@ -91,20 +126,43 @@ func AccumulateStream(sr StreamReader) (Response, error) {
 		switch ev.Kind {
 		case EventTextDelta:
 			out.Text += ev.Text
-		case EventToolCallStart, EventToolCallArgsDelta, EventToolCallEnd:
-			// Accumulator concatenates deltas keyed by ToolCall.Index.
-			// For Phase 0 we only need the helper to compile and pass
-			// trivial smoke tests; per-Index fan-in is built up
-			// when Phase 2 lands the streaming adapters. Until then,
-			// store the latest ToolCall snapshot so out.ToolCalls
-			// reflects something coherent in the helper-only path.
-			if ev.ToolCall != nil {
-				out.ToolCalls = appendToolCallDelta(out.ToolCalls, ev.ToolCall)
+		case EventToolCallStart:
+			if ev.ToolCall == nil {
+				continue
 			}
+			tc := ensure(ev.ToolCall.Index)
+			if ev.ToolCall.ID != "" {
+				tc.ID = ev.ToolCall.ID
+			}
+			if ev.ToolCall.Name != "" {
+				tc.Name = ev.ToolCall.Name
+			}
+			if ev.ToolCall.ArgsDelta != "" {
+				tc.Arguments = append(tc.Arguments, []byte(ev.ToolCall.ArgsDelta)...)
+			}
+		case EventToolCallArgsDelta:
+			if ev.ToolCall == nil {
+				continue
+			}
+			tc := ensure(ev.ToolCall.Index)
+			// Preserve ID/Name captured at Start; backfill only if
+			// the Start event was missed and an ArgsDelta carries them.
+			if tc.ID == "" && ev.ToolCall.ID != "" {
+				tc.ID = ev.ToolCall.ID
+			}
+			if tc.Name == "" && ev.ToolCall.Name != "" {
+				tc.Name = ev.ToolCall.Name
+			}
+			if ev.ToolCall.ArgsDelta != "" {
+				tc.Arguments = append(tc.Arguments, []byte(ev.ToolCall.ArgsDelta)...)
+			}
+		case EventToolCallEnd:
+			// No-op: End is a signaling event; the accumulator entry is
+			// already complete from prior Start + ArgsDelta chunks.
 		case EventThinkingDelta:
-			// Drop thinking deltas in the accumulator helper — the
-			// non-streaming Response shape has no thinking field. Phase
-			// 5 OTel exporter captures these on spans separately.
+			// Drop thinking deltas: the non-streaming Response shape has
+			// no thinking field. Phase 5 OTel exporter captures these on
+			// spans separately.
 		case EventDone:
 			if ev.Usage != nil {
 				out.Usage = *ev.Usage
@@ -120,26 +178,4 @@ func AccumulateStream(sr StreamReader) (Response, error) {
 // always io.EOF when the stream ends cleanly.
 func isEOF(err error) bool {
 	return err != nil && err.Error() == "EOF"
-}
-
-// appendToolCallDelta merges a delta into the accumulated ToolCalls
-// slice keyed by Index. A new Index appends; an existing Index extends
-// Arguments. NOTE: this helper exists so tests of AccumulateStream
-// compile and round-trip; it is NOT the production accumulator that
-// Phase 2 will write.
-func appendToolCallDelta(existing []ToolCall, d *ToolCallDelta) []ToolCall {
-	for i := range existing {
-		if existing[i].ID != "" && existing[i].ID == d.ID {
-			existing[i].Arguments = append(existing[i].Arguments, []byte(d.ArgsDelta)...)
-			return existing
-		}
-	}
-	if d.Name == "" {
-		return existing
-	}
-	return append(existing, ToolCall{
-		ID:        d.ID,
-		Name:      d.Name,
-		Arguments: []byte(d.ArgsDelta),
-	})
 }
