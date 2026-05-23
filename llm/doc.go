@@ -49,4 +49,13 @@
 // AccumulateStream is a convenience for consumers that want a flat
 // Response from a stream.
 //
+// AccumulateStream merges per-tool-call streaming deltas by
+// ToolCallDelta.Index — the stable per-tool-call key per the K1
+// contract. ID and Name are captured on EventToolCallStart and
+// preserved through subsequent EventToolCallArgsDelta chunks (whose
+// ID/Name fields are typically empty in the OpenAI/Anthropic/Ollama
+// wire shape). ArgsDelta strings are concatenated in arrival order
+// per Index to produce the final Arguments JSON. Response.ToolCalls
+// is ordered by first-Start observation.
+//
 package llm
