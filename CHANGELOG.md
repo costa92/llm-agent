@@ -11,6 +11,28 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
+## [v0.6.2] - 2026-05-23
+
+Bundled release: introduces a stdlib-only `orchestrate.Supervisor` facade
+over `StateGraph[S]` for planner/worker coordination, and closes three
+correctness fixes from the v1.3 K1-closure wave — Phase 2 Gap B
+(AccumulateStream Index-keyed merge per K1), P1-4 (RunStream cancel emits
+terminal Done event), and P1-3 (a2a server worker DELETE cancel). All
+signatures unchanged; observable behavior is strictly more correct per
+the documented K1 and cancellation contracts. Callers compiling against
+`v0.6.1` compile unchanged against `v0.6.2` (KC-5 preserved).
+
+### Added
+
+- New `orchestrate.Supervisor` surface — `NewSupervisor`, `SupervisorOptions`,
+  `Dispatch`, `WorkerResult`, `DispatchParser`, `Aggregator`, `Run`,
+  `RunStream`, and the sentinel family for validation/dispatch errors.
+- New `orchestrate/supervisor.go` implementation plus deterministic tests for
+  budget propagation, policy composition, and runtime composition with
+  `StateGraph[S]`.
+- New `examples/08-supervisor/` demo — basic coordination, budget gate,
+  and compose-with-graph smoke test.
+
 ### Fixed
 
 - `llm.AccumulateStream` now merges streaming tool-call deltas by
@@ -51,24 +73,6 @@ a standalone Go LLM agents framework module.
   provider with a non-empty `ID` on Start + empty on subsequent
   ArgsDelta chunks).
 - stdlib-only invariant preserved (no new third-party imports).
-
-## [v0.6.2] - 2026-05-21
-
-Additive release: introduces a stdlib-only `orchestrate.Supervisor` facade
-over `StateGraph[S]` for planner/worker coordination. No behavior changes to
-existing packages; callers compiling against `v0.6.1` compile unchanged
-against `v0.6.2` (KC-5 preserved).
-
-### Added
-
-- New `orchestrate.Supervisor` surface — `NewSupervisor`, `SupervisorOptions`,
-  `Dispatch`, `WorkerResult`, `DispatchParser`, `Aggregator`, `Run`,
-  `RunStream`, and the sentinel family for validation/dispatch errors.
-- New `orchestrate/supervisor.go` implementation plus deterministic tests for
-  budget propagation, policy composition, and runtime composition with
-  `StateGraph[S]`.
-- New `examples/08-supervisor/` demo — basic coordination, budget gate,
-  and compose-with-graph smoke test.
 
 ## [v0.6.1] - 2026-05-21
 
