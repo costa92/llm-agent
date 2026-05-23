@@ -13,6 +13,19 @@ a standalone Go LLM agents framework module.
 
 ### Fixed
 
+- `llm.AccumulateStream` now merges streaming tool-call deltas by
+  `ToolCallDelta.Index` (the stable per-tool-call key per the K1
+  contract), not by `ID`. The previous ID-keyed implementation
+  silently dropped `EventToolCallArgsDelta` chunks whose `ID` field
+  was empty — the standard OpenAI / Anthropic / Ollama wire shape
+  where `ID` is populated only on the `EventToolCallStart` event. A
+  separate symptom: two parallel tool calls with the same `ID` /
+  `Name` at distinct `Index` (Ollama's `ID==Name` fallback) collapsed
+  into one entry. Function signature is unchanged. The unexported
+  `appendToolCallDelta` helper is removed; its logic is inlined into
+  `AccumulateStream` with the new Index-keyed map and a deterministic
+  first-Start ordering. (Phase 2 Gap B, closes the K1 "production
+  accumulator" disclaimer at `llm/stream.go`.)
 - `runStreamFromBlocking` and `Supervisor.RunStream` no longer silently close
   the `StepEvent` channel when `ctx` is canceled mid-run. Both now emit a
   terminal `StepEvent{Done: true, Err: ctx.Err()}` before close so SSE
@@ -27,6 +40,17 @@ a standalone Go LLM agents framework module.
   handler. Cancel reuses `TaskFailed` with `Error="canceled by DELETE"`
   to avoid adding a new enum state (clients that switch on `TaskState`
   remain exhaustive). (P1-3)
+
+### Compatibility
+
+- `llm.AccumulateStream` signature unchanged (`func(StreamReader)
+  (Response, error)`). Observable behavior is strictly more correct
+  per the K1 contract: no production caller relied on the prior
+  broken behavior (existing production paths feed text-only streams;
+  no tool-streaming path consumed `AccumulateStream` against a
+  provider with a non-empty `ID` on Start + empty on subsequent
+  ArgsDelta chunks).
+- stdlib-only invariant preserved (no new third-party imports).
 
 ## [v0.6.2] - 2026-05-21
 
