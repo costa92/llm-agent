@@ -52,6 +52,9 @@ func (m *SemanticMemory) Search(ctx context.Context, query string, topK int) ([]
 	items, vecs := m.store.snapshot()
 	out := make([]SearchResult, 0, len(items))
 	for id, it := range items {
+		if IsDisabled(it) {
+			continue
+		}
 		if len(queryTags) > 0 && !anyTagMatches(queryTags, it.Tags) {
 			continue
 		}

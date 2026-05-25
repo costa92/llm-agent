@@ -69,6 +69,9 @@ func (w *WorkingMemory) Search(ctx context.Context, query string, topK int) ([]S
 	items, vecs := w.store.snapshot()
 	out := make([]SearchResult, 0, len(items))
 	for id, it := range items {
+		if IsDisabled(it) {
+			continue
+		}
 		score := w.score(query, qv, it, vecs[id])
 		out = append(out, SearchResult{Item: it, Score: score})
 	}
