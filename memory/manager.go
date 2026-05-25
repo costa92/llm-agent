@@ -321,3 +321,7 @@ var ErrKindDisabled = errors.New("memory: kind disabled on this manager")
 // ErrConsolidateUnavailable is returned by Consolidate when either
 // working or episodic is nil.
 var ErrConsolidateUnavailable = errors.New("memory: consolidate requires both working and episodic memories")
+
+// ErrManagerRequired is returned by NewScopedManager when the inner
+// *Manager is nil.
+var ErrManagerRequired = errors.New("memory: manager required")
