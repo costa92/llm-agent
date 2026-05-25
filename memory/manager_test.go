@@ -203,3 +203,134 @@ func TestManager_ForgetUnknownStrategy(t *testing.T) {
 		t.Error("expected error for unknown strategy")
 	}
 }
+
+// --- ExportAll / ImportAll ------------------------------------------------
+
+func TestManager_ExportAll_NoStorePersistFails(t *testing.T) {
+	mgr := newManager(t)
+	_, err := mgr.ExportAll(context.Background(), "some-key")
+	if !errors.Is(err, ErrSnapshotStoreNotConfigured) {
+		t.Errorf("err = %v, want ErrSnapshotStoreNotConfigured", err)
+	}
+}
+
+func TestManager_ExportAll_WithStorePersists(t *testing.T) {
+	fs, err := NewFilesystemStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewFilesystemStore: %v", err)
+	}
+	mgr, err := NewManager(ManagerOptions{
+		Working:       newWorking(t),
+		Episodic:      newEpisodic(t),
+		Semantic:      newSemantic(t),
+		SnapshotStore: fs,
+	})
+	if err != nil {
+		t.Fatalf("NewManager: %v", err)
+	}
+	ctx := context.Background()
+	_, _ = mgr.Add(ctx, KindWorking, MemoryItem{Content: "w"})
+	_, _ = mgr.Add(ctx, KindEpisodic, MemoryItem{Content: "e"})
+	_, _ = mgr.Add(ctx, KindSemantic, MemoryItem{Content: "s"})
+
+	out, err := mgr.ExportAll(ctx, "k1")
+	if err != nil {
+		t.Fatalf("ExportAll: %v", err)
+	}
+	if len(out) != 3 {
+		t.Errorf("ExportAll returned %d kinds, want 3", len(out))
+	}
+	// Verify each kind landed on disk.
+	for _, kind := range []Kind{KindWorking, KindEpisodic, KindSemantic} {
+		snap, err := fs.LoadKind(ctx, "k1", kind)
+		if err != nil {
+			t.Errorf("LoadKind %s: %v", kind, err)
+			continue
+		}
+		if snap.Kind != kind {
+			t.Errorf("loaded Kind = %q, want %q", snap.Kind, kind)
+		}
+	}
+}
+
+func TestManager_ImportAll_Inline(t *testing.T) {
+	mgr := newManager(t)
+	ctx := context.Background()
+	_, _ = mgr.Add(ctx, KindWorking, MemoryItem{Content: "w"})
+	out, err := mgr.ExportAll(ctx, "")
+	if err != nil {
+		t.Fatalf("ExportAll: %v", err)
+	}
+
+	// Build a fresh manager and import the snaps inline.
+	mgr2 := newManager(t)
+	rpts, err := mgr2.ImportAll(ctx, out, "", ImportReplace)
+	if err != nil {
+		t.Fatalf("ImportAll: %v", err)
+	}
+	if rpts[KindWorking].Loaded != 1 {
+		t.Errorf("Working Loaded = %d, want 1", rpts[KindWorking].Loaded)
+	}
+	if mgr2.StatsAll()[KindWorking].Count != 1 {
+		t.Errorf("working count after import = %d, want 1", mgr2.StatsAll()[KindWorking].Count)
+	}
+}
+
+func TestManager_ImportAll_FromStore(t *testing.T) {
+	fs, err := NewFilesystemStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewFilesystemStore: %v", err)
+	}
+	src, err := NewManager(ManagerOptions{
+		Working:       newWorking(t),
+		Episodic:      newEpisodic(t),
+		Semantic:      newSemantic(t),
+		SnapshotStore: fs,
+	})
+	if err != nil {
+		t.Fatalf("src NewManager: %v", err)
+	}
+	ctx := context.Background()
+	_, _ = src.Add(ctx, KindWorking, MemoryItem{Content: "w"})
+	_, _ = src.Add(ctx, KindSemantic, MemoryItem{Content: "s"})
+	if _, err := src.ExportAll(ctx, "k1"); err != nil {
+		t.Fatalf("ExportAll: %v", err)
+	}
+
+	dst, err := NewManager(ManagerOptions{
+		Working:       newWorking(t),
+		Episodic:      newEpisodic(t),
+		Semantic:      newSemantic(t),
+		SnapshotStore: fs,
+	})
+	if err != nil {
+		t.Fatalf("dst NewManager: %v", err)
+	}
+	rpts, err := dst.ImportAll(ctx, nil, "k1", ImportReplace)
+	if err != nil {
+		t.Fatalf("ImportAll: %v", err)
+	}
+	if rpts[KindWorking].Loaded != 1 {
+		t.Errorf("Working Loaded = %d, want 1", rpts[KindWorking].Loaded)
+	}
+	if rpts[KindSemantic].Loaded != 1 {
+		t.Errorf("Semantic Loaded = %d, want 1", rpts[KindSemantic].Loaded)
+	}
+	// Episodic had no items; it may be absent (no file) or present with 0
+	// items — both are acceptable behaviors. Just assert dst received the
+	// 2 we wrote.
+	if dst.StatsAll()[KindWorking].Count != 1 {
+		t.Errorf("dst working count = %d, want 1", dst.StatsAll()[KindWorking].Count)
+	}
+	if dst.StatsAll()[KindSemantic].Count != 1 {
+		t.Errorf("dst semantic count = %d, want 1", dst.StatsAll()[KindSemantic].Count)
+	}
+}
+
+func TestManager_ImportAll_PersistKeyWithoutStoreFails(t *testing.T) {
+	mgr := newManager(t)
+	_, err := mgr.ImportAll(context.Background(), nil, "k1", ImportReplace)
+	if !errors.Is(err, ErrSnapshotStoreNotConfigured) {
+		t.Errorf("err = %v, want ErrSnapshotStoreNotConfigured", err)
+	}
+}
