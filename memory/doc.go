@@ -53,6 +53,35 @@
 // at Search time. The zero value is a strict no-op so existing
 // callers see no scoring change.
 //
+// # Scope and ScopedManager
+//
+// Scope partitions memory by three axes: User, Project, Session.
+// Each axis is a free-form string; an empty axis is a wildcard at
+// query time. The Scope{} zero value matches every item, which is
+// the pre-v0.7 default behavior — existing callers that never call
+// WithScope see no observable change.
+//
+// Scope propagates through context.Context:
+//
+//	ctx := memory.WithScope(parent, memory.Scope{User: "alice"})
+//	sm.Add(ctx, memory.KindWorking, item)        // stamps {user:"alice"} into Metadata["_scope"]
+//	sm.Search(ctx, memory.KindWorking, "q", 10)  // returns only alice's items
+//
+// ScopedManager is a *Manager decorator. NewScopedManager(inner)
+// returns a *ScopedManager that mirrors the 9 public *Manager methods
+// (Add / Get / Update / Remove / Search / SearchAll / Consolidate /
+// Forget / StatsAll). The first six honor the ctx scope; the last
+// three are explicit v0.7 limitations:
+//
+//   - Consolidate / Forget / StatsAll DO NOT honor scope; they
+//     operate on the entire inner Manager. This is deliberate — they
+//     bypass the Memory abstraction to access the underlying
+//     scoredStore directly. Future work may add scope-aware variants.
+//
+// On mismatched scope, Get / Update / Remove return ErrNotFound
+// rather than a "wrong scope" error so callers cannot probe for
+// cross-scope IDs.
+//
 // # Portability
 //
 // memory inherits the agents/pkg/llm portability contract — no
