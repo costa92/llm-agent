@@ -204,6 +204,9 @@ func (m *Manager) Forget(ctx context.Context, kind Kind, opts ForgetOptions) (in
 		count := 0
 		for id, it := range items {
 			if it.Importance < threshold {
+				if IsPinned(it) {
+					continue
+				}
 				if err := mem.Remove(ctx, id); err == nil {
 					count++
 				}
@@ -219,6 +222,9 @@ func (m *Manager) Forget(ctx context.Context, kind Kind, opts ForgetOptions) (in
 		count := 0
 		for id, it := range items {
 			if now.Sub(it.CreatedAt) > opts.MaxAge {
+				if IsPinned(it) {
+					continue
+				}
 				if err := mem.Remove(ctx, id); err == nil {
 					count++
 				}
@@ -227,17 +233,25 @@ func (m *Manager) Forget(ctx context.Context, kind Kind, opts ForgetOptions) (in
 		return count, nil
 
 	case ForgetByCapacity:
-		if opts.Keep <= 0 || len(items) <= opts.Keep {
+		if opts.Keep <= 0 {
 			return 0, nil
 		}
-		// Sort by importance ascending; evict the lowest-importance items first.
+		// Sort by importance ascending; evict the lowest-importance items
+		// first. Pinned items are excluded from the candidate list, so
+		// they neither count toward the eviction budget nor get removed.
 		type pair struct {
 			id  string
 			imp float64
 		}
 		all := make([]pair, 0, len(items))
 		for id, it := range items {
+			if IsPinned(it) {
+				continue
+			}
 			all = append(all, pair{id, it.Importance})
+		}
+		if len(all) <= opts.Keep {
+			return 0, nil
 		}
 		sort.Slice(all, func(i, j int) bool { return all[i].imp < all[j].imp })
 		toEvict := len(all) - opts.Keep
