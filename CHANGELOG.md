@@ -11,6 +11,42 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
+### Added
+
+- `memory`: ChatGPT-style profile metadata helpers layered on the
+  existing `MemoryItem.Metadata` map. No changes to `MemoryItem`
+  struct fields or the `Memory` interface — all state lives under a
+  reserved `_`-prefixed key namespace (`_source`, `_category`,
+  `_pinned`, `_disabled`; `_scope` reserved for a future PR).
+  - Types: `Source` (with `SourceUserSaved`, `SourceAgentInferred`,
+    `SourceSystem`, `SourceUnknown`); `Category` (with `CategoryUser`,
+    `CategoryFeedback`, `CategoryProject`, `CategoryReference`).
+  - Constructors: `NewSavedMemory(content, cat)` (Importance=0.9,
+    Pinned=true, Source=SourceUserSaved); `NewInferredMemory(content,
+    cat, confidence)` (confidence clamped to [0,1] → Importance,
+    Source=SourceAgentInferred).
+  - Accessors: `GetSource` / `SetSource`, `GetCategory` /
+    `SetCategory`, `IsPinned` / `SetPinned`, `IsDisabled` /
+    `SetDisabled`. Getters are zero-value safe on nil / missing /
+    type-mismatched metadata; setters initialize `Metadata` when nil.
+- `memory`: `WorkingOptions.SavedBoost`, `EpisodicOptions.SavedBoost`,
+  `SemanticOptions.SavedBoost` — multiplicative score factor applied
+  at `Search` time when the item is `IsPinned` or
+  `GetSource(it) == SourceUserSaved`. The zero value (or any
+  non-positive value) is a strict no-op, preserving pre-v0.7 scoring.
+
+### Changed
+
+- `memory`: `Search` across all three memory types now skips items
+  flagged with `IsDisabled(it) == true`. Disabled items remain in
+  storage (Get / Stats / Forget still see them); they are only hidden
+  from query results.
+- `memory`: `Manager.Forget` strategies (`ForgetByImportance`,
+  `ForgetByAge`, `ForgetByCapacity`) now skip items flagged with
+  `IsPinned(it) == true`. Pinned items are excluded from the
+  candidate set; under `ForgetByCapacity` they neither count toward
+  `Keep` nor get evicted.
+
 ## [v0.6.2] - 2026-05-23
 
 Bundled release: introduces a stdlib-only `orchestrate.Supervisor` facade
