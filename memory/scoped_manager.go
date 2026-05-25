@@ -38,9 +38,11 @@ func NewScopedManager(inner *Manager) (*ScopedManager, error) {
 // also exposed directly on ScopedManager as pass-throughs.
 func (sm *ScopedManager) Inner() *Manager { return sm.inner }
 
-// Add forwards to the inner Manager. (Scope stamping is added in a
-// subsequent commit.)
+// Add stamps the ctx scope into item.Metadata (under metaKeyScope) and
+// forwards to the inner Manager. A zero-value ctx scope is a no-op —
+// Metadata is left untouched so unscoped callers see no change.
 func (sm *ScopedManager) Add(ctx context.Context, kind Kind, item MemoryItem) (string, error) {
+	stampScope(&item, ScopeFrom(ctx))
 	return sm.inner.Add(ctx, kind, item)
 }
 
