@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"github.com/costa92/llm-agent/llm"
 )
 
 // --- round-trip ----------------------------------------------------------
@@ -91,5 +93,156 @@ func TestImport_KindMismatchRejected(t *testing.T) {
 	_, err := w.Import(context.Background(), bad, ImportReplace)
 	if !errors.Is(err, ErrSnapshotKindMismatch) {
 		t.Errorf("err = %v, want ErrSnapshotKindMismatch", err)
+	}
+}
+
+// --- import modes -------------------------------------------------------
+
+// buildSnap creates a Snapshot from src by Exporting it. Helper used to
+// keep the mode-dispatch tests focused on import semantics rather than
+// raw struct literal noise.
+func buildSnap(t *testing.T, kind Kind, items []MemoryItem) Snapshot {
+	t.Helper()
+	// Build a temp memory of the right kind, Add each item, then Export.
+	switch kind {
+	case KindWorking:
+		w := newWorking(t)
+		ctx := context.Background()
+		for _, it := range items {
+			if _, err := w.Add(ctx, it); err != nil {
+				t.Fatalf("buildSnap Add: %v", err)
+			}
+		}
+		snap, _ := w.Export(ctx)
+		return snap
+	case KindEpisodic:
+		m := newEpisodic(t)
+		ctx := context.Background()
+		for _, it := range items {
+			if _, err := m.Add(ctx, it); err != nil {
+				t.Fatalf("buildSnap Add: %v", err)
+			}
+		}
+		snap, _ := m.Export(ctx)
+		return snap
+	case KindSemantic:
+		m := newSemantic(t)
+		ctx := context.Background()
+		for _, it := range items {
+			if _, err := m.Add(ctx, it); err != nil {
+				t.Fatalf("buildSnap Add: %v", err)
+			}
+		}
+		snap, _ := m.Export(ctx)
+		return snap
+	}
+	t.Fatalf("buildSnap: unknown kind %q", kind)
+	return Snapshot{}
+}
+
+func TestImport_ReplaceWipesAndLoads(t *testing.T) {
+	w := newWorking(t)
+	ctx := context.Background()
+	_, _ = w.Add(ctx, MemoryItem{Content: "a"})
+	_, _ = w.Add(ctx, MemoryItem{Content: "b"})
+
+	snap := buildSnap(t, KindWorking, []MemoryItem{
+		{Content: "c"}, {Content: "d"},
+	})
+	rpt, err := w.Import(ctx, snap, ImportReplace)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	if rpt.Loaded != 2 {
+		t.Errorf("Loaded = %d, want 2", rpt.Loaded)
+	}
+	if w.Stats().Count != 2 {
+		t.Errorf("after replace, Count = %d, want 2 (old items wiped)", w.Stats().Count)
+	}
+}
+
+func TestImport_MergeSkipsExisting(t *testing.T) {
+	w := newWorking(t)
+	ctx := context.Background()
+	// Add an item with a known ID.
+	if _, err := w.Add(ctx, MemoryItem{ID: "fixed-a", Content: "original"}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	// Build a snapshot that re-uses ID "fixed-a" plus a new item.
+	snap := buildSnap(t, KindWorking, []MemoryItem{
+		{ID: "fixed-a", Content: "replacement"},
+		{ID: "fixed-b", Content: "newcomer"},
+	})
+	rpt, err := w.Import(ctx, snap, ImportMerge)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	if rpt.Loaded != 1 {
+		t.Errorf("Loaded = %d, want 1 (only b)", rpt.Loaded)
+	}
+	if rpt.Skipped != 1 {
+		t.Errorf("Skipped = %d, want 1 (a already exists)", rpt.Skipped)
+	}
+	got, _ := w.Get(ctx, "fixed-a")
+	if got.Content != "original" {
+		t.Errorf("Content = %q, want 'original' (merge must not overwrite)", got.Content)
+	}
+}
+
+func TestImport_UpsertOverwrites(t *testing.T) {
+	w := newWorking(t)
+	ctx := context.Background()
+	if _, err := w.Add(ctx, MemoryItem{ID: "fixed-a", Content: "original"}); err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	snap := buildSnap(t, KindWorking, []MemoryItem{
+		{ID: "fixed-a", Content: "replacement"},
+		{ID: "fixed-b", Content: "newcomer"},
+	})
+	rpt, err := w.Import(ctx, snap, ImportUpsert)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	if rpt.Loaded != 1 {
+		t.Errorf("Loaded = %d, want 1 (only b is new)", rpt.Loaded)
+	}
+	if rpt.Replaced != 1 {
+		t.Errorf("Replaced = %d, want 1 (a overwritten)", rpt.Replaced)
+	}
+	got, _ := w.Get(ctx, "fixed-a")
+	if got.Content != "replacement" {
+		t.Errorf("Content = %q, want 'replacement' (upsert overwrites)", got.Content)
+	}
+}
+
+func TestImport_RestoresVectors(t *testing.T) {
+	// After Export → Import on a fresh memory, Search with the same query
+	// should return the same top result. If vectors were dropped on
+	// import the receiver would have to re-embed (which we deliberately
+	// do not do; we reuse the inlined vectors).
+	src := newSemantic(t)
+	ctx := context.Background()
+	_, _ = src.Add(ctx, MemoryItem{Content: "alpha bravo charlie", Importance: 0.5})
+	_, _ = src.Add(ctx, MemoryItem{Content: "delta echo foxtrot", Importance: 0.5})
+
+	srcRes, _ := src.Search(ctx, "alpha bravo", 1)
+	if len(srcRes) != 1 {
+		t.Fatalf("src search returned %d results", len(srcRes))
+	}
+
+	snap, _ := src.Export(ctx)
+	dst, err := NewSemantic(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)), SemanticOptions{})
+	if err != nil {
+		t.Fatalf("NewSemantic: %v", err)
+	}
+	if _, err := dst.Import(ctx, snap, ImportReplace); err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	dstRes, _ := dst.Search(ctx, "alpha bravo", 1)
+	if len(dstRes) != 1 {
+		t.Fatalf("dst search returned %d results", len(dstRes))
+	}
+	if dstRes[0].Item.ID != srcRes[0].Item.ID {
+		t.Errorf("top ID = %q, want %q (vector restore broken)", dstRes[0].Item.ID, srcRes[0].Item.ID)
 	}
 }
