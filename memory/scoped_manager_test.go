@@ -91,3 +91,90 @@ func TestScopedManager_AddZeroScopeNoStamp(t *testing.T) {
 		t.Errorf("zero-scope Add must not stamp Metadata[%q]", metaKeyScope)
 	}
 }
+
+func TestScopedManager_GetEnforcesScope(t *testing.T) {
+	sm := newScopedManager(t)
+	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
+	bobCtx := WithScope(context.Background(), Scope{User: "bob"})
+
+	id, err := sm.Add(aliceCtx, KindWorking, MemoryItem{Content: "alice fact", Importance: 0.5})
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+
+	// alice can see her own item.
+	if _, err := sm.Get(aliceCtx, KindWorking, id); err != nil {
+		t.Errorf("alice Get: err = %v, want nil", err)
+	}
+	// bob cannot — returns ErrNotFound, not some leakier error.
+	_, err = sm.Get(bobCtx, KindWorking, id)
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("bob Get: err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestScopedManager_GetWildcardSeesAll(t *testing.T) {
+	sm := newScopedManager(t)
+	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
+	id, err := sm.Add(aliceCtx, KindWorking, MemoryItem{Content: "alice fact", Importance: 0.5})
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	// zero ctx scope = wildcard.
+	got, err := sm.Get(context.Background(), KindWorking, id)
+	if err != nil {
+		t.Fatalf("wildcard Get: %v", err)
+	}
+	if got.Content != "alice fact" {
+		t.Errorf("Content = %q", got.Content)
+	}
+}
+
+func TestScopedManager_UpdateEnforcesScope(t *testing.T) {
+	sm := newScopedManager(t)
+	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
+	bobCtx := WithScope(context.Background(), Scope{User: "bob"})
+
+	id, err := sm.Add(aliceCtx, KindWorking, MemoryItem{Content: "alice fact", Importance: 0.5})
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	err = sm.Update(bobCtx, KindWorking, id, func(it *MemoryItem) { it.Content = "hacked" })
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("cross-scope Update: err = %v, want ErrNotFound", err)
+	}
+	// confirm content unchanged via the raw inner Manager.
+	got, _ := sm.Inner().Get(context.Background(), KindWorking, id)
+	if got.Content != "alice fact" {
+		t.Errorf("Content tampered: %q", got.Content)
+	}
+	// same-scope Update still works.
+	if err := sm.Update(aliceCtx, KindWorking, id, func(it *MemoryItem) { it.Importance = 0.9 }); err != nil {
+		t.Errorf("alice Update: %v", err)
+	}
+}
+
+func TestScopedManager_RemoveEnforcesScope(t *testing.T) {
+	sm := newScopedManager(t)
+	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
+	bobCtx := WithScope(context.Background(), Scope{User: "bob"})
+
+	id, err := sm.Add(aliceCtx, KindWorking, MemoryItem{Content: "alice fact", Importance: 0.5})
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	if err := sm.Remove(bobCtx, KindWorking, id); !errors.Is(err, ErrNotFound) {
+		t.Errorf("cross-scope Remove: err = %v, want ErrNotFound", err)
+	}
+	// item still present.
+	if _, err := sm.Inner().Get(context.Background(), KindWorking, id); err != nil {
+		t.Errorf("item was incorrectly removed: %v", err)
+	}
+	// same-scope Remove succeeds.
+	if err := sm.Remove(aliceCtx, KindWorking, id); err != nil {
+		t.Errorf("alice Remove: %v", err)
+	}
+	if _, err := sm.Inner().Get(context.Background(), KindWorking, id); !errors.Is(err, ErrNotFound) {
+		t.Errorf("post-remove Get: err = %v, want ErrNotFound", err)
+	}
+}
