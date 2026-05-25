@@ -34,6 +34,26 @@ a standalone Go LLM agents framework module.
   at `Search` time when the item is `IsPinned` or
   `GetSource(it) == SourceUserSaved`. The zero value (or any
   non-positive value) is a strict no-op, preserving pre-v0.7 scoring.
+- `memory`: `Scope{User, Project, Session}` plus `WithScope` /
+  `ScopeFrom` ctx helpers — three-axis partition descriptor stamped
+  into `Metadata["_scope"]` on Add and read on Get / Search /
+  SearchAll / Update / Remove. The zero-value `Scope{}` is a wildcard
+  that matches every item, so existing callers that never call
+  `WithScope` see no behavior change.
+- `memory`: `ScopedManager` — decorator over `*Manager` that mirrors
+  the 9 public Manager methods. Add stamps the ctx scope; Get /
+  Search / SearchAll filter by it; Update / Remove return
+  `ErrNotFound` on cross-scope access (avoids leaking ID existence
+  across scopes). Constructed via `NewScopedManager(inner)`;
+  `Inner()` exposes the underlying `*Manager`.
+  - **v0.7 limitation:** `Consolidate`, `Forget`, and `StatsAll`
+    on `ScopedManager` do NOT honor scope — they pass through to
+    the inner Manager and operate on all stored items regardless of
+    scope. These operations bypass the `Memory` abstraction to
+    access the underlying store directly; scope-aware variants are
+    deferred to a future release.
+- `memory`: `ErrManagerRequired` — sentinel returned by
+  `NewScopedManager(nil)`.
 
 ### Changed
 
