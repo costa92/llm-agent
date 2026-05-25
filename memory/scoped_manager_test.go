@@ -154,6 +154,96 @@ func TestScopedManager_UpdateEnforcesScope(t *testing.T) {
 	}
 }
 
+func TestScopedManager_SearchFilters(t *testing.T) {
+	sm := newScopedManager(t)
+	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
+	bobCtx := WithScope(context.Background(), Scope{User: "bob"})
+
+	if _, err := sm.Add(aliceCtx, KindWorking, MemoryItem{Content: "shared topic", Importance: 0.5}); err != nil {
+		t.Fatalf("alice Add: %v", err)
+	}
+	if _, err := sm.Add(bobCtx, KindWorking, MemoryItem{Content: "shared topic", Importance: 0.5}); err != nil {
+		t.Fatalf("bob Add: %v", err)
+	}
+
+	aliceRes, err := sm.Search(aliceCtx, KindWorking, "shared topic", 10)
+	if err != nil {
+		t.Fatalf("alice Search: %v", err)
+	}
+	if len(aliceRes) != 1 {
+		t.Fatalf("alice got %d results, want 1", len(aliceRes))
+	}
+	if got := readScope(aliceRes[0].Item); got.User != "alice" {
+		t.Errorf("alice result scope.user = %q, want alice", got.User)
+	}
+
+	bobRes, err := sm.Search(bobCtx, KindWorking, "shared topic", 10)
+	if err != nil {
+		t.Fatalf("bob Search: %v", err)
+	}
+	if len(bobRes) != 1 {
+		t.Fatalf("bob got %d results, want 1", len(bobRes))
+	}
+	if got := readScope(bobRes[0].Item); got.User != "bob" {
+		t.Errorf("bob result scope.user = %q, want bob", got.User)
+	}
+}
+
+func TestScopedManager_SearchAllFilters(t *testing.T) {
+	sm := newScopedManager(t)
+	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
+	bobCtx := WithScope(context.Background(), Scope{User: "bob"})
+
+	for _, kind := range []Kind{KindWorking, KindEpisodic, KindSemantic} {
+		if _, err := sm.Add(aliceCtx, kind, MemoryItem{Content: "topic alpha", Importance: 0.5, Tags: []string{"x"}}); err != nil {
+			t.Fatalf("alice Add %s: %v", kind, err)
+		}
+		if _, err := sm.Add(bobCtx, kind, MemoryItem{Content: "topic alpha", Importance: 0.5, Tags: []string{"x"}}); err != nil {
+			t.Fatalf("bob Add %s: %v", kind, err)
+		}
+	}
+
+	out, err := sm.SearchAll(aliceCtx, "topic alpha", 10)
+	if err != nil {
+		t.Fatalf("alice SearchAll: %v", err)
+	}
+	totalAlice := 0
+	for kind, res := range out {
+		if len(res) != 1 {
+			t.Errorf("kind %s: got %d results, want 1", kind, len(res))
+		}
+		for _, r := range res {
+			if got := readScope(r.Item); got.User != "alice" {
+				t.Errorf("kind %s: result scope.user = %q, want alice", kind, got.User)
+			}
+		}
+		totalAlice += len(res)
+	}
+	if totalAlice != 3 {
+		t.Errorf("alice SearchAll total = %d, want 3", totalAlice)
+	}
+}
+
+func TestScopedManager_WildcardSearchSeesAll(t *testing.T) {
+	sm := newScopedManager(t)
+	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
+	bobCtx := WithScope(context.Background(), Scope{User: "bob"})
+	if _, err := sm.Add(aliceCtx, KindWorking, MemoryItem{Content: "shared topic", Importance: 0.5}); err != nil {
+		t.Fatalf("alice Add: %v", err)
+	}
+	if _, err := sm.Add(bobCtx, KindWorking, MemoryItem{Content: "shared topic", Importance: 0.5}); err != nil {
+		t.Fatalf("bob Add: %v", err)
+	}
+	// zero ctx scope = wildcard = sees both.
+	res, err := sm.Search(context.Background(), KindWorking, "shared topic", 10)
+	if err != nil {
+		t.Fatalf("wildcard Search: %v", err)
+	}
+	if len(res) != 2 {
+		t.Errorf("wildcard got %d results, want 2", len(res))
+	}
+}
+
 func TestScopedManager_RemoveEnforcesScope(t *testing.T) {
 	sm := newScopedManager(t)
 	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
