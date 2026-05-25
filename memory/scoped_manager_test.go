@@ -224,6 +224,57 @@ func TestScopedManager_SearchAllFilters(t *testing.T) {
 	}
 }
 
+// TestScopedManager_ConsolidateForgetStatsBypass locks in the v0.7
+// known limitation: Consolidate / Forget / StatsAll operate on the
+// entire inner Manager without scope filtering. When a future PR adds
+// scope-aware variants, this test should be updated to reflect the new
+// contract.
+func TestScopedManager_ConsolidateForgetStatsBypass(t *testing.T) {
+	sm := newScopedManager(t)
+	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
+	bobCtx := WithScope(context.Background(), Scope{User: "bob"})
+
+	// alice: high-importance item
+	if _, err := sm.Add(aliceCtx, KindWorking, MemoryItem{Content: "alice big", Importance: 0.9}); err != nil {
+		t.Fatalf("alice Add: %v", err)
+	}
+	// bob: high-importance item too
+	if _, err := sm.Add(bobCtx, KindWorking, MemoryItem{Content: "bob big", Importance: 0.9}); err != nil {
+		t.Fatalf("bob Add: %v", err)
+	}
+
+	// Consolidate (called via the scoped manager, in alice's ctx) must
+	// promote BOTH items — v0.7 limit: no scope filter on Consolidate.
+	n, err := sm.Consolidate(aliceCtx, ConsolidateOptions{Threshold: 0.7})
+	if err != nil {
+		t.Fatalf("Consolidate: %v", err)
+	}
+	if n != 2 {
+		t.Errorf("Consolidate promoted %d, want 2 (both alice and bob's items)", n)
+	}
+
+	// StatsAll must show counts for the whole Manager regardless of ctx
+	// scope.
+	stats := sm.StatsAll()
+	if stats[KindWorking].Count != 2 {
+		t.Errorf("StatsAll working Count = %d, want 2 (bypasses scope)", stats[KindWorking].Count)
+	}
+	if stats[KindEpisodic].Count != 2 {
+		t.Errorf("StatsAll episodic Count = %d, want 2 (bypasses scope)", stats[KindEpisodic].Count)
+	}
+
+	// Forget by importance with threshold 0.5: nothing qualifies for
+	// removal because both items are at 0.9. So we drop the threshold
+	// past 0.9 — Forget must touch BOTH items regardless of ctx scope.
+	removed, err := sm.Forget(aliceCtx, KindWorking, ForgetOptions{Strategy: ForgetByImportance, Threshold: 1.0})
+	if err != nil {
+		t.Fatalf("Forget: %v", err)
+	}
+	if removed != 2 {
+		t.Errorf("Forget removed %d, want 2 (bypasses scope)", removed)
+	}
+}
+
 func TestScopedManager_WildcardSearchSeesAll(t *testing.T) {
 	sm := newScopedManager(t)
 	aliceCtx := WithScope(context.Background(), Scope{User: "alice"})
