@@ -113,6 +113,25 @@ func (sm *ScopedManager) SearchAll(ctx context.Context, query string, topK int) 
 	return out, nil
 }
 
+// Consolidate forwards to the inner Manager. NO scope filtering — see
+// the type-level LIMITATIONS note. This passes items from every scope
+// (including legacy unscoped data) through the consolidation rule.
+func (sm *ScopedManager) Consolidate(ctx context.Context, opts ConsolidateOptions) (int, error) {
+	return sm.inner.Consolidate(ctx, opts)
+}
+
+// Forget forwards to the inner Manager. NO scope filtering — see the
+// type-level LIMITATIONS note.
+func (sm *ScopedManager) Forget(ctx context.Context, kind Kind, opts ForgetOptions) (int, error) {
+	return sm.inner.Forget(ctx, kind, opts)
+}
+
+// StatsAll forwards to the inner Manager. NO scope filtering — counts
+// include items from every scope.
+func (sm *ScopedManager) StatsAll() map[Kind]Stats {
+	return sm.inner.StatsAll()
+}
+
 // filterByScope drops results whose stored scope does not Match s.
 // A zero-value s short-circuits to the input slice (wildcard).
 func filterByScope(results []SearchResult, s Scope) []SearchResult {
