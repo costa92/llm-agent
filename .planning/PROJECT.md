@@ -144,6 +144,27 @@ module stays readable, portable, and cheap to adopt.
   (`llm.ChatModel`, `agents.Agent`, `memory.Memory`,
   `orchestrate.NodeFunc[S]`); no `/v2` import path (KC-5). Cost-table
   is **opt-in / outside core** (KC-4).
+- `v1.2` shipped and closed on 2026-05-25 by `llm-agent v0.7.0` —
+  **combined release**: v1.2 milestone close (Phase 38 / CC-4) + v1.3
+  memory work brought forward into the same tag per operator decision.
+  Tag sequence: `v0.6.0` (Phase 35, CC-1 budget), `v0.6.1` (Phase 36,
+  CC-2 policy), `v0.6.2` (Phase 37, CC-3 `orchestrate.Supervisor`),
+  `v0.7.0` (Phase 38 close + v1.3 brought-forward). The v1.3
+  brought-forward delivers a 5-pillar ChatGPT-style memory feature
+  suite across 4 PRs (#9 profile metadata, #10 Scope + ScopedManager,
+  #11 Lister + Sanitizer + tool actions, #12 persistence). KC-2 was
+  *reframed at discuss-phase* from "ScopedMemory" (Memory-level
+  decorator) to "ScopedManager" (Manager-level decorator) because
+  executor verification revealed `Manager.Consolidate`/`storeOf`
+  bypass the `Memory` interface, making Memory-level decoration
+  un-pluggable. memory package: 38 → 139 tests (+101, race-clean).
+  Audit: `.planning/v1.2-MILESTONE-AUDIT.md` (PASS 4/4 with KC-2
+  reframe documented). KC-5 (additive-only, no `/v2`) preserved.
+  Stdlib-only invariant *strengthened*: the rag back-edge `require`
+  was dropped in v0.6.2 (commit `6029565`); post-v0.6.2 `go.mod` has
+  zero `require` lines and `go.sum` is empty. Sister repos still pin
+  core `v0.5.1` (2 minors behind) — known follow-up for a future
+  ecosystem-alignment milestone, not a v1.2 blocker.
 
 ## Requirements
 
@@ -217,10 +238,18 @@ module stays readable, portable, and cheap to adopt.
 
 ## Active Milestone Goals
 
-**v1.2 — Core Capability Deepening (active, opened 2026-05-20).** The
-first **core-feature** milestone since v0.3. Theme: **Core v0.6** —
+**Between milestones — v1.2 closed 2026-05-25 by `llm-agent v0.7.0`.**
+No active milestone is currently in execution. Next-milestone scoping is
+open for operator direction (candidates: v1.4 sister-repo dep-currency
+follow-up to bump all sister repos to pin `llm-agent v0.7.0`, or a new
+core-feature direction).
+
+### Closed: v1.2 — Core Capability Deepening (2026-05-20 → 2026-05-25)
+
+The first **core-feature** milestone since v0.3. Theme: **Core v0.6** —
 capability additions to core `llm-agent`; memory tiering deferred to
-v1.3. Core module bump: `v0.5.1 → v0.6.0` (minor — additive only).
+v1.3 (and subsequently brought forward into v0.7.0). Core module bump:
+`v0.5.1 → v0.6.0 → v0.6.1 → v0.6.2 → v0.7.0` (all additive).
 
 Phases 35-38 ship three new agent-runtime governance primitives:
 
@@ -449,6 +478,24 @@ the customer-support demo.
   (KC-5). Core module bumps `v0.5.1 → v0.6.0` (minor, additive).
   Core stdlib-only **preserved**; 4 requirements (`CC-1..04`) across
   4 phases (35-38).
+- 2026-05-25: `v1.2` closed by `v0.7.0`; v1.3 memory work brought
+  forward into the same tag per operator decision (combined release;
+  operator response "f2" — accept the merge, reframe v0.7.0 as the
+  combined milestone-close + v1.3 brought-forward tag). 4 memory PRs
+  shipped: #9 profile metadata (`Source`/`Category`/`Pin`/`Disable`
+  helpers + `SavedBoost`), #10 `Scope` + `ScopedManager` (KC-2
+  reframe: Manager-level decorator after executor verification
+  revealed `Manager.Consolidate`/`storeOf` bypass the `Memory`
+  interface), #11 `Lister` + `Sanitizer` + 5 tool actions, #12
+  persistence (`Snapshot`/`Exporter`/`Importer` + `SnapshotStore` +
+  stdlib `FilesystemStore` + `Restore*` constructors + 2 tool
+  actions). memory package: 38 → 139 tests (+101, race-clean).
+  Audit: `.planning/v1.2-MILESTONE-AUDIT.md` (PASS 4/4 with KC-2
+  reframe documented). KC-5 (additive-only, no `/v2`) preserved
+  verbatim across the combined tag. Stdlib-only invariant
+  *strengthened* across v1.2: the rag back-edge `require` was dropped
+  in v0.6.2 (commit `6029565`); post-v0.6.2 `go.mod` has zero
+  `require` lines and `go.sum` is empty.
 
 ### v1.2 Keystone Decisions (KC-1..KC-5)
 

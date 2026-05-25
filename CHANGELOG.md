@@ -11,6 +11,21 @@ a standalone Go LLM agents framework module.
 
 ## [Unreleased]
 
+## [v0.7.0] - 2026-05-25
+
+Combined release: closes the v1.2 Core Capability Deepening milestone
+(`CC-1`/`CC-2`/`CC-3`/`CC-4`) AND brings forward the v1.3 memory work
+in a single tag. The previously-shipped v0.6.0 (Phase 35 CC-1 budget)
+and the additive patch tags v0.6.1 (Phase 36 CC-2 policy) and v0.6.2
+(Phase 37 CC-3 orchestrate.Supervisor) collectively delivered the v1.2
+capability surface; v0.7.0 here is **the explicit milestone-close tag**
+plus the v1.3 brought-forward memory feature suite. Operator decision
+to combine taken 2026-05-25; see `.planning/v1.2-MILESTONE-AUDIT.md`
+for the honest reframe record. KC-5 (additive only, no `/v2`) preserved
+throughout — the `memory/` package is strict additive: zero changes to
+the `Memory` interface, `MemoryItem` fields, `Manager` method
+signatures, or any v1.x test fixture.
+
 ### Added
 
 - `memory`: ChatGPT-style profile metadata helpers layered on the
