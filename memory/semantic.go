@@ -20,7 +20,12 @@ type SemanticMemory struct {
 
 // SemanticOptions configures a SemanticMemory.
 type SemanticOptions struct {
-	// reserved for future tuning (e.g. tag weight)
+	// SavedBoost is a multiplicative score factor applied at Search time
+	// to items where IsPinned(it) || GetSource(it) == SourceUserSaved.
+	// Non-positive (including the zero value) is treated as 1.0
+	// (no-op), preserving pre-v0.7 scoring behavior for callers that
+	// leave it unset.
+	SavedBoost float64
 }
 
 // NewSemantic constructs a SemanticMemory.
@@ -52,12 +57,16 @@ func (m *SemanticMemory) Search(ctx context.Context, query string, topK int) ([]
 	items, vecs := m.store.snapshot()
 	out := make([]SearchResult, 0, len(items))
 	for id, it := range items {
+		if IsDisabled(it) {
+			continue
+		}
 		if len(queryTags) > 0 && !anyTagMatches(queryTags, it.Tags) {
 			continue
 		}
 		vec := vectorScore(qv, vecs[id])
 		tag := tagOverlap(queryTags, it.Tags)
-		score := (vec*0.7 + tag*0.3) * importanceMultiplier(it.Importance)
+		score := (vec*0.7 + tag*0.3) * importanceMultiplier(it.Importance) *
+			savedBoostMultiplier(it, m.opts.SavedBoost)
 		out = append(out, SearchResult{Item: it, Score: score})
 	}
 	sortDesc(out)

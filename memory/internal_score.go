@@ -205,6 +205,21 @@ func importanceMultiplier(imp float64) float64 {
 	return 0.8 + imp*0.4
 }
 
+// savedBoostMultiplier returns the SavedBoost factor applied to the
+// final score of items the user explicitly cares about (Pinned, or
+// Source==SourceUserSaved). A non-positive boost option degrades to
+// the identity (1.0) so callers that leave the option zeroed see
+// behavior identical to pre-v0.7 builds.
+func savedBoostMultiplier(it MemoryItem, boost float64) float64 {
+	if boost <= 0 {
+		boost = 1.0
+	}
+	if IsPinned(it) || GetSource(it) == SourceUserSaved {
+		return boost
+	}
+	return 1.0
+}
+
 // timeDecay returns exp(-age/halfLife). At age=0 → 1; at age=halfLife → ~0.37.
 func timeDecay(createdAt time.Time, halfLife time.Duration) float64 {
 	age := time.Since(createdAt)

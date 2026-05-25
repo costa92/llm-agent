@@ -23,6 +23,13 @@ type WorkingMemory struct {
 type WorkingOptions struct {
 	Capacity int           // 0 → defaults to 50
 	Decay    time.Duration // 0 → defaults to 24h
+
+	// SavedBoost is a multiplicative score factor applied at Search time
+	// to items where IsPinned(it) || GetSource(it) == SourceUserSaved.
+	// Non-positive (including the zero value) is treated as 1.0
+	// (no-op), preserving pre-v0.7 scoring behavior for callers that
+	// leave it unset. Typical values: 1.5–3.0.
+	SavedBoost float64
 }
 
 // NewWorking constructs a WorkingMemory. Returns ErrEmbedderRequired
@@ -69,6 +76,9 @@ func (w *WorkingMemory) Search(ctx context.Context, query string, topK int) ([]S
 	items, vecs := w.store.snapshot()
 	out := make([]SearchResult, 0, len(items))
 	for id, it := range items {
+		if IsDisabled(it) {
+			continue
+		}
 		score := w.score(query, qv, it, vecs[id])
 		out = append(out, SearchResult{Item: it, Score: score})
 	}
@@ -99,12 +109,15 @@ func (w *WorkingMemory) Stats() Stats {
 	return w.store.stats(w.opts.Capacity)
 }
 
-// score is the working-memory composite per spec §6.3.
+// score is the working-memory composite per spec §6.3, with an
+// optional SavedBoost factor applied for pinned / user-saved items
+// (see savedBoostMultiplier).
 func (w *WorkingMemory) score(query string, qv []float32, it MemoryItem, iv []float32) float64 {
 	vec := vectorScore(qv, iv)
 	kw := keywordScore(query, it.Content)
 	decay := timeDecay(it.CreatedAt, w.opts.Decay)
-	return (vec*0.7 + kw*0.3) * decay * importanceMultiplier(it.Importance)
+	return (vec*0.7 + kw*0.3) * decay * importanceMultiplier(it.Importance) *
+		savedBoostMultiplier(it, w.opts.SavedBoost)
 }
 
 // evictIfOverCapacity removes the lowest-scoring item against probe text.

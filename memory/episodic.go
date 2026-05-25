@@ -20,6 +20,13 @@ type EpisodicMemory struct {
 // EpisodicOptions configures an EpisodicMemory.
 type EpisodicOptions struct {
 	RecencyHalfLifeDays float64 // 0 → defaults to 30
+
+	// SavedBoost is a multiplicative score factor applied at Search time
+	// to items where IsPinned(it) || GetSource(it) == SourceUserSaved.
+	// Non-positive (including the zero value) is treated as 1.0
+	// (no-op), preserving pre-v0.7 scoring behavior for callers that
+	// leave it unset.
+	SavedBoost float64
 }
 
 // NewEpisodic constructs an EpisodicMemory.
@@ -54,9 +61,13 @@ func (m *EpisodicMemory) Search(ctx context.Context, query string, topK int) ([]
 	out := make([]SearchResult, 0, len(items))
 	halfLife := time.Duration(m.opts.RecencyHalfLifeDays * 24 * float64(time.Hour))
 	for id, it := range items {
+		if IsDisabled(it) {
+			continue
+		}
 		vec := vectorScore(qv, vecs[id])
 		recency := timeDecay(it.CreatedAt, halfLife)
-		score := (vec*0.8 + recency*0.2) * importanceMultiplier(it.Importance)
+		score := (vec*0.8 + recency*0.2) * importanceMultiplier(it.Importance) *
+			savedBoostMultiplier(it, m.opts.SavedBoost)
 		out = append(out, SearchResult{Item: it, Score: score})
 	}
 	sortDesc(out)
