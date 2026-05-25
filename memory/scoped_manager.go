@@ -86,3 +86,44 @@ func (sm *ScopedManager) Remove(ctx context.Context, kind Kind, id string) error
 	}
 	return sm.inner.Remove(ctx, kind, id)
 }
+
+// Search forwards to the inner Manager then drops results whose stored
+// scope does not match the ctx scope. A zero ctx scope (wildcard)
+// returns the inner results verbatim.
+func (sm *ScopedManager) Search(ctx context.Context, kind Kind, query string, topK int) ([]SearchResult, error) {
+	raw, err := sm.inner.Search(ctx, kind, query, topK)
+	if err != nil {
+		return nil, err
+	}
+	return filterByScope(raw, ScopeFrom(ctx)), nil
+}
+
+// SearchAll fans out to the inner Manager and applies per-result scope
+// filtering on each kind.
+func (sm *ScopedManager) SearchAll(ctx context.Context, query string, topK int) (map[Kind][]SearchResult, error) {
+	raw, err := sm.inner.SearchAll(ctx, query, topK)
+	if err != nil {
+		return nil, err
+	}
+	s := ScopeFrom(ctx)
+	out := make(map[Kind][]SearchResult, len(raw))
+	for kind, results := range raw {
+		out[kind] = filterByScope(results, s)
+	}
+	return out, nil
+}
+
+// filterByScope drops results whose stored scope does not Match s.
+// A zero-value s short-circuits to the input slice (wildcard).
+func filterByScope(results []SearchResult, s Scope) []SearchResult {
+	if s.IsZero() {
+		return results
+	}
+	out := make([]SearchResult, 0, len(results))
+	for _, r := range results {
+		if s.Matches(readScope(r.Item)) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
