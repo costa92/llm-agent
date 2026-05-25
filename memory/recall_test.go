@@ -1,9 +1,6 @@
 package memory
 
 import (
-	"context"
-	"errors"
-	"strings"
 	"testing"
 	"time"
 )
@@ -133,7 +130,3 @@ func TestCursor_BadCursorErrors(t *testing.T) {
 	}
 }
 
-// --- silence unused-import warning in this RED commit ---------------------
-var _ = context.Background
-var _ = errors.Is
-var _ = strings.Contains
