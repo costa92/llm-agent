@@ -3,6 +3,8 @@ package memory
 import (
 	"context"
 	"testing"
+
+	"github.com/costa92/llm-agent/llm"
 )
 
 // --- Disabled is filtered from Search across all 3 memory types ------------
@@ -138,5 +140,71 @@ func TestForget_SkipsPinned_ByCapacity(t *testing.T) {
 	if mgr.StatsAll()[KindEpisodic].Count != 2 {
 		t.Errorf("after forget, count = %d, want 2 (pinned + 1 highest unpinned)",
 			mgr.StatsAll()[KindEpisodic].Count)
+	}
+}
+
+// --- SavedBoost multiplies score for pinned / user_saved items -------------
+
+func TestSavedBoost_BoostsPinned_Working(t *testing.T) {
+	w, err := NewWorking(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)),
+		WorkingOptions{Capacity: 10, SavedBoost: 2.0})
+	if err != nil {
+		t.Fatalf("NewWorking: %v", err)
+	}
+	ctx := context.Background()
+	plainID, _ := w.Add(ctx, MemoryItem{Content: "go modules notes", Importance: 0.5})
+	pinnedID, _ := w.Add(ctx, MemoryItem{Content: "go modules notes", Importance: 0.5})
+	_ = w.Update(ctx, pinnedID, func(it *MemoryItem) { SetPinned(it, true) })
+
+	results, err := w.Search(ctx, "go modules", 5)
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(results) < 2 {
+		t.Fatalf("got %d results, want 2", len(results))
+	}
+	if results[0].Item.ID != pinnedID {
+		t.Errorf("top = %v, want pinned %v (SavedBoost=2.0 should win)",
+			results[0].Item.ID, pinnedID)
+	}
+	if results[1].Item.ID != plainID {
+		t.Errorf("second = %v, want plain %v", results[1].Item.ID, plainID)
+	}
+}
+
+func TestSavedBoost_DefaultNoOp(t *testing.T) {
+	// SavedBoost zero value ⇒ no special multiplier; pinned and non-pinned
+	// identical-content items should tie (or differ only by base scoring).
+	w, err := NewWorking(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)),
+		WorkingOptions{Capacity: 10}) // SavedBoost unset
+	if err != nil {
+		t.Fatalf("NewWorking: %v", err)
+	}
+	ctx := context.Background()
+	plainID, _ := w.Add(ctx, MemoryItem{Content: "x y z keyword", Importance: 0.5})
+	pinnedID, _ := w.Add(ctx, MemoryItem{Content: "x y z keyword", Importance: 0.5})
+	_ = w.Update(ctx, pinnedID, func(it *MemoryItem) { SetPinned(it, true) })
+
+	results, err := w.Search(ctx, "keyword", 5)
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(results) < 2 {
+		t.Fatalf("got %d results, want 2", len(results))
+	}
+	// Their scores should be within a tiny epsilon of each other.
+	const eps = 1e-9
+	delta := results[0].Score - results[1].Score
+	if delta < -eps || delta > eps {
+		t.Errorf("with SavedBoost=0 (no-op), pinned and plain scores diverged by %v (>%v)",
+			delta, eps)
+	}
+	// Sanity: both IDs present.
+	seen := map[string]bool{}
+	for _, r := range results {
+		seen[r.Item.ID] = true
+	}
+	if !seen[pinnedID] || !seen[plainID] {
+		t.Errorf("expected both ids in results; got %v", seen)
 	}
 }
