@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"strings"
 )
 
@@ -95,6 +96,22 @@ func (m *SemanticMemory) Stats() Stats {
 // List implements Lister. ctx is ignored (no I/O is performed).
 func (m *SemanticMemory) List(_ context.Context, filter ListFilter, pageSize int, cursor string) (ListPage, error) {
 	return listFromStore(m.store, filter, pageSize, cursor)
+}
+
+// Export implements Exporter. Vectors are inlined so the receiver can reuse
+// them without re-embedding.
+func (m *SemanticMemory) Export(_ context.Context) (Snapshot, error) {
+	return exportFromStore(m.store, KindSemantic), nil
+}
+
+// Import implements Importer. Returns ErrSnapshotKindMismatch when
+// snap.Kind != KindSemantic; ErrSnapshotVersionMismatch when the version is
+// unknown.
+func (m *SemanticMemory) Import(_ context.Context, snap Snapshot, mode ImportMode) (ImportReport, error) {
+	if snap.Kind != KindSemantic {
+		return ImportReport{}, fmt.Errorf("%w: got %s, want semantic", ErrSnapshotKindMismatch, snap.Kind)
+	}
+	return importIntoStore(m.store, snap, mode)
 }
 
 // parseTagPrefix splits "tag:a,b real query" → ("real query", ["a","b"]).
