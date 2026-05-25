@@ -109,6 +109,11 @@ func (w *WorkingMemory) Stats() Stats {
 	return w.store.stats(w.opts.Capacity)
 }
 
+// List implements Lister. ctx is ignored (no I/O is performed).
+func (w *WorkingMemory) List(_ context.Context, filter ListFilter, pageSize int, cursor string) (ListPage, error) {
+	return listFromStore(w.store, filter, pageSize, cursor)
+}
+
 // score is the working-memory composite per spec §6.3, with an
 // optional SavedBoost factor applied for pinned / user-saved items
 // (see savedBoostMultiplier).

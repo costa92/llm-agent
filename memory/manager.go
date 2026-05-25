@@ -105,6 +105,41 @@ func (m *Manager) SearchAll(ctx context.Context, query string, topK int) (map[Ki
 	return out, nil
 }
 
+// ListAll fans out List across active memory kinds. Returns per-kind
+// page. pageSize applies PER kind (not as a global cap). cursors is a
+// per-kind map: kinds with no entry start from the beginning. Kinds
+// that are disabled on this Manager are omitted from the result map.
+//
+// If a kind's underlying Memory does not implement Lister (foreign
+// implementations supplied by callers) it is silently skipped. The
+// three bundled types all satisfy Lister.
+func (m *Manager) ListAll(ctx context.Context, filter ListFilter, pageSize int, cursors map[Kind]string) (map[Kind]ListPage, error) {
+	out := make(map[Kind]ListPage, 3)
+	for _, kind := range []Kind{KindWorking, KindEpisodic, KindSemantic} {
+		mem, err := m.lookup(kind)
+		if errors.Is(err, ErrKindDisabled) {
+			continue
+		}
+		if err != nil {
+			return out, err
+		}
+		lister, ok := mem.(Lister)
+		if !ok {
+			continue
+		}
+		cursor := ""
+		if cursors != nil {
+			cursor = cursors[kind]
+		}
+		page, err := lister.List(ctx, filter, pageSize, cursor)
+		if err != nil {
+			return out, fmt.Errorf("memory: list %s: %w", kind, err)
+		}
+		out[kind] = page
+	}
+	return out, nil
+}
+
 // StatsAll returns Stats for every active memory.
 func (m *Manager) StatsAll() map[Kind]Stats {
 	out := make(map[Kind]Stats, 3)

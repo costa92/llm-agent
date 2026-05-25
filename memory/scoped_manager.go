@@ -113,6 +113,18 @@ func (sm *ScopedManager) SearchAll(ctx context.Context, query string, topK int) 
 	return out, nil
 }
 
+// ListAll forwards to the inner Manager after applying the ctx scope
+// on top of the supplied filter. If the ctx scope is non-zero it
+// OVERRIDES filter.Scope — the ctx scope is the trust boundary, so it
+// is the stronger constraint. If the ctx scope is zero, filter.Scope
+// is honored verbatim.
+func (sm *ScopedManager) ListAll(ctx context.Context, filter ListFilter, pageSize int, cursors map[Kind]string) (map[Kind]ListPage, error) {
+	if s := ScopeFrom(ctx); !s.IsZero() {
+		filter.Scope = s
+	}
+	return sm.inner.ListAll(ctx, filter, pageSize, cursors)
+}
+
 // Consolidate forwards to the inner Manager. NO scope filtering — see
 // the type-level LIMITATIONS note. This passes items from every scope
 // (including legacy unscoped data) through the consolidation rule.
