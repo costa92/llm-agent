@@ -92,6 +92,11 @@ func (m *SemanticMemory) Stats() Stats {
 	return m.store.stats(0)
 }
 
+// List implements Lister. ctx is ignored (no I/O is performed).
+func (m *SemanticMemory) List(_ context.Context, filter ListFilter, pageSize int, cursor string) (ListPage, error) {
+	return listFromStore(m.store, filter, pageSize, cursor)
+}
+
 // parseTagPrefix splits "tag:a,b real query" → ("real query", ["a","b"]).
 // Returns (query, nil) if no prefix.
 func parseTagPrefix(query string) (string, []string) {
