@@ -115,3 +115,20 @@ func (m *EpisodicMemory) Import(_ context.Context, snap Snapshot, mode ImportMod
 	}
 	return importIntoStore(m.store, snap, mode)
 }
+
+// RestoreEpisodic constructs an EpisodicMemory and immediately imports the
+// given snapshot using ImportReplace mode. See RestoreWorking for the
+// rationale on embedder reuse.
+func RestoreEpisodic(e Embedder, snap Snapshot, opts EpisodicOptions) (*EpisodicMemory, error) {
+	if e == nil {
+		return nil, ErrEmbedderRequired
+	}
+	m, err := NewEpisodic(e, opts)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := m.Import(context.Background(), snap, ImportReplace); err != nil {
+		return nil, err
+	}
+	return m, nil
+}

@@ -114,6 +114,23 @@ func (m *SemanticMemory) Import(_ context.Context, snap Snapshot, mode ImportMod
 	return importIntoStore(m.store, snap, mode)
 }
 
+// RestoreSemantic constructs a SemanticMemory and immediately imports the
+// given snapshot using ImportReplace mode. See RestoreWorking for the
+// rationale on embedder reuse.
+func RestoreSemantic(e Embedder, snap Snapshot, opts SemanticOptions) (*SemanticMemory, error) {
+	if e == nil {
+		return nil, ErrEmbedderRequired
+	}
+	m, err := NewSemantic(e, opts)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := m.Import(context.Background(), snap, ImportReplace); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // parseTagPrefix splits "tag:a,b real query" → ("real query", ["a","b"]).
 // Returns (query, nil) if no prefix.
 func parseTagPrefix(query string) (string, []string) {

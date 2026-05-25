@@ -131,6 +131,27 @@ func (w *WorkingMemory) Import(_ context.Context, snap Snapshot, mode ImportMode
 	return importIntoStore(w.store, snap, mode)
 }
 
+// RestoreWorking constructs a WorkingMemory and immediately imports the given
+// snapshot using ImportReplace mode. e is the embedder used for subsequent
+// Add/Search operations (vectors in the snapshot are reused as-is for stored
+// items, so re-embedding the existing content is not required).
+//
+// Returns ErrEmbedderRequired if e is nil; ErrSnapshotKindMismatch if
+// snap.Kind != KindWorking; ErrSnapshotVersionMismatch if version is unknown.
+func RestoreWorking(e Embedder, snap Snapshot, opts WorkingOptions) (*WorkingMemory, error) {
+	if e == nil {
+		return nil, ErrEmbedderRequired
+	}
+	w, err := NewWorking(e, opts)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := w.Import(context.Background(), snap, ImportReplace); err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
 // score is the working-memory composite per spec §6.3, with an
 // optional SavedBoost factor applied for pinned / user-saved items
 // (see savedBoostMultiplier).
