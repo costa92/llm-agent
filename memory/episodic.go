@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -97,4 +98,37 @@ func (m *EpisodicMemory) Stats() Stats {
 // List implements Lister. ctx is ignored (no I/O is performed).
 func (m *EpisodicMemory) List(_ context.Context, filter ListFilter, pageSize int, cursor string) (ListPage, error) {
 	return listFromStore(m.store, filter, pageSize, cursor)
+}
+
+// Export implements Exporter. Vectors are inlined so the receiver can reuse
+// them without re-embedding.
+func (m *EpisodicMemory) Export(_ context.Context) (Snapshot, error) {
+	return exportFromStore(m.store, KindEpisodic), nil
+}
+
+// Import implements Importer. Returns ErrSnapshotKindMismatch when
+// snap.Kind != KindEpisodic; ErrSnapshotVersionMismatch when the version is
+// unknown.
+func (m *EpisodicMemory) Import(_ context.Context, snap Snapshot, mode ImportMode) (ImportReport, error) {
+	if snap.Kind != KindEpisodic {
+		return ImportReport{}, fmt.Errorf("%w: got %s, want episodic", ErrSnapshotKindMismatch, snap.Kind)
+	}
+	return importIntoStore(m.store, snap, mode)
+}
+
+// RestoreEpisodic constructs an EpisodicMemory and immediately imports the
+// given snapshot using ImportReplace mode. See RestoreWorking for the
+// rationale on embedder reuse.
+func RestoreEpisodic(e Embedder, snap Snapshot, opts EpisodicOptions) (*EpisodicMemory, error) {
+	if e == nil {
+		return nil, ErrEmbedderRequired
+	}
+	m, err := NewEpisodic(e, opts)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := m.Import(context.Background(), snap, ImportReplace); err != nil {
+		return nil, err
+	}
+	return m, nil
 }

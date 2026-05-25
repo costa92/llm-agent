@@ -97,6 +97,55 @@ a standalone Go LLM agents framework module.
   `page_size`, `cursor`, `cursors`) and the `action` enum picks up
   the five new values. All existing action enum entries and field
   names are unchanged — pre-v0.7 callers see no behavior change.
+- `memory`: Persistence layer. `Snapshot{Version, Kind, Items}` +
+  `SnapshotItem{Item, Vector}` form a JSON-serializable dump that
+  inlines cached embeddings so receivers reuse vectors instead of
+  re-embedding restored content. `SnapshotVersion = 1` is the current
+  schema version; unknown versions on import return
+  `ErrSnapshotVersionMismatch`. Kind mismatch (e.g. importing a
+  `KindEpisodic` snapshot into a `*WorkingMemory`) returns
+  `ErrSnapshotKindMismatch`.
+- `memory`: `Exporter` and `Importer` optional capability interfaces.
+  `*WorkingMemory`, `*EpisodicMemory`, `*SemanticMemory` all implement
+  both. `Export(ctx) (Snapshot, error)` emits items in
+  `(CreatedAt ASC, ID ASC)` order so the JSON bytes are stable across
+  runs. `Import(ctx, snap, mode)` returns an `ImportReport` with
+  per-mode `Loaded` / `Skipped` / `Replaced` counters.
+- `memory`: `ImportMode` enum: `ImportReplace` wipes the target then
+  loads every snapshot item; `ImportMerge` adds unseen IDs only
+  (collisions tick `Skipped`); `ImportUpsert` adds unseen and
+  overwrites existing (collisions tick `Replaced`).
+- `memory`: `SnapshotStore` pluggable persistence interface
+  (`Save / Load / Delete / List`). `FilesystemStore` is the
+  stdlib-only default — one JSON file per `(key, kind)` tuple,
+  sanitized filenames (every char outside `[a-zA-Z0-9_-]` becomes
+  `_`) prevent path traversal, atomic writes via
+  `os.CreateTemp` + `os.Rename`. `FilesystemStore.LoadKind(ctx, key,
+  kind)` is the typed variant used by `Manager.ImportAll`.
+- `memory`: `RestoreWorking` / `RestoreEpisodic` / `RestoreSemantic`
+  constructors. Each builds the concrete Memory type AND immediately
+  imports the supplied snapshot in `ImportReplace` mode. Embedder is
+  still required (for subsequent `Add` / `Search`) but the restored
+  items reuse their inlined vectors — no re-embedding.
+- `memory`: `ManagerOptions.SnapshotStore` (optional). When set,
+  `Manager.ExportAll(ctx, persistKey)` writes each active kind's
+  snapshot to the store, and `Manager.ImportAll(ctx, nil, persistKey,
+  mode)` reads them back. `ImportAll` with an inline `snaps` map
+  bypasses the store entirely (snaps wins). `persistKey != ""` with
+  no `SnapshotStore` returns `ErrSnapshotStoreNotConfigured`.
+- `memory`: New sentinel errors: `ErrSnapshotVersionMismatch`,
+  `ErrSnapshotKindMismatch`, `ErrSnapshotStoreNotConfigured`.
+- `memory`: New `AsTool` actions: `export`, `import`. The schema
+  gains two optional top-level fields (`snapshot_key`,
+  `import_mode`); the `action` enum picks up the two new values.
+  `export` wraps `Manager.ExportAll`; `import` wraps
+  `Manager.ImportAll` and defaults to `ImportMerge` (safest) if
+  `import_mode` is omitted.
+- `memory`: Persistence layer remains **stdlib-only** — new imports
+  are limited to `encoding/json`, `os`, `io`, `path/filepath`,
+  `sort`, `strings`, `errors`, `fmt`, `context`. No third-party
+  storage dependency in core; downstream stores plug in via the
+  `SnapshotStore` interface.
 
 ### Changed
 

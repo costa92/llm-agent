@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 )
@@ -15,6 +16,7 @@ type Manager struct {
 	working  *WorkingMemory
 	episodic *EpisodicMemory
 	semantic *SemanticMemory
+	store    SnapshotStore // optional; ExportAll/ImportAll persist here
 }
 
 // ManagerOptions allows the caller to specify which memories are
@@ -24,6 +26,12 @@ type ManagerOptions struct {
 	Working  *WorkingMemory
 	Episodic *EpisodicMemory
 	Semantic *SemanticMemory
+
+	// SnapshotStore is the optional persistence backend used by
+	// ExportAll / ImportAll. Leave nil to keep persistence in-memory
+	// (ExportAll still works without a persistKey; ImportAll still
+	// works with an inline snaps map).
+	SnapshotStore SnapshotStore
 }
 
 // NewManager constructs a Manager. Returns ErrNoMemories if all three
@@ -36,6 +44,7 @@ func NewManager(opts ManagerOptions) (*Manager, error) {
 		working:  opts.Working,
 		episodic: opts.Episodic,
 		semantic: opts.Semantic,
+		store:    opts.SnapshotStore,
 	}, nil
 }
 
@@ -301,6 +310,105 @@ func (m *Manager) Forget(ctx context.Context, kind Kind, opts ForgetOptions) (in
 	default:
 		return 0, fmt.Errorf("memory: unknown forget strategy %q", opts.Strategy)
 	}
+}
+
+// --- ExportAll / ImportAll -------------------------------------------------
+
+// ExportAll exports each active memory kind to a Snapshot, returning a
+// map keyed by Kind. If persistKey != "" the Manager's SnapshotStore is
+// required and each snapshot is also persisted under that key (one file
+// per kind for FilesystemStore).
+//
+// Returns ErrSnapshotStoreNotConfigured if persistKey != "" but no
+// SnapshotStore was set. Returns the underlying store error verbatim if a
+// Save call fails.
+func (m *Manager) ExportAll(ctx context.Context, persistKey string) (map[Kind]Snapshot, error) {
+	out := make(map[Kind]Snapshot, 3)
+	if m.working != nil {
+		snap, _ := m.working.Export(ctx)
+		out[KindWorking] = snap
+	}
+	if m.episodic != nil {
+		snap, _ := m.episodic.Export(ctx)
+		out[KindEpisodic] = snap
+	}
+	if m.semantic != nil {
+		snap, _ := m.semantic.Export(ctx)
+		out[KindSemantic] = snap
+	}
+	if persistKey == "" {
+		return out, nil
+	}
+	if m.store == nil {
+		return out, ErrSnapshotStoreNotConfigured
+	}
+	for _, snap := range out {
+		if err := m.store.Save(ctx, persistKey, snap); err != nil {
+			return out, err
+		}
+	}
+	return out, nil
+}
+
+// ImportAll applies snapshots to each active memory and returns a per-kind
+// ImportReport map. Two modes of operation:
+//
+//   - When snaps != nil, the inline map wins; persistKey is ignored.
+//   - When snaps == nil and persistKey != "", the configured SnapshotStore
+//     is consulted (LoadKind when available, falling back to Load). Kinds
+//     with no snapshot in the store are silently skipped.
+//
+// Returns ErrSnapshotStoreNotConfigured if snaps == nil && persistKey != ""
+// && SnapshotStore == nil. Disabled kinds are silently skipped.
+func (m *Manager) ImportAll(ctx context.Context, snaps map[Kind]Snapshot, persistKey string, mode ImportMode) (map[Kind]ImportReport, error) {
+	if snaps == nil && persistKey != "" {
+		if m.store == nil {
+			return nil, ErrSnapshotStoreNotConfigured
+		}
+		snaps = make(map[Kind]Snapshot, 3)
+		type kindLoader interface {
+			LoadKind(ctx context.Context, key string, kind Kind) (Snapshot, error)
+		}
+		for _, kind := range []Kind{KindWorking, KindEpisodic, KindSemantic} {
+			var snap Snapshot
+			var err error
+			if lk, ok := m.store.(kindLoader); ok {
+				snap, err = lk.LoadKind(ctx, persistKey, kind)
+			} else {
+				snap, err = m.store.Load(ctx, persistKey)
+				if err == nil && snap.Kind != kind {
+					continue
+				}
+			}
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					continue
+				}
+				return nil, fmt.Errorf("memory: import load %s: %w", kind, err)
+			}
+			snaps[kind] = snap
+		}
+	}
+	out := make(map[Kind]ImportReport, len(snaps))
+	for kind, snap := range snaps {
+		mem, err := m.lookup(kind)
+		if errors.Is(err, ErrKindDisabled) {
+			continue
+		}
+		if err != nil {
+			return out, err
+		}
+		importer, ok := mem.(Importer)
+		if !ok {
+			continue
+		}
+		rpt, err := importer.Import(ctx, snap, mode)
+		if err != nil {
+			return out, fmt.Errorf("memory: import %s: %w", kind, err)
+		}
+		out[kind] = rpt
+	}
+	return out, nil
 }
 
 // --- internals ------------------------------------------------------------

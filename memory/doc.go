@@ -127,6 +127,80 @@
 // or apply the sanitizer at the Tool surface. Direct embedding in
 // ManagerOptions is deferred to a future release.
 //
+// # Persistence
+//
+// Each concrete Memory type implements two optional capability
+// interfaces:
+//
+//	type Exporter interface {
+//	    Export(ctx) (Snapshot, error)
+//	}
+//	type Importer interface {
+//	    Import(ctx, snap Snapshot, mode ImportMode) (ImportReport, error)
+//	}
+//
+// Snapshot is a JSON-serializable dump (Version + Kind + []SnapshotItem)
+// where each SnapshotItem inlines the MemoryItem AND its cached
+// embedding vector. On Import the vectors are reused as-is so the
+// receiving Memory does NOT need to re-embed any restored content.
+//
+// ImportMode controls merge semantics:
+//
+//	ImportReplace — wipe target then load every snapshot item.
+//	ImportMerge   — load only items whose ID is not already present
+//	                (Skipped counter ticks for collisions).
+//	ImportUpsert  — load everything; collisions overwrite
+//	                (Replaced counter ticks).
+//
+// ImportReport returns Loaded / Skipped / Replaced counts so callers
+// can observe what changed. Version mismatch returns
+// ErrSnapshotVersionMismatch; Kind mismatch (e.g. importing a
+// KindEpisodic snapshot into a *WorkingMemory) returns
+// ErrSnapshotKindMismatch.
+//
+// SnapshotStore is the pluggable persistence backend:
+//
+//	type SnapshotStore interface {
+//	    Save(ctx, key string, snap Snapshot) error
+//	    Load(ctx, key string) (Snapshot, error)
+//	    Delete(ctx, key string) error
+//	    List(ctx) ([]string, error)
+//	}
+//
+// FilesystemStore is the stdlib-only default. NewFilesystemStore(dir)
+// writes one JSON file per (key, kind) tuple: <key>__<kind>.json.
+// Keys are sanitized (every character outside [a-zA-Z0-9_-] is
+// replaced with '_') so path traversal is impossible regardless of
+// caller input. Saves are atomic (os.CreateTemp in the same dir +
+// os.Rename). FilesystemStore.LoadKind(ctx, key, kind) is the typed
+// variant used by Manager.ImportAll.
+//
+// Downstream repos (e.g. llm-agent-otel, llm-agent-providers) can
+// inject SQLite/Postgres/S3/Redis stores by implementing
+// SnapshotStore. Core stays stdlib-only.
+//
+// # Restore constructors
+//
+// RestoreWorking / RestoreEpisodic / RestoreSemantic construct the
+// corresponding concrete Memory type AND immediately import a
+// snapshot in ImportReplace mode:
+//
+//	dst, err := memory.RestoreWorking(embedder, snap, memory.WorkingOptions{})
+//
+// They still require an Embedder (Search and subsequent Add use it),
+// but they do NOT re-embed the items already in the snapshot — those
+// vectors are restored byte-for-byte. Returns ErrEmbedderRequired on
+// nil embedder, ErrSnapshotKindMismatch on wrong kind, and
+// ErrSnapshotVersionMismatch on unknown version.
+//
+// Manager.ExportAll and Manager.ImportAll fan the operation across
+// all active kinds. ManagerOptions.SnapshotStore is optional; when
+// set, ExportAll(ctx, persistKey) also writes each kind's snapshot to
+// the store, and ImportAll(ctx, nil, persistKey, mode) reads each
+// kind back. ImportAll with an inline snaps map bypasses the store
+// (snaps wins). When persistKey != "" but SnapshotStore is nil, both
+// methods return ErrSnapshotStoreNotConfigured.
+//
 // # Tool actions
 //
 // AsTool exposes the full Manager surface as a single agents.Tool
@@ -137,10 +211,19 @@
 //	list                                   — enumerate items (per-kind or fan-out)
 //	pin / unpin                            — toggle the _pinned metadata flag
 //	disable / enable                       — toggle the _disabled metadata flag
+//	export / import                        — Snapshot persistence via SnapshotStore
+//
+// The export action wraps Manager.ExportAll; pass snapshot_key to
+// persist via the configured SnapshotStore (omit it to return
+// in-memory snapshots only). The import action wraps
+// Manager.ImportAll and defaults to ImportMerge (the safest mode) if
+// import_mode is omitted; pass "replace" or "upsert" explicitly to
+// change semantics.
 //
 // Pre-v0.7 callers see no behavior change — the schema is additive
-// (new optional fields: filter, page_size, cursor, cursors) and the
-// existing action enum entries are unchanged.
+// (new optional fields: filter, page_size, cursor, cursors,
+// snapshot_key, import_mode) and the existing action enum entries
+// are unchanged.
 //
 // # Portability
 //

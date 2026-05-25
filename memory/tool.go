@@ -15,13 +15,14 @@ import (
 // `action` discriminator; payload fields are action-specific.
 //
 // Supported actions: add / search / get / update / remove /
-// consolidate / forget / stats / list / pin / unpin / disable / enable.
+// consolidate / forget / stats / list / pin / unpin / disable / enable /
+// export / import.
 //
 // JSON output shape varies per action; format docs in the spec §6.5.
 func AsTool(mgr *Manager) agents.Tool {
 	return agents.NewFuncTool(
 		"memory",
-		"Persistent in-process memory (working / episodic / semantic). Actions: add, search, get, update, remove, consolidate, forget, stats, list, pin, unpin, disable, enable.",
+		"Persistent in-process memory (working / episodic / semantic). Actions: add, search, get, update, remove, consolidate, forget, stats, list, pin, unpin, disable, enable, export, import.",
 		toolSchema(),
 		toolHandler(mgr),
 	)
@@ -31,7 +32,7 @@ func toolSchema() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
 		"properties": {
-			"action":     {"type": "string", "enum": ["add","search","get","update","remove","consolidate","forget","stats","list","pin","unpin","disable","enable"]},
+			"action":     {"type": "string", "enum": ["add","search","get","update","remove","consolidate","forget","stats","list","pin","unpin","disable","enable","export","import"]},
 			"kind":       {"type": "string", "enum": ["working","episodic","semantic"]},
 			"content":    {"type": "string"},
 			"id":         {"type": "string"},
@@ -47,6 +48,8 @@ func toolSchema() json.RawMessage {
 			"page_size":  {"type": "integer"},
 			"cursor":     {"type": "string"},
 			"cursors":    {"type": "object", "additionalProperties": {"type": "string"}},
+			"snapshot_key": {"type": "string"},
+			"import_mode": {"type": "string", "enum": ["replace","merge","upsert"]},
 			"filter": {
 				"type": "object",
 				"properties": {
@@ -84,6 +87,8 @@ type toolArgs struct {
 	PageSize      int               `json:"page_size"`
 	Cursor        string            `json:"cursor"`
 	Cursors       map[string]string `json:"cursors"`
+	SnapshotKey   string            `json:"snapshot_key"`
+	ImportMode    string            `json:"import_mode"`
 }
 
 // toolFilter is the JSON wire form of ListFilter. Empty/zero fields
@@ -135,6 +140,10 @@ func toolHandler(mgr *Manager) agents.ExecuteFunc {
 			return doDisable(ctx, mgr, p, true)
 		case "enable":
 			return doDisable(ctx, mgr, p, false)
+		case "export":
+			return doExport(ctx, mgr, p)
+		case "import":
+			return doImport(ctx, mgr, p)
 		case "":
 			return "", errors.New("memory: action is required")
 		default:
@@ -303,6 +312,28 @@ func doDisable(ctx context.Context, mgr *Manager, p toolArgs, disabled bool) (st
 		return "", err
 	}
 	return jsonOut(map[string]any{"id": p.ID, "disabled": disabled})
+}
+
+func doExport(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+	out, err := mgr.ExportAll(ctx, p.SnapshotKey)
+	if err != nil {
+		return "", err
+	}
+	return jsonOut(out)
+}
+
+func doImport(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+	mode := ImportMode(p.ImportMode)
+	if mode == "" {
+		// Tool default is the most conservative mode: existing items
+		// are never silently overwritten.
+		mode = ImportMerge
+	}
+	rpt, err := mgr.ImportAll(ctx, nil, p.SnapshotKey, mode)
+	if err != nil {
+		return "", err
+	}
+	return jsonOut(rpt)
 }
 
 func buildListFilter(p *toolFilter) ListFilter {

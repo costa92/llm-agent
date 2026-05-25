@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -112,6 +113,43 @@ func (w *WorkingMemory) Stats() Stats {
 // List implements Lister. ctx is ignored (no I/O is performed).
 func (w *WorkingMemory) List(_ context.Context, filter ListFilter, pageSize int, cursor string) (ListPage, error) {
 	return listFromStore(w.store, filter, pageSize, cursor)
+}
+
+// Export implements Exporter. Vectors are inlined so the receiver can reuse
+// them without re-embedding.
+func (w *WorkingMemory) Export(_ context.Context) (Snapshot, error) {
+	return exportFromStore(w.store, KindWorking), nil
+}
+
+// Import implements Importer. Returns ErrSnapshotKindMismatch when
+// snap.Kind != KindWorking; ErrSnapshotVersionMismatch when the version is
+// unknown.
+func (w *WorkingMemory) Import(_ context.Context, snap Snapshot, mode ImportMode) (ImportReport, error) {
+	if snap.Kind != KindWorking {
+		return ImportReport{}, fmt.Errorf("%w: got %s, want working", ErrSnapshotKindMismatch, snap.Kind)
+	}
+	return importIntoStore(w.store, snap, mode)
+}
+
+// RestoreWorking constructs a WorkingMemory and immediately imports the given
+// snapshot using ImportReplace mode. e is the embedder used for subsequent
+// Add/Search operations (vectors in the snapshot are reused as-is for stored
+// items, so re-embedding the existing content is not required).
+//
+// Returns ErrEmbedderRequired if e is nil; ErrSnapshotKindMismatch if
+// snap.Kind != KindWorking; ErrSnapshotVersionMismatch if version is unknown.
+func RestoreWorking(e Embedder, snap Snapshot, opts WorkingOptions) (*WorkingMemory, error) {
+	if e == nil {
+		return nil, ErrEmbedderRequired
+	}
+	w, err := NewWorking(e, opts)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := w.Import(context.Background(), snap, ImportReplace); err != nil {
+		return nil, err
+	}
+	return w, nil
 }
 
 // score is the working-memory composite per spec §6.3, with an
