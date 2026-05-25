@@ -54,6 +54,49 @@ a standalone Go LLM agents framework module.
     deferred to a future release.
 - `memory`: `ErrManagerRequired` — sentinel returned by
   `NewScopedManager(nil)`.
+- `memory`: `Lister` interface + `ListFilter` + `ListPage`. `Lister`
+  is OPTIONAL — the `Memory` interface does NOT embed it, preserving
+  the additive-only contract. All three bundled Memory types
+  (`*WorkingMemory`, `*EpisodicMemory`, `*SemanticMemory`) implement
+  it. Items returned by `List` are deterministically ordered by
+  `(CreatedAt DESC, ID ASC)`. `ListPage.NextCursor` is an opaque
+  base64(JSON{after_created_at, after_id}) blob — callers pass it
+  back verbatim to fetch the next page; end-of-stream is signaled by
+  an empty cursor. `ListFilter` constrains across `Scope` (wildcard
+  axes), `Source`, `Category`, `Tags` (any-of), `PinnedOnly`,
+  `IncludeDisabled`, `MinImportance`.
+- `memory`: `Manager.ListAll(ctx, filter, pageSize, cursors)` — fans
+  out `List` across the three kinds. `cursors` is per-kind
+  (`map[Kind]string`); a missing entry means "start from the
+  beginning" for that kind. Disabled kinds are silently omitted from
+  the result map (mirrors `SearchAll`).
+- `memory`: `ScopedManager.ListAll` — same fan-out, with the ctx
+  scope applied on top of `filter.Scope`. A non-zero ctx scope
+  OVERRIDES `filter.Scope` (the ctx scope is the trust boundary); a
+  zero ctx scope honors `filter.Scope` verbatim.
+- `memory`: `WithSanitizer(inner, chain...) Memory` — privacy hook
+  decorator. The chain runs left-to-right on `Add` only. Each
+  `Sanitizer` returns `(newItem, keep, err)`: `keep=false` short-
+  circuits the chain and `Add` returns `ErrRejectedByPolicy`; a
+  non-nil `err` propagates verbatim; otherwise the next stage
+  receives `newItem`. Read paths (Get/Search/Update/Remove/Stats)
+  bypass the chain entirely. `SanitizerFunc` adapts a plain function.
+  `WithSanitizer(inner)` (empty chain) returns `inner` verbatim — no
+  allocation, no behavior change.
+  - **v0.7 limitation:** `WithSanitizer` returns a `Memory` interface
+    value, not a `*WorkingMemory` / `*EpisodicMemory` /
+    `*SemanticMemory`, so it cannot be used directly as a
+    `ManagerOptions` field. Callers wanting Sanitizer + Manager
+    fan-out must compose at a higher layer (e.g. run the sanitizer
+    before `Manager.Add`) or apply it at the Tool surface. Direct
+    embedding in `ManagerOptions` is deferred to a future release.
+- `memory`: `ErrRejectedByPolicy` — sentinel returned by `Add` when
+  a Sanitizer in the chain returns `keep=false`.
+- `memory`: New `AsTool` actions: `list`, `pin`, `unpin`, `disable`,
+  `enable`. The schema gains four optional top-level fields (`filter`,
+  `page_size`, `cursor`, `cursors`) and the `action` enum picks up
+  the five new values. All existing action enum entries and field
+  names are unchanged — pre-v0.7 callers see no behavior change.
 
 ### Changed
 
