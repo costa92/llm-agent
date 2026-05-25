@@ -158,3 +158,94 @@ func TestTool_SchemaIsValidJSON(t *testing.T) {
 		t.Errorf("schema not valid JSON: %v", err)
 	}
 }
+
+// --- export / import actions ----------------------------------------------
+
+func TestTool_ExportAction_NoStore(t *testing.T) {
+	tool := AsTool(newToolMgr(t))
+	_, err := tool.Execute(context.Background(), []byte(`{"action":"export","snapshot_key":"k1"}`))
+	if err == nil {
+		t.Error("expected error when snapshot_key set without SnapshotStore")
+	}
+}
+
+func TestTool_ExportAction_Inline(t *testing.T) {
+	tool := AsTool(newToolMgr(t))
+	ctx := context.Background()
+	_, _ = tool.Execute(ctx, []byte(`{"action":"add","kind":"working","content":"alpha","importance":0.5}`))
+
+	out, err := tool.Execute(ctx, []byte(`{"action":"export"}`))
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	// Output should be a JSON object keyed by kind with snapshots inside.
+	if !strings.Contains(out, `"working"`) {
+		t.Errorf("export output missing working snapshot: %s", out)
+	}
+	if !strings.Contains(out, `"alpha"`) {
+		t.Errorf("export output missing item content: %s", out)
+	}
+}
+
+func TestTool_ImportAction_DefaultMergeMode(t *testing.T) {
+	// Build a src manager + store, export, then build a dst manager
+	// pointing at the same store and import via tool.
+	dir := t.TempDir()
+	fs, err := NewFilesystemStore(dir)
+	if err != nil {
+		t.Fatalf("NewFilesystemStore: %v", err)
+	}
+	src, err := NewManager(ManagerOptions{
+		Working:       newWorking(t),
+		Episodic:      newEpisodic(t),
+		Semantic:      newSemantic(t),
+		SnapshotStore: fs,
+	})
+	if err != nil {
+		t.Fatalf("NewManager src: %v", err)
+	}
+	ctx := context.Background()
+	_, _ = src.Add(ctx, KindWorking, MemoryItem{Content: "alpha"})
+	if _, err := src.ExportAll(ctx, "k1"); err != nil {
+		t.Fatalf("src ExportAll: %v", err)
+	}
+
+	dst, err := NewManager(ManagerOptions{
+		Working:       newWorking(t),
+		Episodic:      newEpisodic(t),
+		Semantic:      newSemantic(t),
+		SnapshotStore: fs,
+	})
+	if err != nil {
+		t.Fatalf("NewManager dst: %v", err)
+	}
+	tool := AsTool(dst)
+	// no import_mode → default to merge
+	out, err := tool.Execute(ctx, []byte(`{"action":"import","snapshot_key":"k1"}`))
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	// Expect at least one Loaded entry for working.
+	if !strings.Contains(out, `"loaded":1`) {
+		t.Errorf("expected loaded:1 in report, got %s", out)
+	}
+	if dst.StatsAll()[KindWorking].Count != 1 {
+		t.Errorf("dst working count = %d, want 1", dst.StatsAll()[KindWorking].Count)
+	}
+}
+
+func TestTool_SchemaIsValidJSON_AfterExportImport(t *testing.T) {
+	tool := AsTool(newToolMgr(t))
+	schema := tool.Schema()
+	var v map[string]any
+	if err := json.Unmarshal(schema, &v); err != nil {
+		t.Errorf("schema not valid JSON: %v", err)
+	}
+	// Sanity-check that the enum now lists export & import.
+	if !strings.Contains(string(schema), `"export"`) {
+		t.Errorf("schema missing export in enum: %s", schema)
+	}
+	if !strings.Contains(string(schema), `"import"`) {
+		t.Errorf("schema missing import in enum: %s", schema)
+	}
+}
