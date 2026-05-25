@@ -215,6 +215,71 @@ func TestImport_UpsertOverwrites(t *testing.T) {
 	}
 }
 
+// --- Restore* constructors ----------------------------------------------
+
+func TestRestoreWorking_NilEmbedderRejected(t *testing.T) {
+	if _, err := RestoreWorking(nil, Snapshot{Version: SnapshotVersion, Kind: KindWorking}, WorkingOptions{}); !errors.Is(err, ErrEmbedderRequired) {
+		t.Errorf("err = %v, want ErrEmbedderRequired", err)
+	}
+}
+
+func TestRestoreWorking_Success(t *testing.T) {
+	src := newWorking(t)
+	ctx := context.Background()
+	id, _ := src.Add(ctx, MemoryItem{Content: "hi", Importance: 0.5})
+	snap, _ := src.Export(ctx)
+
+	dst, err := RestoreWorking(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)), snap, WorkingOptions{})
+	if err != nil {
+		t.Fatalf("RestoreWorking: %v", err)
+	}
+	got, err := dst.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("Get after restore: %v", err)
+	}
+	if got.Content != "hi" {
+		t.Errorf("Content = %q, want hi", got.Content)
+	}
+}
+
+func TestRestoreEpisodic_Success(t *testing.T) {
+	src := newEpisodic(t)
+	ctx := context.Background()
+	id, _ := src.Add(ctx, MemoryItem{Content: "ev", Importance: 0.5})
+	snap, _ := src.Export(ctx)
+
+	dst, err := RestoreEpisodic(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)), snap, EpisodicOptions{})
+	if err != nil {
+		t.Fatalf("RestoreEpisodic: %v", err)
+	}
+	got, err := dst.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Content != "ev" {
+		t.Errorf("Content = %q, want ev", got.Content)
+	}
+}
+
+func TestRestoreSemantic_Success(t *testing.T) {
+	src := newSemantic(t)
+	ctx := context.Background()
+	id, _ := src.Add(ctx, MemoryItem{Content: "fact", Tags: []string{"t"}, Importance: 0.5})
+	snap, _ := src.Export(ctx)
+
+	dst, err := RestoreSemantic(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)), snap, SemanticOptions{})
+	if err != nil {
+		t.Fatalf("RestoreSemantic: %v", err)
+	}
+	got, err := dst.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Content != "fact" {
+		t.Errorf("Content = %q, want fact", got.Content)
+	}
+}
+
 func TestImport_RestoresVectors(t *testing.T) {
 	// After Export → Import on a fresh memory, Search with the same query
 	// should return the same top result. If vectors were dropped on
