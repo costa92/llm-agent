@@ -46,8 +46,43 @@ func (sm *ScopedManager) Add(ctx context.Context, kind Kind, item MemoryItem) (s
 	return sm.inner.Add(ctx, kind, item)
 }
 
-// Get forwards to the inner Manager. (Scope enforcement is added in a
-// subsequent commit.)
+// Get fetches the item from the inner Manager then enforces the ctx
+// scope. Returns ErrNotFound if the item exists but lives in a
+// different scope — this avoids leaking cross-scope ID existence.
 func (sm *ScopedManager) Get(ctx context.Context, kind Kind, id string) (MemoryItem, error) {
-	return sm.inner.Get(ctx, kind, id)
+	it, err := sm.inner.Get(ctx, kind, id)
+	if err != nil {
+		return MemoryItem{}, err
+	}
+	if !ScopeFrom(ctx).Matches(readScope(it)) {
+		return MemoryItem{}, ErrNotFound
+	}
+	return it, nil
+}
+
+// Update verifies the item's scope matches the ctx scope before
+// mutating. Returns ErrNotFound on mismatch (same leak-avoidance
+// rationale as Get).
+func (sm *ScopedManager) Update(ctx context.Context, kind Kind, id string, fn func(*MemoryItem)) error {
+	it, err := sm.inner.Get(ctx, kind, id)
+	if err != nil {
+		return err
+	}
+	if !ScopeFrom(ctx).Matches(readScope(it)) {
+		return ErrNotFound
+	}
+	return sm.inner.Update(ctx, kind, id, fn)
+}
+
+// Remove verifies the item's scope matches the ctx scope before
+// deleting. Returns ErrNotFound on mismatch.
+func (sm *ScopedManager) Remove(ctx context.Context, kind Kind, id string) error {
+	it, err := sm.inner.Get(ctx, kind, id)
+	if err != nil {
+		return err
+	}
+	if !ScopeFrom(ctx).Matches(readScope(it)) {
+		return ErrNotFound
+	}
+	return sm.inner.Remove(ctx, kind, id)
 }
