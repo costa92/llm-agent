@@ -281,21 +281,21 @@ func TestRestoreSemantic_Success(t *testing.T) {
 }
 
 func TestImport_RestoresVectors(t *testing.T) {
-	// After Export → Import on a fresh memory, Search with the same query
-	// should return the same top result. If vectors were dropped on
-	// import the receiver would have to re-embed (which we deliberately
-	// do not do; we reuse the inlined vectors).
+	// After Export → Import on a fresh memory, the vectors stored in
+	// the snapshot should be present byte-for-byte in the receiving
+	// store. If vectors were dropped on import the receiver would have
+	// to re-embed (which we deliberately do not do; we reuse the
+	// inlined vectors so search ranking is preserved).
 	src := newSemantic(t)
 	ctx := context.Background()
 	_, _ = src.Add(ctx, MemoryItem{Content: "alpha bravo charlie", Importance: 0.5})
-	_, _ = src.Add(ctx, MemoryItem{Content: "delta echo foxtrot", Importance: 0.5})
-
-	srcRes, _ := src.Search(ctx, "alpha bravo", 1)
-	if len(srcRes) != 1 {
-		t.Fatalf("src search returned %d results", len(srcRes))
-	}
-
 	snap, _ := src.Export(ctx)
+	if len(snap.Items) != 1 || len(snap.Items[0].Vector) == 0 {
+		t.Fatalf("snapshot vectors empty: %+v", snap)
+	}
+	originalVec := snap.Items[0].Vector
+	originalID := snap.Items[0].Item.ID
+
 	dst, err := NewSemantic(llm.NewScriptedLLM(llm.WithEmbedDimensions(64)), SemanticOptions{})
 	if err != nil {
 		t.Fatalf("NewSemantic: %v", err)
@@ -303,11 +303,21 @@ func TestImport_RestoresVectors(t *testing.T) {
 	if _, err := dst.Import(ctx, snap, ImportReplace); err != nil {
 		t.Fatalf("Import: %v", err)
 	}
-	dstRes, _ := dst.Search(ctx, "alpha bravo", 1)
-	if len(dstRes) != 1 {
-		t.Fatalf("dst search returned %d results", len(dstRes))
+	// Verify the vector survived end-to-end via the store snapshot.
+	items, vecs := dst.store.snapshot()
+	if len(items) != 1 {
+		t.Fatalf("dst items count = %d, want 1", len(items))
 	}
-	if dstRes[0].Item.ID != srcRes[0].Item.ID {
-		t.Errorf("top ID = %q, want %q (vector restore broken)", dstRes[0].Item.ID, srcRes[0].Item.ID)
+	got, ok := vecs[originalID]
+	if !ok {
+		t.Fatalf("vector for ID %q absent after import", originalID)
+	}
+	if len(got) != len(originalVec) {
+		t.Fatalf("vector len = %d, want %d", len(got), len(originalVec))
+	}
+	for i := range got {
+		if got[i] != originalVec[i] {
+			t.Errorf("vec[%d] = %v, want %v", i, got[i], originalVec[i])
+		}
 	}
 }
