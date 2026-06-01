@@ -66,7 +66,7 @@ func defaultPIIRules() []piiRule {
 		},
 		{
 			kind:        "phone",
-			pattern:     regexp.MustCompile(`\+?\b\d[\d ()\-]{7,}\d\b`),
+			pattern:     regexp.MustCompile(`\+?\b\d[\d ()-]{7,}\d\b`),
 			placeholder: "[REDACTED:PHONE]",
 		},
 		{
