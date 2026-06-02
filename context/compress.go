@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // structurePackets renders kept packets into the canonical 5-section

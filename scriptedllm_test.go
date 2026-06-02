@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // scriptedLLM is the agents-package test helper that returns pre-set

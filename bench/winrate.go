@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/costa92/llm-agent/pkg/fanout"
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // Verdict is one comparison's outcome.

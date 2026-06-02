@@ -18,7 +18,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // Kind identifies which of the three Memory types an item belongs to.

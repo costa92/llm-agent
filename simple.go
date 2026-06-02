@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // SimpleAgent forwards user input to an llm.ChatModel in a single call.

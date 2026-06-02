@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/costa92/llm-agent/budget"
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 func generateFromPrompt(ctx context.Context, model llm.ChatModel, systemPrompt, prompt string) (llm.Response, error) {

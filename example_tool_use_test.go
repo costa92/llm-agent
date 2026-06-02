@@ -7,7 +7,7 @@ import (
 
 	"github.com/costa92/llm-agent"
 	"github.com/costa92/llm-agent/builtin"
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // toolCallResp builds an llm.Response that instructs the agent to call the

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // TestPIIRedactor_Name verifies the canonical Name() identifier — this

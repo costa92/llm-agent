@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // scoredStore is the shared in-memory engine all 3 memory types share:

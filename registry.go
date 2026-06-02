@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // Registry holds a name→Tool map. Use one Registry per Agent (or share)

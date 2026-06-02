@@ -23,7 +23,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // Wrap is the convenience entry point. Equivalent to

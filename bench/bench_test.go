@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 	"github.com/costa92/llm-agent"
 	"github.com/costa92/llm-agent/rl"
 )

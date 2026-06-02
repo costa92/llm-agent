@@ -10,7 +10,7 @@ package scriptedllm
 import (
 	"encoding/json"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // New returns an llm.ChatModel that yields the given responses in order.
