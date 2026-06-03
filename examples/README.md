@@ -1,10 +1,11 @@
 # examples — runnable demos for `github.com/costa92/llm-agent`
 
-Each subdirectory is a standalone `package main` you can `go run` without
-an API key — every demo plugs a deterministic `scriptedllm` client so the
-output is reproducible offline. Replace it with a real `llm.ChatModel`
-(OpenAI-compatible / DeepSeek / Ollama / Anthropic / MiniMax / …) and the same demo code keeps
-working in production.
+Each subdirectory is a standalone `package main` you can `go run`. Demos
+01–08 need no API key — they plug a deterministic `scriptedllm` client so
+the output is reproducible offline; replace it with a real `llm.ChatModel`
+(OpenAI-compatible / DeepSeek / Ollama / Anthropic / MiniMax / …) and the
+same demo code keeps working in production. [`09-ollama/`](./09-ollama)
+shows exactly that swap against a live local Ollama model.
 
 | Demo | Surface | What it shows |
 |---|---|---|
@@ -16,6 +17,12 @@ working in production.
 | [`06-budget/`](./06-budget) | `budget.WithBudget` + `agents.SimpleAgent` | Budget / cancellation context — `MaxCalls` pre-call deny, `MaxTokens` post-call deny, `MaxWall` ctx-deadline (ships a deterministic `main_test.go`) |
 | [`07-policy/`](./07-policy) | `policy.Wrap` + `agents.SimpleAgent` | Safety middleware — PII redaction, prompt-injection blocking, and max-input-length enforcement |
 | [`08-supervisor/`](./08-supervisor) | `orchestrate.Supervisor` | Iterative planner/worker loop with dispatch parsing, aggregation, and budget propagation |
+| [`09-ollama/`](./09-ollama) | `agents.SimpleAgent` + `llm-agent-providers/ollama` | **Real provider** — swaps `scriptedllm` for a live local Ollama model + raw token streaming. Its own module; needs `ollama serve` (see its [README](./09-ollama)) |
+
+Demos 01–08 plug the deterministic `scriptedllm` mock and run offline with
+no API key. **Demo 09 is the exception**: it talks to a live local Ollama
+server, lives in its own Go module to keep the heavy provider deps off the
+others, and is not part of the run-all loop below.
 
 Shared helper: [`scriptedllm/`](./scriptedllm) — a ~60-line deterministic
 mock `llm.ChatModel`. Used by demos 01-03 and 06-07; demos 04-05 don't touch the LLM at
