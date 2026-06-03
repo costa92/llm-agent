@@ -25,9 +25,10 @@
 //
 // # Naming caveat
 //
-// This package is named `context` and lives at
-// pkg/llm/agents/context. It does NOT replace stdlib `context`.
-// When importing both, alias one of them:
+// This package is named `context` and is imported as
+// github.com/costa92/llm-agent/context. It does NOT replace stdlib
+// `context`. When importing both, alias one of them — the convention
+// across this repo and its sister modules is `aictx`:
 //
 //	import (
 //	    "context"
