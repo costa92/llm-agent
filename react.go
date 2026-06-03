@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // ReActAgent runs a Thought→Action→Observation loop until the LLM emits a

@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // TestInjectionScanner_Name verifies the canonical Name() identifier.

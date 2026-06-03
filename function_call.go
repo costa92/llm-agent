@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // FunctionCallAgent uses native OpenAI-style function-calling: pkg/llm.Tool +

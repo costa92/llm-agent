@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/costa92/llm-agent/budget"
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 func TestFunctionCallAgent_NoToolCalls_ReturnsText(t *testing.T) {

@@ -32,7 +32,7 @@ package policy
 import (
 	"context"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // piiRedactor is the unexported implementation. Holds the immutable

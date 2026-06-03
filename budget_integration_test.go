@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/costa92/llm-agent/budget"
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // paradigmCase couples a paradigm's name with a factory that builds the agent

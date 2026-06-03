@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // EventKind discriminates the lifecycle position at which a Gate fires.

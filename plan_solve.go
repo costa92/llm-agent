@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // PlanAndSolveAgent: plan once (LLM emits N steps), then execute each step

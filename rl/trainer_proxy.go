@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/costa92/llm-agent/llm"
+	"github.com/costa92/llm-agent-contract/llm"
 )
 
 // TrainerProxy is the interface a Python-bridged trainer would
