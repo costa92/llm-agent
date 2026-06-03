@@ -18,11 +18,12 @@ shows exactly that swap against a live local Ollama model.
 | [`07-policy/`](./07-policy) | `policy.Wrap` + `agents.SimpleAgent` | Safety middleware — PII redaction, prompt-injection blocking, and max-input-length enforcement |
 | [`08-supervisor/`](./08-supervisor) | `orchestrate.Supervisor` | Iterative planner/worker loop with dispatch parsing, aggregation, and budget propagation |
 | [`09-ollama/`](./09-ollama) | `agents.SimpleAgent` + `llm-agent-providers/ollama` | **Real provider** — swaps `scriptedllm` for a live local Ollama model + raw token streaming. Its own module; needs `ollama serve` (see its [README](./09-ollama)) |
+| [`10-ollama-tools/`](./10-ollama-tools) | `agents.FunctionCallAgent` + `builtin.Calculator` + `llm-agent-providers/ollama` | **Real provider + tools** — demo 02 against a live model that decides to call the tool itself. Needs a tools-capable model (`llama3.1` / `qwen2.5-coder` / `qwen3-coder`); own module (see its [README](./10-ollama-tools)) |
 
 Demos 01–08 plug the deterministic `scriptedllm` mock and run offline with
-no API key. **Demo 09 is the exception**: it talks to a live local Ollama
-server, lives in its own Go module to keep the heavy provider deps off the
-others, and is not part of the run-all loop below.
+no API key. **Demos 09 and 10 are the exception**: they talk to a live local
+Ollama server, live in their own Go modules to keep the heavy provider deps
+off the others, and are not part of the run-all loop below.
 
 Shared helper: [`scriptedllm/`](./scriptedllm) — a ~60-line deterministic
 mock `llm.ChatModel`. Used by demos 01-03 and 06-07; demos 04-05 don't touch the LLM at
