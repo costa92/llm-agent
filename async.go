@@ -2,20 +2,16 @@ package agents
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/costa92/llm-agent/pkg/fanout"
 )
 
-// Task pairs a Tool with its args for a single async invocation.
-type Task struct {
-	Tool Tool
-	Args json.RawMessage
-}
+// Task moved to the leaf contract github.com/costa92/llm-agent-contract/agents
+// and is re-exported via aliases.go. AsyncRunner/TaskResult stay here.
 
 // TaskResult carries one Task's outcome.
 type TaskResult struct {
-	Index  int    // position in the input tasks slice
+	Index  int // position in the input tasks slice
 	Output string
 	Err    error
 }
