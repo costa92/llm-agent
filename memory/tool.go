@@ -19,7 +19,7 @@ import (
 // export / import.
 //
 // JSON output shape varies per action; format docs in the spec §6.5.
-func AsTool(mgr *Manager) agents.Tool {
+func AsTool(mgr Manager) agents.Tool {
 	return agents.NewFuncTool(
 		"memory",
 		"Persistent in-process memory (working / episodic / semantic). Actions: add, search, get, update, remove, consolidate, forget, stats, list, pin, unpin, disable, enable, export, import.",
@@ -107,7 +107,7 @@ type toolFilter struct {
 	MinImportance   float64  `json:"min_importance"`
 }
 
-func toolHandler(mgr *Manager) agents.ExecuteFunc {
+func toolHandler(mgr Manager) agents.ExecuteFunc {
 	return func(ctx context.Context, raw json.RawMessage) (string, error) {
 		var p toolArgs
 		if err := json.Unmarshal(raw, &p); err != nil {
@@ -152,7 +152,7 @@ func toolHandler(mgr *Manager) agents.ExecuteFunc {
 	}
 }
 
-func doAdd(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doAdd(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	if strings.TrimSpace(p.Content) == "" {
 		return "", errors.New("memory: content required for add")
 	}
@@ -167,7 +167,7 @@ func doAdd(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
 	return jsonOut(map[string]string{"id": id})
 }
 
-func doSearch(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doSearch(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	if strings.TrimSpace(p.Query) == "" {
 		return "", ErrEmptyQuery
 	}
@@ -186,7 +186,7 @@ func doSearch(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
 	return jsonOut(res)
 }
 
-func doGet(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doGet(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	if p.ID == "" {
 		return "", errors.New("memory: id required for get")
 	}
@@ -197,7 +197,7 @@ func doGet(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
 	return jsonOut(item)
 }
 
-func doUpdate(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doUpdate(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	if p.ID == "" {
 		return "", errors.New("memory: id required for update")
 	}
@@ -218,7 +218,7 @@ func doUpdate(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
 	return jsonOut(map[string]string{"updated": p.ID})
 }
 
-func doRemove(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doRemove(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	if p.ID == "" {
 		return "", errors.New("memory: id required for remove")
 	}
@@ -228,7 +228,7 @@ func doRemove(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
 	return jsonOut(map[string]string{"removed": p.ID})
 }
 
-func doConsolidate(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doConsolidate(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	count, err := mgr.Consolidate(ctx, ConsolidateOptions{
 		Threshold: p.Threshold,
 		MinAge:    time.Duration(p.MinAgeSeconds) * time.Second,
@@ -239,7 +239,7 @@ func doConsolidate(ctx context.Context, mgr *Manager, p toolArgs) (string, error
 	return jsonOut(map[string]int{"consolidated": count})
 }
 
-func doForget(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doForget(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	if p.Kind == "" {
 		return "", errors.New("memory: kind required for forget")
 	}
@@ -255,11 +255,11 @@ func doForget(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
 	return jsonOut(map[string]int{"forgot": count})
 }
 
-func doStats(mgr *Manager) (string, error) {
+func doStats(mgr Manager) (string, error) {
 	return jsonOut(mgr.StatsAll())
 }
 
-func doList(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doList(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	f := buildListFilter(p.Filter)
 	if p.Kind == "" {
 		// fan out via ListAll
@@ -273,7 +273,7 @@ func doList(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
 		}
 		return jsonOut(out)
 	}
-	mem, err := mgr.lookup(Kind(p.Kind))
+	mem, err := mgr.Lookup(Kind(p.Kind))
 	if err != nil {
 		return "", err
 	}
@@ -288,7 +288,7 @@ func doList(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
 	return jsonOut(page)
 }
 
-func doPin(ctx context.Context, mgr *Manager, p toolArgs, pinned bool) (string, error) {
+func doPin(ctx context.Context, mgr Manager, p toolArgs, pinned bool) (string, error) {
 	if p.ID == "" {
 		return "", errors.New("memory: id required")
 	}
@@ -301,7 +301,7 @@ func doPin(ctx context.Context, mgr *Manager, p toolArgs, pinned bool) (string, 
 	return jsonOut(map[string]any{"id": p.ID, "pinned": pinned})
 }
 
-func doDisable(ctx context.Context, mgr *Manager, p toolArgs, disabled bool) (string, error) {
+func doDisable(ctx context.Context, mgr Manager, p toolArgs, disabled bool) (string, error) {
 	if p.ID == "" {
 		return "", errors.New("memory: id required")
 	}
@@ -314,7 +314,7 @@ func doDisable(ctx context.Context, mgr *Manager, p toolArgs, disabled bool) (st
 	return jsonOut(map[string]any{"id": p.ID, "disabled": disabled})
 }
 
-func doExport(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doExport(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	out, err := mgr.ExportAll(ctx, p.SnapshotKey)
 	if err != nil {
 		return "", err
@@ -322,7 +322,7 @@ func doExport(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
 	return jsonOut(out)
 }
 
-func doImport(ctx context.Context, mgr *Manager, p toolArgs) (string, error) {
+func doImport(ctx context.Context, mgr Manager, p toolArgs) (string, error) {
 	mode := ImportMode(p.ImportMode)
 	if mode == "" {
 		// Tool default is the most conservative mode: existing items
