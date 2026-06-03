@@ -49,6 +49,13 @@ jobs:
           path: llm-agent-rag
           ref: master
 
+      - name: Checkout llm-agent-flow (main)
+        uses: actions/checkout@v4
+        with:
+          repository: costa92/llm-agent-flow
+          path: llm-agent-flow
+          ref: main
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: llm-agent/go.mod
@@ -79,9 +86,9 @@ jobs:
         # local runs invoke the same script.
         run: bash llm-agent/scripts/dep-currency-check.sh
 
-      - name: Initialize go.work pointing all 5 modules at this PR's llm-agent
+      - name: Initialize go.work pointing all 6 modules at this PR's llm-agent
         run: |
-          go work init ./llm-agent ./llm-agent-providers ./llm-agent-otel ./llm-agent-customer-support ./llm-agent-rag
+          go work init ./llm-agent ./llm-agent-providers ./llm-agent-otel ./llm-agent-customer-support ./llm-agent-rag ./llm-agent-flow
           # All related modules now resolve github.com/costa92/llm-agent to ./llm-agent
           # (this PR's HEAD), regardless of the version pinned in their go.mod files.
           go work sync || true
@@ -117,6 +124,13 @@ jobs:
       - name: Build llm-agent-rag
         run: |
           cd llm-agent-rag
+          go vet ./...
+          go build ./...
+          go test ./...
+
+      - name: Build llm-agent-flow against this PR's llm-agent
+        run: |
+          cd llm-agent-flow
           go vet ./...
           go build ./...
           go test ./...
