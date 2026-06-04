@@ -29,7 +29,7 @@ import (
 	agents "github.com/costa92/llm-agent"
 	"github.com/costa92/llm-agent/examples/scriptedllm"
 	"github.com/costa92/llm-agent-contract/llm"
-	"github.com/costa92/llm-agent/policy"
+	"github.com/costa92/llm-agent-policy"
 )
 
 func main() {
