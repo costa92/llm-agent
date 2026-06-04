@@ -4,11 +4,44 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/costa92/llm-agent"
-	"github.com/costa92/llm-agent/builtin"
 	"github.com/costa92/llm-agent-contract/llm"
 )
+
+// exampleCalculator is a minimal inline Tool for the doc example: it multiplies
+// two integers given as "a*b". Kept local (instead of importing a tool library)
+// so the core module's examples stay dependency-free.
+func exampleCalculator() agents.Tool {
+	return agents.NewFuncTool(
+		"calculator",
+		"Multiplies two integers written as 'a*b'.",
+		json.RawMessage(`{"type":"object","properties":{"expr":{"type":"string"}}}`),
+		func(_ context.Context, args json.RawMessage) (string, error) {
+			var p struct {
+				Expr string `json:"expr"`
+			}
+			if err := json.Unmarshal(args, &p); err != nil {
+				return "", err
+			}
+			parts := strings.SplitN(p.Expr, "*", 2)
+			if len(parts) != 2 {
+				return "", fmt.Errorf("expected 'a*b', got %q", p.Expr)
+			}
+			a, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+			if err != nil {
+				return "", err
+			}
+			b, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+			if err != nil {
+				return "", err
+			}
+			return strconv.Itoa(a * b), nil
+		},
+	)
+}
 
 // toolCallResp builds an llm.Response that instructs the agent to call the
 // named tool with the given JSON arguments. Used only in example_tool_use_test.go
@@ -69,8 +102,8 @@ func (s *toolUseScriptedLLM) WithTools(_ []llm.Tool) (llm.ToolCaller, error) {
 // In production, replace toolUseScriptedLLM with an OpenAI-compatible llm.ChatModel that
 // returns real ToolCalls when the model decides to invoke a registered tool.
 func ExampleFunctionCallAgent() {
-	// Register the built-in Calculator tool.
-	reg := agents.NewRegistry(builtin.NewCalculator())
+	// Register the inline calculator tool.
+	reg := agents.NewRegistry(exampleCalculator())
 
 	// Scripted LLM: returns a ToolCall for "calculator" with expr "3*7".
 	// FunctionCallAgent executes the tool and uses the output as its Answer.
