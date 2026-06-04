@@ -1,3 +1,5 @@
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 # examples — runnable demos for `github.com/costa92/llm-agent`
 
 Each subdirectory is a standalone `package main` you can `go run`. Demos

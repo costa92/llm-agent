@@ -2,19 +2,17 @@
 
 # Standalone RAG SDK Implementation Plan
 
-> Archived record only.
-> This implementation plan is historical project record and must not be used
-> as a current development guide.
-> Current development must follow the live code and current docs in
-> `github.com/costa92/llm-agent-rag`.
+> 仅为归档记录。
+> 本实现计划是历史性的项目记录，绝不可作为当前的开发指南。
+> 当前开发必须遵循 `github.com/costa92/llm-agent-rag` 中的活代码与现行文档。
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **致 agentic worker：** 必需子技能：使用 superpowers:subagent-driven-development（推荐）或 superpowers:executing-plans 来逐任务实现本计划。各步骤使用 checkbox（`- [ ]`）语法以便追踪。
 
-**Goal:** Design and scaffold a standalone Go RAG SDK with abstract import, retrieval, custom LLM generation, and custom prompt-template seams, while keeping `llm-agent` integration isolated behind adapters.
+**Goal：** 设计并搭建一个独立的 Go RAG SDK，带有抽象导入、检索、自定义 LLM 生成和自定义提示词模板接缝，同时把 `llm-agent` 集成隔离在 adapter 之后。
 
-**Architecture:** The implementation extracts reusable RAG primitives into a new standalone module shape. Core packages own import, split, embed, store, retrieve, and ask orchestration using SDK-local interfaces. `llm-agent` integration points move to adapter packages so the standalone core does not import `llm-agent` types.
+**Architecture：** 本实现把可复用的 RAG 原语抽取进一个新的独立 module 形状。核心包使用 SDK 本地的接口拥有 import、split、embed、store、retrieve 和 ask 编排。`llm-agent` 集成点移到 adapter 包，从而独立核心不导入 `llm-agent` 类型。
 
-**Tech Stack:** Go 1.26, stdlib-only defaults, existing `rag` package as migration source, adapter seam for `llm-agent`
+**Tech Stack：** Go 1.26、仅标准库默认、以现有 `rag` 包为迁移源、面向 `llm-agent` 的 adapter 接缝
 
 ---
 
@@ -78,7 +76,7 @@
 
 - [ ] **Step 1: Create the failing package-compilation test scaffold**
 
-Add minimal tests:
+添加最小测试：
 
 ```go
 package rag_test
@@ -91,23 +89,23 @@ func TestModulePackagesCompile(t *testing.T) {}
 - [ ] **Step 2: Run test to verify the new module is not yet wired**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./...`
-Expected: FAIL with missing files or missing package symbols.
+预期：FAIL，缺少文件或缺少包符号。
 
 - [ ] **Step 3: Create the module and public type skeleton**
 
-Define:
+定义：
 
 - `ingest.Document`
 - `embed.Vector`
-- `store.StoredChunk`, `store.Hit`, `store.Stats`
-- `generate.Message`, `generate.Request`, `generate.Response`
+- `store.StoredChunk`、`store.Hit`、`store.Stats`
+- `generate.Message`、`generate.Request`、`generate.Response`
 - `prompt.RenderContext`
-- sentinel errors in `rag/errors.go`
+- `rag/errors.go` 中的哨兵错误
 
 - [ ] **Step 4: Re-run package compilation**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./...`
-Expected: PASS or fail only on later intentionally missing interfaces.
+预期：PASS，或仅在后续刻意缺失的接口上失败。
 
 - [ ] **Step 5: Commit**
 
@@ -127,26 +125,26 @@ git commit -m "feat: scaffold standalone rag sdk module"
 
 - [ ] **Step 1: Write failing splitter tests**
 
-Cover:
+覆盖：
 
-- empty input
-- single chunk
-- multi-chunk paragraph split
-- overlap behavior
-- deterministic output
+- 空输入
+- 单个文本块
+- 多文本块段落切分
+- 重叠行为
+- 确定性输出
 
 - [ ] **Step 2: Run splitter tests to verify they fail**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./ingest -run 'Test(CharSplitter|StableChunkIDs)' -count=1`
-Expected: FAIL with undefined `CharSplitter` or wrong behavior.
+预期：FAIL，`CharSplitter` 未定义或行为错误。
 
 - [ ] **Step 3: Port and adapt the current chunker**
 
-Base implementation on:
+实现基于：
 
 - `/home/hellotalk/code/go/src/github.com/costa92/llm-agent/rag/chunk.go`
 
-Adjust it to operate on `ingest.Document` and emit `ingest.Chunk` with stable IDs like:
+调整它以在 `ingest.Document` 上操作，并发出带稳定 ID 的 `ingest.Chunk`，例如：
 
 - `<docID>#chunk-0`
 - `<docID>#chunk-1`
@@ -154,7 +152,7 @@ Adjust it to operate on `ingest.Document` and emit `ingest.Chunk` with stable ID
 - [ ] **Step 4: Re-run splitter tests**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./ingest -run 'Test(CharSplitter|StableChunkIDs)' -count=1`
-Expected: PASS
+预期：PASS
 
 - [ ] **Step 5: Commit**
 
@@ -172,28 +170,28 @@ git commit -m "feat: add import abstractions and default splitter"
 
 - [ ] **Step 1: Write failing embedder tests**
 
-Cover:
+覆盖：
 
-- default dimension fallback
-- deterministic vectors
-- cosine similarity bounds
-- zero vector normalization edge case
+- 默认维度回退
+- 确定性向量
+- 余弦相似度边界
+- 零向量归一化的边界情况
 
 - [ ] **Step 2: Run embed tests to verify they fail**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./embed -count=1`
-Expected: FAIL with undefined `HashEmbedder` or helpers.
+预期：FAIL，`HashEmbedder` 或辅助未定义。
 
 - [ ] **Step 3: Port the current hash embedder**
 
-Base implementation on:
+实现基于：
 
 - `/home/hellotalk/code/go/src/github.com/costa92/llm-agent/rag/embedder.go`
 
 - [ ] **Step 4: Re-run embed tests**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./embed -count=1`
-Expected: PASS
+预期：PASS
 
 - [ ] **Step 5: Commit**
 
@@ -211,35 +209,35 @@ git commit -m "feat: add sdk embedder abstractions"
 
 - [ ] **Step 1: Write failing store tests**
 
-Cover:
+覆盖：
 
 - upsert/get/remove
-- topK ranking
-- dimension mismatch
-- namespace isolation
-- stats reporting
+- topK 排名
+- 维度不匹配
+- 命名空间隔离
+- stats 报告
 
 - [ ] **Step 2: Run store tests to verify they fail**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./store -count=1`
-Expected: FAIL with undefined `Store` or `InMemoryStore`.
+预期：FAIL，`Store` 或 `InMemoryStore` 未定义。
 
 - [ ] **Step 3: Port and adapt the in-memory store**
 
-Base implementation on:
+实现基于：
 
 - `/home/hellotalk/code/go/src/github.com/costa92/llm-agent/rag/store.go`
 
-Adjustments:
+调整：
 
-- store `Namespace`
-- keep explicit dimension checks
-- accept batch `Upsert`
+- 存储 `Namespace`
+- 保留显式的维度检查
+- 接受批量 `Upsert`
 
 - [ ] **Step 4: Re-run store tests**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./store -count=1`
-Expected: PASS
+预期：PASS
 
 - [ ] **Step 5: Commit**
 
@@ -258,35 +256,35 @@ git commit -m "feat: add in-memory vector store"
 
 - [ ] **Step 1: Write failing prompt-template tests**
 
-Cover:
+覆盖：
 
-- rendered request contains system prompt
-- rendered request contains retrieved chunks in stable order
-- rendered request contains question text
-- configurable citation instruction
+- 渲染后的请求包含 system prompt
+- 渲染后的请求按稳定顺序包含检索到的文本块
+- 渲染后的请求包含问题文本
+- 可配置的引用指令
 
 - [ ] **Step 2: Run prompt tests to verify they fail**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./prompt -count=1`
-Expected: FAIL with undefined `Template` or `DefaultQATemplate`.
+预期：FAIL，`Template` 或 `DefaultQATemplate` 未定义。
 
 - [ ] **Step 3: Implement the prompt seams**
 
-Add:
+添加：
 
 - `generate.Model`
 - `prompt.Template`
 - `prompt.DefaultQATemplate`
 
-Requirements:
+要求：
 
-- deterministic rendering
-- no dependency on `llm-agent`
+- 确定性渲染
+- 不依赖 `llm-agent`
 
 - [ ] **Step 4: Re-run prompt tests**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./prompt -count=1`
-Expected: PASS
+预期：PASS
 
 - [ ] **Step 5: Commit**
 
@@ -307,37 +305,37 @@ git commit -m "feat: add generation and prompt template seams"
 
 - [ ] **Step 1: Write failing system tests**
 
-Cover:
+覆盖：
 
-- `Import` with explicit document slice
-- `ImportFrom` via source iterator
-- `Retrieve` happy path
-- `Ask` happy path with fake generator
+- 带显式文档切片的 `Import`
+- 经由 source 迭代器的 `ImportFrom`
+- `Retrieve` 顺利路径
+- 用假 generator 的 `Ask` 顺利路径
 - `ErrEmptyQuery`
 - `ErrModelRequired`
 
 - [ ] **Step 2: Run system tests to verify they fail**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./rag -count=1`
-Expected: FAIL with undefined `System` or wrong pipeline behavior.
+预期：FAIL，`System` 未定义或流水线行为错误。
 
 - [ ] **Step 3: Port the current orchestration logic**
 
-Base implementation on:
+实现基于：
 
 - `/home/hellotalk/code/go/src/github.com/costa92/llm-agent/rag/rag.go`
 
-Required changes:
+必需改动：
 
-- replace `llm.ChatModel` with SDK-local `generate.Model`
-- split orchestration into `Import`, `Retrieve`, and `Ask`
-- use stable chunk IDs from `ingest`
-- return `Answer{Text, Hits, Prompt}`
+- 用 SDK 本地的 `generate.Model` 替换 `llm.ChatModel`
+- 把编排拆分成 `Import`、`Retrieve` 和 `Ask`
+- 使用来自 `ingest` 的稳定文本块 ID
+- 返回 `Answer{Text, Hits, Prompt}`
 
 - [ ] **Step 4: Re-run system tests**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./rag -count=1`
-Expected: PASS
+预期：PASS
 
 - [ ] **Step 5: Commit**
 
@@ -356,11 +354,11 @@ git commit -m "feat: add standalone rag system"
 
 - [ ] **Step 1: Write failing adapter tests**
 
-Cover:
+覆盖：
 
-- `llm.ChatModel` to `generate.Model` request mapping
-- response text passthrough
-- `AsTool` action coverage:
+- `llm.ChatModel` 到 `generate.Model` 的请求映射
+- 响应文本透传
+- `AsTool` 动作覆盖：
   - add_text
   - search
   - ask
@@ -370,23 +368,23 @@ Cover:
 - [ ] **Step 2: Run adapter tests to verify they fail**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./adapter/llmagent -count=1`
-Expected: FAIL with undefined adapter types.
+预期：FAIL，adapter 类型未定义。
 
 - [ ] **Step 3: Move `tool.go` logic into the adapter**
 
-Base implementation on:
+实现基于：
 
 - `/home/hellotalk/code/go/src/github.com/costa92/llm-agent/rag/tool.go`
 
-Required changes:
+必需改动：
 
-- depend on the new standalone SDK types
-- keep `llm-agent` imports local to adapter package
+- 依赖新的独立 SDK 类型
+- 把 `llm-agent` 导入保持在 adapter 包本地
 
 - [ ] **Step 4: Re-run adapter tests**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./adapter/llmagent -count=1`
-Expected: PASS
+预期：PASS
 
 - [ ] **Step 5: Commit**
 
@@ -403,34 +401,34 @@ git commit -m "feat: add llm-agent rag adapters"
 
 - [ ] **Step 1: Write failing example test**
 
-Add an example that:
+添加一个示例，它：
 
-- builds a system with `HashEmbedder`
-- imports two documents
-- retrieves hits
-- asks a question with a fake generator
+- 用 `HashEmbedder` 构建一个 system
+- 导入两个文档
+- 检索命中
+- 用一个假 generator 提一个问题
 
 - [ ] **Step 2: Run the example test to verify it fails**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./... -run Example -count=1`
-Expected: FAIL until README/example types match implementation.
+预期：FAIL，直到 README/示例类型与实现匹配。
 
 - [ ] **Step 3: Document the public API**
 
-README sections:
+README 小节：
 
-- project goal
-- import flow
-- retrieval flow
-- custom generator
-- custom prompt template
-- `llm-agent` adapter note
-- v0.1 limits
+- 项目目标
+- 导入流程
+- 检索流程
+- 自定义 generator
+- 自定义提示词模板
+- `llm-agent` adapter 说明
+- v0.1 限制
 
 - [ ] **Step 4: Re-run example tests**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./... -run Example -count=1`
-Expected: PASS
+预期：PASS
 
 - [ ] **Step 5: Commit**
 
@@ -447,17 +445,17 @@ git commit -m "docs: add standalone rag sdk usage guide"
 - [ ] **Step 1: Run the full test suite**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && GOCACHE=/tmp/go-build go test ./... -count=1`
-Expected: PASS
+预期：PASS
 
 - [ ] **Step 2: Verify core packages do not import `llm-agent`**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && rg -n 'github.com/costa92/llm-agent' ingest embed store prompt generate rag`
-Expected: no matches
+预期：无匹配
 
 - [ ] **Step 3: Verify adapter package is the only `llm-agent` integration seam**
 
 Run: `cd /home/hellotalk/code/go/src/github.com/costa92/llm-agent-rag && rg -n 'github.com/costa92/llm-agent' adapter`
-Expected: matches only under `adapter/llmagent`
+预期：仅在 `adapter/llmagent` 下有匹配
 
 - [ ] **Step 4: Commit final cleanup if needed**
 
@@ -468,28 +466,28 @@ git commit -m "chore: finalize standalone rag sdk extraction"
 
 ## Spec Coverage Check
 
-This plan covers:
+本计划覆盖：
 
-- abstract import via `Import` and `ImportFrom`
-- abstract retrieval via `Retrieve`
-- custom LLM via `generate.Model`
-- custom prompt templates via `prompt.Template`
-- built-in `InMemoryStore`
-- adapter isolation for `llm-agent`
+- 经由 `Import` 和 `ImportFrom` 的抽象导入
+- 经由 `Retrieve` 的抽象检索
+- 经由 `generate.Model` 的自定义 LLM
+- 经由 `prompt.Template` 的自定义提示词模板
+- 内置的 `InMemoryStore`
+- 面向 `llm-agent` 的 adapter 隔离
 
-Deliberately deferred from the spec:
+刻意从 spec 中推迟：
 
-- production vector backends
-- MQE / HyDE in core
-- HTTP service
+- 生产向量后端
+- 核心中的 MQE / HyDE
+- HTTP 服务
 - CLI
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/2026-05-13-standalone-rag-sdk-implementation-plan.md`. Two execution options:
+计划完成并保存到 `docs/2026-05-13-standalone-rag-sdk-implementation-plan.md`。两个执行选项：
 
-**1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
+**1. Subagent-Driven（推荐）** —— 我为每个任务派遣一个全新的 subagent，在任务之间评审，快速迭代
 
-**2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
+**2. Inline Execution** —— 在本会话中用 executing-plans 执行任务，带检查点的批量执行
 
-Which approach?
+选哪种方式？

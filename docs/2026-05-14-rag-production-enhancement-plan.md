@@ -1,3 +1,5 @@
+[English](./2026-05-14-rag-production-enhancement-plan.md) | [简体中文](./2026-05-14-rag-production-enhancement-plan.zh-CN.md)
+
 # RAG Production Enhancement Plan
 
 > Archived record only.

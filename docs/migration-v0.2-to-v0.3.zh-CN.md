@@ -2,9 +2,7 @@
 
 # Migrating from v0.2 to v0.3
 
-This document is now historical context for the `v0.3` transition. The `v0.4`
-line has removed the deprecated compatibility surface, so migration is now
-mandatory for any caller still using the old API.
+本文档现在是 `v0.3` 过渡的历史背景。`v0.4` 线已移除已弃用的兼容性接口面，因此对任何仍在使用旧 API 的调用方来说，迁移现在是强制的。
 
 ## Removed surface → current surface
 
@@ -55,11 +53,7 @@ func main() {
 
 ## Capability detection
 
-The canonical idiom for capability-dependent code paths is type assertion
-PLUS a `Capabilities` runtime check — both are required because the Go type may
-implement an interface (e.g., Ollama always implements `ToolCaller`) while the
-bound model does not actually support the feature (`llama2` returns
-`Capabilities.Tools == false`).
+依赖能力的代码路径的规范惯用法是类型断言**加上**一个 `Capabilities` 运行时检查 —— 两者都必需，因为 Go 类型可能实现某个接口（例如 Ollama 总是实现 `ToolCaller`），而所绑定的模型实际上并不支持该特性（`llama2` 返回 `Capabilities.Tools == false`）。
 
 ```go
 if tc, ok := model.(llm.ToolCaller); ok && model.Info().Capabilities.Tools {
@@ -71,38 +65,30 @@ if tc, ok := model.(llm.ToolCaller); ok && model.Info().Capabilities.Tools {
 return model.Generate(ctx, scratchpadReq(req))
 ```
 
-This is the baseline idiom used throughout the repo.
+这是整个仓库中使用的基线惯用法。
 
 ## Streaming
 
-The v0.3 streaming contract uses `llm.StreamReader` (iterator-style: `Next + Close`)
-and emits a typed `llm.StreamEvent` union with a `Kind` enum (`EventTextDelta` /
-`EventToolCallStart` / `EventToolCallArgsDelta` / `EventToolCallEnd` /
-`EventThinkingDelta` / `EventDone`). Adapters (Phase 2) emit their NATIVE
-granularity; consumers that want a flat `Response` can call
-`llm.AccumulateStream(sr)`.
+v0.3 的流式契约使用 `llm.StreamReader`（迭代器风格：`Next + Close`），并发出一个带 `Kind` 枚举（`EventTextDelta` / `EventToolCallStart` / `EventToolCallArgsDelta` / `EventToolCallEnd` / `EventThinkingDelta` / `EventDone`）的类型化 `llm.StreamEvent` 联合。adapter（Phase 2）发出它们的**原生**粒度；想要一个扁平 `Response` 的消费方可以调用 `llm.AccumulateStream(sr)`。
 
 ## When to migrate
 
-- Migrate before consuming the `v0.4.x` line.
-- If your code still mentions any removed symbol in the table above, update it
-  first; the compatibility layer no longer exists.
+- 在消费 `v0.4.x` 线之前迁移。
+- 如果你的代码仍提及上表中任何被移除的符号，先更新它；兼容层已不复存在。
 
-The full timeline + every Deprecated symbol → target version mapping lives in
-[`DEPRECATIONS.md`](../DEPRECATIONS.md) at the repo root.
+完整的时间线 + 每个 Deprecated 符号 → 目标版本的映射，住在仓库根的 [`DEPRECATIONS.md`](../DEPRECATIONS.md) 里。
 
 ## Notes on shared / unchanged types
 
-These types keep the same public shape in the current API:
+这些类型在当前 API 中保持相同的公共形状：
 
-- `llm.Tool` — unchanged. Same `Name` / `Description` / `Parameters` fields.
-- `llm.Message` — unchanged. Same `Role` / `Content` fields.
-- `llm.FinishReason` + 6 constants — unchanged.
-- `llm.ToolCall` — adds an optional `ID string` field (used by Phase 3's tool
-  dedupe layer keyed by `(message_id, tool_use_id)`).
+- `llm.Tool` —— 未变。相同的 `Name` / `Description` / `Parameters` 字段。
+- `llm.Message` —— 未变。相同的 `Role` / `Content` 字段。
+- `llm.FinishReason` + 6 个常量 —— 未变。
+- `llm.ToolCall` —— 增加一个可选的 `ID string` 字段（被 Phase 3 以 `(message_id, tool_use_id)` 为 key 的工具去重层使用）。
 
-Sharing reduces churn and avoids parallel type systems.
+共享减少了变动，并避免了并行的类型系统。
 
 ---
 
-Last updated: 2026-05-13 (Phase 7 `v0.4` deprecation removal).
+Last updated: 2026-05-13（Phase 7 `v0.4` 弃用移除）。

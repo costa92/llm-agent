@@ -1,3 +1,5 @@
+[English](./2026-05-13-standalone-rag-sdk-design.md) | [简体中文](./2026-05-13-standalone-rag-sdk-design.zh-CN.md)
+
 # Standalone RAG SDK Design
 
 Date: 2026-05-13

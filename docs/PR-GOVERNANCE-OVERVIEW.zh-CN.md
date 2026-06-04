@@ -1,6 +1,6 @@
 [English](./PR-GOVERNANCE-OVERVIEW.md) | [简体中文](./PR-GOVERNANCE-OVERVIEW.zh-CN.md)
 
-# Multi-Repo PR Governance Overview
+# 多仓 PR 治理总览
 
 这组文档记录 `llm-agent` 及其 5 个关联仓库的统一 PR 治理设计。目标不是描述某个单独仓库的 GitHub 设置，而是说明一个多仓库系统如何把变更入口规则统一起来。
 

@@ -1,3 +1,5 @@
+[English](./2026-05-13-rag-sdk-migration-status.md) | [简体中文](./2026-05-13-rag-sdk-migration-status.zh-CN.md)
+
 # RAG SDK Migration Status
 
 > Archived record only.

@@ -1,3 +1,5 @@
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 # agents — Go LLM agents framework
 
 `agents` 是一个 Go 版 LLM agents 框架，强调 stdlib-only、可组合、可测试。

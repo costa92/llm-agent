@@ -1,3 +1,5 @@
+[English](./DEPRECATIONS.md) | [简体中文](./DEPRECATIONS.zh-CN.md)
+
 # Deprecations
 
 This file is the single source of truth for **what is deprecated and when it disappears**.
