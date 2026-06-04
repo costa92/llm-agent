@@ -6,9 +6,9 @@
 
 ## 文档结构
 
-- [01. 项目关系](./PR-GOVERNANCE-PROJECTS.md)
-- [02. 治理规则](./PR-GOVERNANCE-RULES.md)
-- [03. 落地与运维](./PR-GOVERNANCE-OPERATIONS.md)
+- [01. 项目关系](./PR-GOVERNANCE-PROJECTS.zh-CN.md)
+- [02. 治理规则](./PR-GOVERNANCE-RULES.zh-CN.md)
+- [03. 落地与运维](./PR-GOVERNANCE-OPERATIONS.zh-CN.md)
 
 ## TL;DR
 
@@ -58,9 +58,9 @@ GitHub 内建的 required approving review 无法直接表达这条 author-sensi
 
 如果你想快速理解：
 
-1. 先看 [项目关系](./PR-GOVERNANCE-PROJECTS.md)
-2. 再看 [治理规则](./PR-GOVERNANCE-RULES.md)
-3. 最后看 [落地与运维](./PR-GOVERNANCE-OPERATIONS.md)
+1. 先看 [项目关系](./PR-GOVERNANCE-PROJECTS.zh-CN.md)
+2. 再看 [治理规则](./PR-GOVERNANCE-RULES.zh-CN.md)
+3. 最后看 [落地与运维](./PR-GOVERNANCE-OPERATIONS.zh-CN.md)
 
 ## 一句话总结
 

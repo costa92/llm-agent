@@ -76,7 +76,7 @@ v0.3 的流式契约使用 `llm.StreamReader`（迭代器风格：`Next + Close`
 - 在消费 `v0.4.x` 线之前迁移。
 - 如果你的代码仍提及上表中任何被移除的符号，先更新它；兼容层已不复存在。
 
-完整的时间线 + 每个 Deprecated 符号 → 目标版本的映射，住在仓库根的 [`DEPRECATIONS.md`](../DEPRECATIONS.md) 里。
+完整的时间线 + 每个 Deprecated 符号 → 目标版本的映射，住在仓库根的 [`DEPRECATIONS.md`](../DEPRECATIONS.zh-CN.md) 里。
 
 ## Notes on shared / unchanged types
 

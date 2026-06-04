@@ -46,7 +46,7 @@ GOWORK=off go test ./...
 
 本目录是一个**独立 module**（`go.mod` + `go.sum`），与父级 `github.com/costa92/llm-agent/examples` module 分离。Ollama 适配器拖入了一棵很重的依赖树（Ollama / OpenAI / Anthropic SDK）；把它隔离在此处可以让父级 examples module **保持离线且无依赖** —— 这是它的定义性属性。其他演示绝不为此付出代价。
 
-它被刻意**排除**在父级 [`README.md`](../README.md) 的「全部运行」循环之外，也**不**在 `go.work` 中（CI 用 `GOWORK=off` 构建它）。
+它被刻意**排除**在父级 [`README.md`](../README.zh-CN.md) 的「全部运行」循环之外，也**不**在 `go.work` 中（CI 用 `GOWORK=off` 构建它）。
 
 ```sh
 # build/vet it on its own (no server needed for these):
