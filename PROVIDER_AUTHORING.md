@@ -1,3 +1,5 @@
+[English](./PROVIDER_AUTHORING.md) | [简体中文](./PROVIDER_AUTHORING.zh-CN.md)
+
 # Provider Author Guide
 
 **Version:** v0.1 (Phase 1 - Generate-only contract)  

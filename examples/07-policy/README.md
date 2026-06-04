@@ -1,3 +1,5 @@
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 # Demo 07: Policy / safety middleware
 
 Demonstrates the three built-in gates from the `policy` package

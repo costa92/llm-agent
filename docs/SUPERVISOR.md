@@ -1,3 +1,5 @@
+[English](./SUPERVISOR.md) | [简体中文](./SUPERVISOR.zh-CN.md)
+
 # Supervisor
 
 `Supervisor` is the iterative multi-agent orchestration primitive in `orchestrate`.

@@ -1,3 +1,5 @@
+github.com/costa92/llm-agent v0.9.0 h1:A0xpymao707gmuUdTPTvqBWV28Vf0G6lGDFhR4EEP5k=
+github.com/costa92/llm-agent v0.9.0/go.mod h1:JMQn+s7OUC/+opLQosFNPhpZnxRTpiVBOXvRfIeUwAE=
 github.com/costa92/llm-agent-builtin v0.1.0 h1:ei8SxhQ63ijoQvH22E+DrXewVx4zST+WdEzP4Z43HSQ=
 github.com/costa92/llm-agent-builtin v0.1.0/go.mod h1:wzVeYerFoe1OZmzuLh7XuP9KILdXUIQt990S9JAt7rA=
 github.com/costa92/llm-agent-contract v0.2.0 h1:BlpCkri13eZl1/62MLkx+SGf5vDpHBWbImu8y7miRvc=

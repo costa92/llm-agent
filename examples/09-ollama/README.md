@@ -1,3 +1,5 @@
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 # Demo 09: Ollama — a real provider behind the `llm.ChatModel` seam
 
 Every other demo in this directory plugs the deterministic `scriptedllm`

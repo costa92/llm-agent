@@ -1,3 +1,5 @@
+[English](./2026-05-14-rag-release-verification.md) | [简体中文](./2026-05-14-rag-release-verification.zh-CN.md)
+
 # RAG Release Verification
 
 Date: 2026-05-14

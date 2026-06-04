@@ -1,3 +1,5 @@
+[English](./CLAUDE.md) | [简体中文](./CLAUDE.zh-CN.md)
+
 # Project guide for AI assistants
 
 This project uses **GSD (Get Shit Done)** for milestone planning. The `.planning/` directory is the source of truth for what's being built and why.

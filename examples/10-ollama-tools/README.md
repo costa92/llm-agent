@@ -1,3 +1,5 @@
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 # Demo 10: Ollama + tools — native function-calling against a live model
 
 This is [demo 02](../02-tool-use) (`FunctionCallAgent` + `Registry` +

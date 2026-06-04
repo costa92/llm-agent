@@ -3,10 +3,10 @@ module github.com/costa92/llm-agent/examples/10-ollama-tools
 go 1.26.0
 
 require (
-	github.com/costa92/llm-agent v0.2.0
+	github.com/costa92/llm-agent v0.9.0
 	github.com/costa92/llm-agent-builtin v0.1.0
 	github.com/costa92/llm-agent-contract v0.2.0
-	github.com/costa92/llm-agent-providers v0.3.0
+	github.com/costa92/llm-agent-providers v0.3.1
 )
 
 require (
@@ -29,12 +29,3 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-// Own module so the heavy provider dependency tree (Ollama / OpenAI /
-// Anthropic SDKs) stays isolated here and never leaks into the
-// offline-by-default `github.com/costa92/llm-agent/examples` module.
-// Local-dev replaces point at the sibling repos in the umbrella; the release
-// tooling pins them to tags.
-replace github.com/costa92/llm-agent => ../../
-
-replace github.com/costa92/llm-agent-providers => ../../../llm-agent-providers

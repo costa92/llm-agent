@@ -4,10 +4,14 @@ github.com/bahlo/generic-list-go v0.2.0 h1:5sz/EEAK+ls5wF+NeqDpk5+iNdMDXrh3z3nPn
 github.com/bahlo/generic-list-go v0.2.0/go.mod h1:2KvAjgMlE5NNynlg/5iLrrCCZ2+5xWbdbCW3pNTGyYg=
 github.com/buger/jsonparser v1.1.2 h1:frqHqw7otoVbk5M8LlE/L7HTnIq2v9RX6EJ48i9AxJk=
 github.com/buger/jsonparser v1.1.2/go.mod h1:6RYKKt7H4d4+iWqouImQ9R2FZql3VbhNgx27UK13J/0=
+github.com/costa92/llm-agent v0.9.0 h1:A0xpymao707gmuUdTPTvqBWV28Vf0G6lGDFhR4EEP5k=
+github.com/costa92/llm-agent v0.9.0/go.mod h1:JMQn+s7OUC/+opLQosFNPhpZnxRTpiVBOXvRfIeUwAE=
 github.com/costa92/llm-agent-builtin v0.1.0 h1:ei8SxhQ63ijoQvH22E+DrXewVx4zST+WdEzP4Z43HSQ=
 github.com/costa92/llm-agent-builtin v0.1.0/go.mod h1:wzVeYerFoe1OZmzuLh7XuP9KILdXUIQt990S9JAt7rA=
 github.com/costa92/llm-agent-contract v0.2.0 h1:BlpCkri13eZl1/62MLkx+SGf5vDpHBWbImu8y7miRvc=
 github.com/costa92/llm-agent-contract v0.2.0/go.mod h1:8pbOX+wp/O2NCV8P6x+4bShM3n/ibsdyMiNHkolfOME=
+github.com/costa92/llm-agent-providers v0.3.1 h1:2n/Mfup+IkzEfLVzguQI8BG+is7CAyEQE8vKICCRff8=
+github.com/costa92/llm-agent-providers v0.3.1/go.mod h1:rNK/s37sC9VVSFKiBxkdOK4qfCjj2CZxBqaKEuM5+80=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dnaeon/go-vcr v1.2.0 h1:zHCHvJYTMh1N7xnV7zf1m1GPBF9Ad0Jk/whtQ1663qI=
