@@ -32,7 +32,7 @@ go get github.com/costa92/llm-agent-rag@latest
 > **可运行的演示：** 八个端到端示例位于
 > [`./examples/`](./examples) —— 每个都是独立的、可 `go run .` 的程序，
 > 带有一个确定性的模拟 LLM，无需 API key。菜单见
-> [`examples/README.md`](./examples/README.md)。
+> [`examples/README.md`](./examples/README.zh-CN.md)。
 
 ## Quick start / 快速开始
 
@@ -90,7 +90,7 @@ func main() {
 - `StateGraph` 适合需要分支、循环、或基于共享类型化状态路由的工作流。
 - `Supervisor` 适合一个 planner 反复调度 worker、观察结果并循环直到完成的工作流。
 
-`Supervisor` 细节说明见 [`docs/SUPERVISOR.md`](./docs/SUPERVISOR.md)。
+`Supervisor` 细节说明见 [`docs/SUPERVISOR.md`](./docs/SUPERVISOR.zh-CN.md)。
 
 最小 `FanOutFanIn` 草图：
 
@@ -229,7 +229,7 @@ replace github.com/costa92/llm-agent => /local/path/to/llm-agent
 ## Operational notes
 
 - 跨 `llm-agent`、`llm-agent-rag`、`llm-agent-flow`、`llm-agent-providers`、`llm-agent-otel` 和 `llm-agent-customer-support` 的多仓 PR 治理设计，包括最终的 owner 自动合并 + 显式分支清理路径：
-  [`docs/PR-GOVERNANCE-OVERVIEW.md`](./docs/PR-GOVERNANCE-OVERVIEW.md)
+  [`docs/PR-GOVERNANCE-OVERVIEW.md`](./docs/PR-GOVERNANCE-OVERVIEW.zh-CN.md)
 
 ## License
 

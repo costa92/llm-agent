@@ -182,7 +182,7 @@
 
 ### Deprecated
 
-以下符号为 v0.3.x 源兼容性而保留，但将**在 v0.4.0 中移除**。迁移步骤见 [`docs/migration-v0.2-to-v0.3.md`](docs/migration-v0.2-to-v0.3.md)；完整表格见 [`DEPRECATIONS.md`](DEPRECATIONS.md)。
+以下符号为 v0.3.x 源兼容性而保留，但将**在 v0.4.0 中移除**。迁移步骤见 [`docs/migration-v0.2-to-v0.3.md`](docs/migration-v0.2-to-v0.3.zh-CN.md)；完整表格见 [`DEPRECATIONS.md`](DEPRECATIONS.zh-CN.md)。
 
 - `llm.Client`（interface）—— 现在是 `llm.LegacyClient` 的别名。改用 `llm.ChatModel`。
 - `llm.LegacyClient`（interface）—— 从 `llm.Client` 重命名而来。改用 `llm.ChatModel`。
