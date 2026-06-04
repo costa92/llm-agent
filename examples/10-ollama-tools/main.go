@@ -38,7 +38,7 @@ import (
 	agents "github.com/costa92/llm-agent"
 	"github.com/costa92/llm-agent-contract/llm"
 	"github.com/costa92/llm-agent-providers/ollama"
-	"github.com/costa92/llm-agent/builtin"
+	"github.com/costa92/llm-agent-builtin"
 )
 
 const defaultHost = "http://localhost:11434"

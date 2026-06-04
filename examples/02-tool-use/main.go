@@ -18,7 +18,7 @@ import (
 	"log"
 
 	"github.com/costa92/llm-agent"
-	"github.com/costa92/llm-agent/builtin"
+	"github.com/costa92/llm-agent-builtin"
 	"github.com/costa92/llm-agent/examples/scriptedllm"
 )
 
