@@ -11,7 +11,6 @@ import (
 	agents "github.com/costa92/llm-agent"
 	"github.com/costa92/llm-agent/budget"
 	"github.com/costa92/llm-agent-contract/llm"
-	"github.com/costa92/llm-agent/policy"
 )
 
 type ctxKey int
@@ -58,24 +57,35 @@ func (m *ctxCheckingModel) Stream(ctx context.Context, req llm.Request) (llm.Str
 
 func (m *ctxCheckingModel) Info() llm.ProviderInfo { return m.inner.Info() }
 
-type blockOnNthGate struct {
-	name    string
+// errBlocked is a local sentinel used by blockOnNthModel to simulate a
+// model-level pre-generate denial (the role policy.Wrap's gate plays in
+// production). Kept inline so core's orchestrate tests depend on no decorator
+// package — policy now lives in the llm-agent-policy sibling repo.
+var errBlocked = errors.New("blocked")
+
+// blockOnNthModel wraps a ChatModel and denies the Nth Generate call with
+// errBlocked before delegating to the inner model. It mimics a pre-generate
+// gate so Supervisor's ctx propagation and budget-vs-block precedence stay
+// testable without importing an external decorator.
+type blockOnNthModel struct {
+	inner   llm.ChatModel
 	blockOn int64
 	hits    *int64
 }
 
-func (g *blockOnNthGate) Name() string { return g.name }
-
-func (g *blockOnNthGate) Inspect(_ context.Context, ev policy.Event) policy.Decision {
-	if ev.Kind != policy.PreGenerate {
-		return policy.Decision{Action: policy.Allow}
+func (m *blockOnNthModel) Generate(ctx context.Context, req llm.Request) (llm.Response, error) {
+	n := atomic.AddInt64(m.hits, 1)
+	if n == m.blockOn {
+		return llm.Response{}, errBlocked
 	}
-	n := atomic.AddInt64(g.hits, 1)
-	if n == g.blockOn {
-		return policy.Decision{Action: policy.Block, Reason: "blocked"}
-	}
-	return policy.Decision{Action: policy.Allow}
+	return m.inner.Generate(ctx, req)
 }
+
+func (m *blockOnNthModel) Stream(ctx context.Context, req llm.Request) (llm.StreamReader, error) {
+	return m.inner.Stream(ctx, req)
+}
+
+func (m *blockOnNthModel) Info() llm.ProviderInfo { return m.inner.Info() }
 
 func budgetSupervisorOpts(planner llm.ChatModel, worker llm.ChatModel) SupervisorOptions {
 	return SupervisorOptions{
@@ -128,13 +138,12 @@ func TestSupervisor_BudgetMaxWall(t *testing.T) {
 
 func TestSupervisor_PolicyPerWorker(t *testing.T) {
 	var hits int64
-	gate := &blockOnNthGate{name: "worker-gate", blockOn: 2, hits: &hits}
-	worker := policy.Wrap(scriptedWorker("worker-1", "worker-2"), gate)
+	worker := &blockOnNthModel{inner: scriptedWorker("worker-1", "worker-2"), blockOn: 2, hits: &hits}
 	planner := scriptedPlanner("dispatch to w: a", "dispatch to w: b", "FINISH")
 	sup := NewSupervisor("policy-worker", budgetSupervisorOpts(planner, worker))
 	_, err := sup.Run(context.Background(), "seed")
-	if !errors.Is(err, policy.ErrBlocked) {
-		t.Fatalf("errors.Is(err, policy.ErrBlocked) = false: %v", err)
+	if !errors.Is(err, errBlocked) {
+		t.Fatalf("errors.Is(err, errBlocked) = false: %v", err)
 	}
 	if !strings.Contains(err.Error(), `policy-worker`) || !strings.Contains(err.Error(), `worker "w" round 2`) {
 		t.Fatalf("wrapped worker context missing: %v", err)
@@ -143,12 +152,11 @@ func TestSupervisor_PolicyPerWorker(t *testing.T) {
 
 func TestSupervisor_PolicyPerPlanner(t *testing.T) {
 	var hits int64
-	gate := &blockOnNthGate{name: "planner-gate", blockOn: 1, hits: &hits}
-	planner := policy.Wrap(scriptedPlanner("dispatch to w: a"), gate)
+	planner := &blockOnNthModel{inner: scriptedPlanner("dispatch to w: a"), blockOn: 1, hits: &hits}
 	sup := NewSupervisor("policy-planner", budgetSupervisorOpts(planner, scriptedWorker("worker")))
 	_, err := sup.Run(context.Background(), "seed")
-	if !errors.Is(err, policy.ErrBlocked) {
-		t.Fatalf("errors.Is(err, policy.ErrBlocked) = false: %v", err)
+	if !errors.Is(err, errBlocked) {
+		t.Fatalf("errors.Is(err, errBlocked) = false: %v", err)
 	}
 	if !strings.Contains(err.Error(), "planner round 1") {
 		t.Fatalf("planner round missing: %v", err)
@@ -157,19 +165,18 @@ func TestSupervisor_PolicyPerPlanner(t *testing.T) {
 
 func TestSupervisor_BudgetBeatsPolicy(t *testing.T) {
 	var hits int64
-	gate := &blockOnNthGate{name: "worker-gate", blockOn: 1, hits: &hits}
-	worker := policy.Wrap(scriptedWorker("worker"), gate)
+	worker := &blockOnNthModel{inner: scriptedWorker("worker"), blockOn: 1, hits: &hits}
 	planner := scriptedPlanner("dispatch to w: a", "FINISH")
 	ctx, _ := budget.WithBudget(context.Background(), budget.Budget{MaxCalls: 1})
 	_, err := NewSupervisor("budget-beats-policy", budgetSupervisorOpts(planner, worker)).Run(ctx, "seed")
 	if !errors.Is(err, budget.ErrCallsExceeded) {
 		t.Fatalf("errors.Is(err, budget.ErrCallsExceeded) = false: %v", err)
 	}
-	if errors.Is(err, policy.ErrBlocked) {
-		t.Fatalf("policy block leaked through: %v", err)
+	if errors.Is(err, errBlocked) {
+		t.Fatalf("block leaked through: %v", err)
 	}
 	if atomic.LoadInt64(&hits) != 0 {
-		t.Fatalf("policy gate hit %d times, want 0", atomic.LoadInt64(&hits))
+		t.Fatalf("block model hit %d times, want 0", atomic.LoadInt64(&hits))
 	}
 }
 
