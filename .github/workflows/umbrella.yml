@@ -42,12 +42,12 @@ jobs:
           path: llm-agent-customer-support
           ref: main
 
-      - name: Checkout llm-agent-rag (master)
+      - name: Checkout llm-agent-rag (main)
         uses: actions/checkout@v4
         with:
           repository: costa92/llm-agent-rag
           path: llm-agent-rag
-          ref: master
+          ref: main
 
       - name: Checkout llm-agent-flow (main)
         uses: actions/checkout@v4
